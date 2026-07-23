@@ -1,7 +1,7 @@
 # Phase 1 Media Ingestion and Verification
 
 **Status:** Implemented and verified on 2026-07-23
-**Release:** `0.1.0-rc.2`
+**Release:** `0.1.0-rc.3`
 
 ## Outcome
 
@@ -70,6 +70,12 @@ candidate sequentially. It does not build a full file list or fan thousands of i
 messages into Redis. Path/size/mtime unchanged records skip hashing. Changed bytes
 create a new source-occurrence version; renamed exact bytes link the existing media;
 unseen prior occurrences become missing without deleting managed media.
+
+NAS scans explicitly opt out of Dramatiq's ten-minute default actor limit because
+sequential processing on the target J4125 can legitimately run for hours. This
+prevents automatic actor retries from replaying an in-progress batch. An operator
+can set `CG_SCAN_ACTOR_TIME_LIMIT_SECONDS` to a nonzero deployment-specific limit;
+the production default is `0` (unlimited).
 
 ### Media processing
 

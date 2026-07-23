@@ -2,6 +2,15 @@
 
 All notable changes to Project Comfy Gallery are recorded here.
 
+## 0.1.0-rc.3 — 2026-07-24
+
+Bulk-scan reliability hotfix:
+
+- Disable Dramatiq's ten-minute default actor limit for NAS scans so large imports
+  are not interrupted and automatically replayed.
+- Allow operators to opt into an explicit scan limit with
+  `CG_SCAN_ACTOR_TIME_LIMIT_SECONDS`; `0` keeps long-running scans unlimited.
+
 ## 0.1.0-rc.2 — 2026-07-24
 
 NAS import correctness hotfix:

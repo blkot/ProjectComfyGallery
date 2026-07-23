@@ -1,6 +1,6 @@
 FROM ghcr.io/astral-sh/uv:python3.13-alpine@sha256:48fb7780491d06b7a8705341808536c2c20356c85d7a100858998038a11703f3
 
-ARG CG_PROJECT_VERSION=0.1.0-rc.2
+ARG CG_PROJECT_VERSION=0.1.0-rc.3
 
 LABEL org.opencontainers.image.title="Project Comfy Gallery backend" \
     org.opencontainers.image.version="$CG_PROJECT_VERSION"

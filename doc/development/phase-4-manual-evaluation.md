@@ -1,7 +1,7 @@
 # Phase 4 Manual Evaluation and Review
 
 **Status:** Implemented and verified on 2026-07-24
-**Release:** `0.1.0-rc.2`
+**Release:** `0.1.0-rc.3`
 
 ## Outcome
 

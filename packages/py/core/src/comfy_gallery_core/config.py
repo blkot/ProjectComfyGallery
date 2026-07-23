@@ -61,6 +61,7 @@ class Settings(BaseSettings):
     job_stale_after_seconds: int = Field(default=1800, ge=60, le=86_400)
     queued_job_recovery_after_seconds: int = Field(default=60, ge=10, le=3600)
     running_job_recovery_after_seconds: int = Field(default=300, ge=30, le=86_400)
+    scan_actor_time_limit_seconds: int = Field(default=0, ge=0, le=7 * 24 * 60 * 60)
     backup_expected_interval_hours: int = Field(default=30, ge=1, le=24 * 31)
     disk_warning_percent: float = Field(default=90.0, ge=1.0, le=99.9)
 

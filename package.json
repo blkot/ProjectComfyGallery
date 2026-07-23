@@ -1,7 +1,7 @@
 {
   "name": "project-comfy-gallery",
   "private": true,
-  "version": "0.1.0-rc.2",
+  "version": "0.1.0-rc.3",
   "packageManager": "pnpm@11.0.8",
   "scripts": {
     "build": "pnpm --filter @comfy-gallery/web build",

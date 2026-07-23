@@ -34,6 +34,11 @@ configure_logging(
     json_logs=settings.environment != "development",
 )
 logger = structlog.get_logger(__name__)
+scan_actor_time_limit_ms = (
+    float("inf")
+    if settings.scan_actor_time_limit_seconds == 0
+    else settings.scan_actor_time_limit_seconds * 1_000
+)
 
 
 @actor(queue_name="system", max_retries=3, min_backoff=1_000)
@@ -78,6 +83,7 @@ async def process_upload_item_actor(upload_item_id: str, job_id: str) -> None:
     queue_name="scan",
     max_retries=2,
     min_backoff=10_000,
+    time_limit=scan_actor_time_limit_ms,
 )
 async def scan_source_root_actor(scan_id: str, job_id: str) -> None:
     try:

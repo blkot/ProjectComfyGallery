@@ -32,6 +32,10 @@ behavior.
 - The worker traverses the configured root and updates source inventory.
 - Managed storage must not be inside or overlap a source root.
 - Symlink policy must be explicit and safe; the default SHOULD avoid following links outside the configured root.
+- Source scans are long-running actors and default to no actor time limit. Operators
+  may set `CG_SCAN_ACTOR_TIME_LIMIT_SECONDS` to a nonzero limit only when a bounded
+  deployment requires it; the ordinary worker/job controls remain observable and
+  cancellable.
 
 ### Future API ingestion
 
