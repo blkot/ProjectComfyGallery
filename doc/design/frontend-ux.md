@@ -1,0 +1,357 @@
+# Frontend Information Architecture and UX
+
+**Status:** Accepted
+
+## Product areas
+
+The frontend has two primary workspaces:
+
+1. **Library and records** — manage media, metadata, registries, imports, errors, and analyses.
+2. **Review** — evaluate media fluently with configuration hidden.
+
+The application is desktop-first for a LAN workstation browser. Responsive behavior should remain functional on smaller screens, but phone-first review is not an MVP goal.
+
+## Route map
+
+Implemented routes and reserved later-phase route names:
+
+```text
+/login
+/dashboard
+/library
+/library/:mediaId
+/collections/:collectionId
+/imports
+/jobs
+/registries/models
+/registries/nodes
+/review
+/review/:sessionId
+/analysis
+/analysis/:runId
+/settings
+```
+
+Implemented in Phase 1: `/dashboard`, `/library`, `/library/:mediaId`, `/imports`,
+`/jobs`, and `/settings/tokens`.
+
+Phase 2 extends `/library`, `/library/:mediaId`, and `/imports` in place with workflow
+status/filtering, evidence/graph inspection, reprocessing, and missing-snapshot
+backfill. Raw workflow payloads are fetched only after an explicit detail-page action.
+
+Phase 3 implements `/registries/models` and `/registries/nodes`. Both pages use
+master/detail panels rather than separate detail routes so search/filter position is
+retained while correcting records.
+
+Phase 4 implements `/review` and `/review/:sessionId`, and extends `/library` with
+evaluation/Trash filtering, selection, collection/tag creation, saved filters, and
+review-scope actions. `/collections/:collectionId` remains a later dedicated detail
+route; Phase 4 collection selection is available from review home.
+
+Phase 5 implements `/analysis` and `/analysis/:runId` with live report configuration,
+immutable history, linked reruns, exact-value tables, training-step/matrix
+visualizations, and media drill-down.
+
+## Global shell
+
+- Persistent primary navigation.
+- Global search.
+- Current background-job indicator.
+- User/session menu.
+- Clear offline/degraded integration indicators.
+- Toasts for transient success only; durable errors live in pages/panels.
+
+## Library
+
+### Gallery view
+
+- Server-paginated grid (48 records per page in Phase 1; virtualization remains an
+  option if measured gallery behavior requires it).
+- Thumbnail/poster and media-type indicator.
+- Evaluation state and warning badges.
+- Selection with keyboard modifiers.
+- Multi-select actions for collection/tag/review.
+- Progressive image loading and fixed aspect-ratio placeholders.
+
+### Table view
+
+- Virtualized or server-paginated records.
+- Configurable columns.
+- Useful fields: UUID fragment, type, dimensions/duration, processing state, evaluation state, checkpoints/LoRAs, source count, warning/error count.
+- Filename may be displayed as provenance but is never identity.
+
+### Filter system
+
+Filters include:
+
+- Media type.
+- Processing/readiness state.
+- Evaluation state and Trash.
+- Source root/path.
+- Collection/tag.
+- Architecture family.
+- Pipeline pattern and usage slot.
+- Checkpoint/LoRA/series.
+- Workflow/node parse state.
+- Registry confidence/ambiguity.
+- Date, dimensions, duration, codec/container.
+- Generic extracted configuration values where supported.
+
+Filter chips show active state. Complex filters use a validated expression model suitable for saving.
+
+### Scope actions
+
+From current results or selection:
+
+- Start review.
+- Create/add to static collection.
+- Apply/remove tags.
+- Save current filter.
+- Export selected metadata.
+- Retry eligible processing stages.
+
+## Media record
+
+The media record exposes:
+
+### Preview
+
+- Original image or video player.
+- Original codec, versioned proxy derivative, and original download. A more explicit
+  in-player proxy badge is a small follow-up.
+- Zoom/pan for images.
+- Poster, seek, volume, playback rate, frame stepping if practical for video review.
+
+### Identity/provenance
+
+- Media UUID.
+- Exact SHA-256.
+- Original byte size and detected type.
+- Every source occurrence and source state.
+- Original filenames/paths.
+- Derivatives and recipes.
+
+### Workflow
+
+- Exact prompt fields.
+- Raw embedded metadata viewer.
+- Generic graph/node/edge viewer.
+- Semantic observation list with confidence and source.
+- Parser/extractor versions and errors.
+- Optional “open/export embedded workflow” action where technically valid.
+
+### Model usage
+
+- Pipeline pattern.
+- Ordered checkpoint usage slots/pair.
+- LoRAs and training-series steps.
+- Canonical/historical/ambiguous identity labels.
+- Raw embedded references.
+
+### Evaluation
+
+- State and Trash disposition.
+- Current scores and template.
+- Revision history.
+- Open in review/editor.
+
+## Import and jobs
+
+### Browser import
+
+- Multi-file selection/drop zone.
+- Preflight file counts and obvious unsupported types.
+- Durable batch creation.
+- Immediate navigation away without cancelling work.
+
+### Source scans
+
+- Configured roots.
+- Last scan and current progress.
+- Manual rescan.
+- Counts for new, skipped, duplicates, missing, and failed.
+- Drill-down to individual entries.
+
+### Job center
+
+- Active, failed, retryable, and completed jobs.
+- Stage and progress.
+- Per-stage structured error.
+- Retry and cancel-request actions where safe. Pause is not implemented because
+  cooperative cancel plus retry is the clearer durable state model for MVP.
+- Worker/integration health.
+
+## Model registry
+
+Views:
+
+- Artifacts.
+- Historical references.
+- Ambiguous links.
+- LoRA series.
+- Comparison sets.
+- Synchronization history.
+
+The UI visually separates:
+
+- Identity evidence.
+- File availability.
+- Civitai enrichment.
+
+It must never imply that “no Civitai match” means a local model is invalid.
+
+Phase 3 implements artifact/reference/series/comparison-group tabs, staged sync
+history, manual artifact/reference corrections, and LoRA series rename, step, merge,
+and split controls.
+
+## Node registry
+
+Views:
+
+- Confirmed mappings.
+- High-confidence active inferences.
+- Needs-review suggestions.
+- Unknown definitions.
+- Schema variants.
+
+Unknown inbox ordering:
+
+1. Number of affected media.
+2. Analytical impact.
+3. Confidence.
+
+Correction flow:
+
+- Inspect evidence and examples.
+- Select semantic tag/input.
+- Preview affected workflows.
+- Confirm and enqueue reprocessing.
+
+Phase 3 implements the unknown-definition filter, schema/mapping detail, and manual
+input mapping. Saving a mapping enqueues versioned reprocessing. Example raw-node
+collections, graph-neighborhood previews, and arbitrary visual rule composition remain
+enhancements rather than prerequisites for Phase 4.
+
+## Review workspace
+
+**Implementation status:** Complete in Phase 4. See
+[Phase 4 manual evaluation and review](../development/phase-4-manual-evaluation.md).
+
+### Layout
+
+```text
+┌──────────────────────────────────────┬─────────────────────────────┐
+│                                      │ Prompt fields               │
+│                                      │                             │
+│         Image viewer /               │ Criterion 1   [slider] [×] │
+│         video player                 │ Criterion 2   [slider] [×] │
+│                                      │ ...                         │
+│                                      │ Trash  Undo  Save status    │
+│                                      │ Previous        Next        │
+└──────────────────────────────────────┴─────────────────────────────┘
+```
+
+- Preview and criteria panes scroll independently.
+- Preview gets the majority of horizontal space.
+- Next media may prefetch.
+- Session position is neutral and informational.
+
+### Blindness boundary
+
+Visible:
+
+- Media.
+- Exact prompt fields.
+- Rubric and session position.
+
+Hidden:
+
+- Checkpoints, LoRAs, pipeline, settings, source/collection/tags, and experiment data.
+
+### Controls
+
+- Nullable 0–10 integer sliders.
+- Clear button and Delete/Backspace.
+- Explicit N/A control.
+- 0/5/10 anchor guidance.
+- Visible autosave state.
+- Undo.
+- Reversible Trash.
+- Explicit Previous/Next.
+
+No scoring or Trash action automatically advances.
+
+### Resume entry
+
+Review home proposes:
+
+- Resume N In progress evaluations.
+- Resume recent review sessions.
+- Start random.
+- Start from selection/collection/folder/filter.
+
+It does not pressure the user with streaks, deadlines, or mandatory completion counts.
+
+## Analytics workspace
+
+**Implementation status:** Complete in Phase 5. See
+[Phase 5 model-focused analytics](../development/phase-5-model-analytics.md).
+
+Flow:
+
+1. Define/filter the population.
+2. Choose one supported report.
+3. Choose criteria or weighting profile.
+4. View summary, distribution, uncertainty, coverage, and warnings.
+5. Drill into source media.
+6. Save immutable run or rerun a previous analysis.
+
+Charts must:
+
+- Show sample count.
+- Be navigable without relying only on color.
+- Expose exact values/table equivalents.
+- Avoid ranking language that implies causality.
+- Mark insufficient cells/groups clearly.
+
+## Loading, empty, and error states
+
+Every page distinguishes:
+
+- Loading.
+- Empty because no data exists.
+- Empty because filters exclude all data.
+- Partial/degraded data.
+- Recoverable error.
+- Permission/session expiration.
+
+Long operations return job IDs rather than indefinite spinners.
+
+## Accessibility
+
+- Keyboard navigation for all interactive elements.
+- Visible focus.
+- Semantic labels for sliders/N/A/clear.
+- Sufficient contrast.
+- Captions/labels for charts.
+- No color-only state distinction.
+- Respect reduced-motion preference.
+
+## Frontend performance
+
+- TanStack Query for server-state caching and invalidation.
+- Virtualization for large grids/tables.
+- Stable thumbnail dimensions to avoid layout shift.
+- Pagination/cursors for records and events.
+- Route-level code splitting.
+- Avoid loading raw workflow JSON in gallery responses.
+- Media range requests and browser caching.
+- Prefetch only the next review candidate and essential metadata.
+
+## Security
+
+- Render prompts and metadata as text, not `innerHTML`.
+- Sanitize filenames only for display safety, not semantic rewriting.
+- Do not expose host filesystem absolute paths unless the API explicitly chooses an administrator-only representation.
+- Use authenticated media URLs and range endpoints.
+- Do not store bearer API tokens in browser local storage.

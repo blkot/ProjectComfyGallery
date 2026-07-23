@@ -1,0 +1,275 @@
+name: comfy-gallery
+
+x-backend-environment: &backend-environment
+  CG_ENVIRONMENT: production
+  CG_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-comfygallery}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-comfygallery}
+  CG_REDIS_URL: redis://redis:6379/0
+  CG_ADMIN_USERNAME: ${CG_ADMIN_USERNAME:-admin}
+  CG_ADMIN_PASSWORD: ${CG_ADMIN_PASSWORD:?Set CG_ADMIN_PASSWORD in .env}
+  CG_SESSION_COOKIE_SECURE: ${CG_SESSION_COOKIE_SECURE:-false}
+  CG_SESSION_TTL_HOURS: ${CG_SESSION_TTL_HOURS:-168}
+  CG_LOGIN_ATTEMPT_LIMIT: ${CG_LOGIN_ATTEMPT_LIMIT:-8}
+  CG_LOGIN_ATTEMPT_WINDOW_SECONDS: ${CG_LOGIN_ATTEMPT_WINDOW_SECONDS:-300}
+  CG_ALLOWED_ORIGINS: ${CG_ALLOWED_ORIGINS:-http://localhost:8080}
+  CG_LOG_LEVEL: ${CG_LOG_LEVEL:-INFO}
+  CG_MANAGED_ROOT: ${CG_MANAGED_ROOT:-/data/managed}
+  CG_STAGING_ROOT: ${CG_STAGING_ROOT:-/data/staging}
+  CG_EXPORT_ROOT: ${CG_EXPORT_ROOT:-/data/exports}
+  CG_BACKUP_ROOT: ${CG_BACKUP_ROOT:-/backups}
+  CG_RUNTIME_ROOT: ${CG_RUNTIME_ROOT:-/data/runtime}
+  CG_ALLOWED_SOURCE_ROOTS: ${CG_ALLOWED_SOURCE_ROOTS:-/imports}
+  CG_MAX_UPLOAD_BYTES: ${CG_MAX_UPLOAD_BYTES:-134217728}
+  CG_MINIMUM_FREE_BYTES: ${CG_MINIMUM_FREE_BYTES:-536870912}
+  CG_WORKFLOW_METADATA_MAX_BYTES: ${CG_WORKFLOW_METADATA_MAX_BYTES:-67108864}
+  CG_WORKFLOW_JSON_MAX_DEPTH: ${CG_WORKFLOW_JSON_MAX_DEPTH:-128}
+  CG_WORKFLOW_JSON_MAX_ITEMS: ${CG_WORKFLOW_JSON_MAX_ITEMS:-250000}
+  CG_WORKFLOW_MAX_NODES: ${CG_WORKFLOW_MAX_NODES:-20000}
+  CG_COMFYUI_BASE_URL: ${CG_COMFYUI_BASE_URL:-}
+  CG_REGISTRY_HTTP_TIMEOUT_SECONDS: ${CG_REGISTRY_HTTP_TIMEOUT_SECONDS:-180}
+  CG_REGISTRY_MAX_RESPONSE_BYTES: ${CG_REGISTRY_MAX_RESPONSE_BYTES:-67108864}
+  CG_REGISTRY_MAX_NODE_DEFINITIONS: ${CG_REGISTRY_MAX_NODE_DEFINITIONS:-20000}
+  CG_REGISTRY_METADATA_CONCURRENCY: ${CG_REGISTRY_METADATA_CONCURRENCY:-4}
+  CG_WORKER_HEARTBEAT_INTERVAL_SECONDS: ${CG_WORKER_HEARTBEAT_INTERVAL_SECONDS:-15}
+  CG_WORKER_STALE_AFTER_SECONDS: ${CG_WORKER_STALE_AFTER_SECONDS:-90}
+  CG_JOB_STALE_AFTER_SECONDS: ${CG_JOB_STALE_AFTER_SECONDS:-1800}
+  CG_QUEUED_JOB_RECOVERY_AFTER_SECONDS: ${CG_QUEUED_JOB_RECOVERY_AFTER_SECONDS:-60}
+  CG_RUNNING_JOB_RECOVERY_AFTER_SECONDS: ${CG_RUNNING_JOB_RECOVERY_AFTER_SECONDS:-300}
+  CG_BACKUP_EXPECTED_INTERVAL_HOURS: ${CG_BACKUP_EXPECTED_INTERVAL_HOURS:-30}
+  CG_DISK_WARNING_PERCENT: ${CG_DISK_WARNING_PERCENT:-90}
+
+x-backend-build: &backend-build
+  context: .
+  dockerfile: deploy/docker/backend.Dockerfile
+  args:
+    CG_PROJECT_VERSION: 0.1.0-rc.1
+
+x-service-logging: &service-logging
+  driver: json-file
+  options:
+    max-size: ${LOG_MAX_SIZE:-10m}
+    max-file: ${LOG_MAX_FILES:-3}
+
+services:
+  postgres:
+    image: project-comfy-gallery/postgres:0.1.0-rc.1
+    build:
+      context: .
+      dockerfile: deploy/docker/database.Dockerfile
+      args:
+        CG_PROJECT_VERSION: 0.1.0-rc.1
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-comfygallery}
+      POSTGRES_USER: ${POSTGRES_USER:-comfygallery}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-comfygallery} -d ${POSTGRES_DB:-comfygallery}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    logging: *service-logging
+    shm_size: ${POSTGRES_SHM_SIZE:-128m}
+    deploy:
+      resources:
+        limits:
+          cpus: "${POSTGRES_CPU_LIMIT:-1.5}"
+          memory: ${POSTGRES_MEMORY_LIMIT:-1G}
+
+  redis:
+    image: project-comfy-gallery/redis:0.1.0-rc.1
+    build:
+      context: .
+      dockerfile: deploy/docker/redis.Dockerfile
+      args:
+        CG_PROJECT_VERSION: 0.1.0-rc.1
+    restart: unless-stopped
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--maxmemory",
+        "${REDIS_MAX_MEMORY:-192mb}",
+        "--maxmemory-policy",
+        "noeviction",
+      ]
+    volumes:
+      - redis-data:/data
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    logging: *service-logging
+    deploy:
+      resources:
+        limits:
+          cpus: "${REDIS_CPU_LIMIT:-0.5}"
+          memory: ${REDIS_MEMORY_LIMIT:-256M}
+
+  api:
+    image: project-comfy-gallery/backend:0.1.0-rc.1
+    build: *backend-build
+    restart: unless-stopped
+    environment: *backend-environment
+    command: ["sh", "/app/deploy/docker/api-entrypoint.sh"]
+    volumes:
+      - ${MEDIA_DATA_ROOT:-./data/media}:/data
+      - ${IMPORT_ROOT:-./data/import}:/imports:ro
+      - ${BACKUP_ROOT:-./data/backups}:/backups:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    init: true
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    logging: *service-logging
+    deploy:
+      resources:
+        limits:
+          cpus: "${API_CPU_LIMIT:-1.0}"
+          memory: ${API_MEMORY_LIMIT:-768M}
+
+  worker:
+    image: project-comfy-gallery/backend:0.1.0-rc.1
+    build: *backend-build
+    restart: unless-stopped
+    environment: *backend-environment
+    command:
+      [
+        "dramatiq",
+        "comfy_gallery_worker.tasks",
+        "--processes",
+        "1",
+        "--threads",
+        "1",
+      ]
+    volumes:
+      - ${MEDIA_DATA_ROOT:-./data/media}:/data
+      - ${IMPORT_ROOT:-./data/import}:/imports:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    stop_grace_period: 30s
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    logging: *service-logging
+    deploy:
+      resources:
+        limits:
+          cpus: "${WORKER_CPU_LIMIT:-3.0}"
+          memory: ${WORKER_MEMORY_LIMIT:-2G}
+
+  backup:
+    image: project-comfy-gallery/backup:0.1.0-rc.1
+    build:
+      context: .
+      dockerfile: deploy/docker/backup.Dockerfile
+      args:
+        CG_PROJECT_VERSION: 0.1.0-rc.1
+    restart: unless-stopped
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGDATABASE: ${POSTGRES_DB:-comfygallery}
+      PGUSER: ${POSTGRES_USER:-comfygallery}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      CG_BACKUP_ROOT: /backups
+      CG_BACKUP_INTERVAL_SECONDS: ${CG_BACKUP_INTERVAL_SECONDS:-86400}
+      CG_BACKUP_DAILY_KEEP: ${CG_BACKUP_DAILY_KEEP:-7}
+      CG_BACKUP_WEEKLY_KEEP: ${CG_BACKUP_WEEKLY_KEEP:-4}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ${BACKUP_ROOT:-./data/backups}:/backups
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "test -s /backups/.backup-status.json && grep -q '\"status\":\"ok\"' /backups/.backup-status.json",
+        ]
+      interval: 5m
+      timeout: 5s
+      retries: 2
+      start_period: 2m
+    security_opt:
+      - no-new-privileges:true
+    logging: *service-logging
+    deploy:
+      resources:
+        limits:
+          cpus: "${BACKUP_CPU_LIMIT:-0.5}"
+          memory: ${BACKUP_MEMORY_LIMIT:-256M}
+
+  web:
+    image: project-comfy-gallery/web:0.1.0-rc.1
+    build:
+      context: .
+      dockerfile: deploy/docker/web.Dockerfile
+      args:
+        CG_PROJECT_VERSION: 0.1.0-rc.1
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:8080/healthz",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    logging: *service-logging
+    deploy:
+      resources:
+        limits:
+          cpus: "${WEB_CPU_LIMIT:-0.5}"
+          memory: ${WEB_MEMORY_LIMIT:-128M}
+
+volumes:
+  postgres-data:
+  redis-data:

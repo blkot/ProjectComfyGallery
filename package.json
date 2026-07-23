@@ -1,0 +1,12 @@
+{
+  "name": "project-comfy-gallery",
+  "private": true,
+  "version": "0.1.0-rc.1",
+  "packageManager": "pnpm@11.0.8",
+  "scripts": {
+    "build": "pnpm --filter @comfy-gallery/web build",
+    "check": "pnpm --filter @comfy-gallery/web check",
+    "dev": "pnpm --filter @comfy-gallery/web dev",
+    "test": "pnpm --filter @comfy-gallery/web test"
+  }
+}
