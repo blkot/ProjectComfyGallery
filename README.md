@@ -4,7 +4,7 @@ Self-hosted ComfyUI media intelligence, manual evaluation, and observational mod
 
 The governing product and engineering documentation starts at [doc/README.md](doc/README.md).
 
-**Locked release candidate:** `0.1.0-rc.1`. Runtime images use the same tag and
+**Locked release candidate:** `0.1.0-rc.2`. Runtime images use the same tag and
 OCI version label; upstream base images are pinned by digest.
 
 ## MVP release status

@@ -1,7 +1,7 @@
 # Phase 1 Media Ingestion and Verification
 
 **Status:** Implemented and verified on 2026-07-23
-**Release:** `0.1.0-rc.1`
+**Release:** `0.1.0-rc.2`
 
 ## Outcome
 
@@ -154,6 +154,8 @@ The disposable corpus exercised:
   with errors.
 - Duplicate upload after API/worker container replacement.
 - UUIDv7 values on every resulting media record.
+- Recursive scan pruning of NAS/system metadata directories, including a regression
+  for QNAP `.@__thumb` variants that otherwise appear as valid PNG media.
 
 The React application was then tested through a real browser session: login,
 dashboard counts, library filtering, media cards/previews, video detail readiness,

@@ -2,6 +2,16 @@
 
 All notable changes to Project Comfy Gallery are recorded here.
 
+## 0.1.0-rc.2 — 2026-07-24
+
+NAS import correctness hotfix:
+
+- Prune QNAP, Synology, Windows, macOS, and freedesktop metadata directories before
+  recursive source scanning.
+- Preserve explicitly curated hidden directories that are not recognized system
+  metadata.
+- Add regression coverage for QNAP's `.@__thumb` image variants.
+
 ## 0.1.0-rc.1 — 2026-07-24
 
 First release candidate of the local-NAS MVP:

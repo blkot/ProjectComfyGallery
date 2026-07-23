@@ -1,7 +1,7 @@
 # Phase 0 Foundation and Verification
 
 **Status:** Implemented
-**Implementation version:** `0.1.0-rc.1`
+**Implementation version:** `0.1.0-rc.2`
 **Last verified:** 2026-07-23
 
 ## Purpose

@@ -32,6 +32,20 @@ from comfy_gallery_core.media.jobs import (
 )
 
 SUPPORTED_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".mp4", ".webm"}
+IGNORED_DIRECTORY_NAMES = frozenset(
+    {
+        ".@__thumb",  # QNAP Multimedia Console
+        ".appledouble",
+        ".spotlight-v100",
+        ".thumbnails",
+        ".trash",
+        ".trashes",
+        "#recycle",
+        "@eadir",  # Synology Media Indexing
+        "@recycle",
+        "system volume information",
+    }
+)
 
 
 async def run_source_scan(
@@ -367,6 +381,8 @@ def iter_media_files(root: Path) -> Iterator[Path]:
                 if entry.is_symlink():
                     continue
                 if entry.is_dir(follow_symlinks=False):
+                    if is_ignored_source_directory(entry.name):
+                        continue
                     directories.append(Path(entry.path))
                     continue
                 if (
@@ -374,3 +390,8 @@ def iter_media_files(root: Path) -> Iterator[Path]:
                     and Path(entry.name).suffix.casefold() in SUPPORTED_SUFFIXES
                 ):
                     yield Path(entry.path)
+
+
+def is_ignored_source_directory(name: str) -> bool:
+    normalized = name.casefold()
+    return normalized in IGNORED_DIRECTORY_NAMES or normalized.startswith(".trash-")

@@ -195,6 +195,11 @@ Required techniques:
 - Stream SHA-256 calculation.
 - One scan actor streams a source tree and processes files sequentially rather than
   enqueueing thousands of Redis messages.
+- Known NAS and operating-system metadata trees are pruned before traversal,
+  including QNAP `.@__thumb`, Synology `@eaDir`, recycle bins, thumbnail caches,
+  AppleDouble/Spotlight data, and Windows system-volume metadata.
+- Unrecognized hidden directories remain eligible source folders so intentional
+  user organization is not silently discarded.
 - The production worker runs one process and one thread, bounding every heavy class
   to one concurrent operation on the J4125.
 - Progressive job counters and gallery visibility.
