@@ -12,6 +12,7 @@ from comfy_gallery_core.db.models import (
     Media,
     MediaAsset,
     ModelReference,
+    ModelReferenceGroup,
     ModelUsage,
     ScanBatch,
     SourceOccurrence,
@@ -94,8 +95,26 @@ async def test_media_library_sorts_by_source_time_and_filters_model_usages() -> 
             resolution_state="resolved",
             occurrence_count=1,
         )
-        session.add_all([checkpoint, lora])
+        lora_alias = ModelReference(
+            reference_type="lora",
+            raw_value="Krea2\\character_000003500.safetensors",
+            normalized_value="Krea2/character_000003500.safetensors",
+            availability="present",
+            resolution_state="resolved",
+            occurrence_count=1,
+        )
+        identity_group = ModelReferenceGroup(
+            reference_type="lora",
+            canonical_key="character_000003500",
+            display_name="character_000003500",
+            source="manual_alias",
+            confidence=1,
+            status="confirmed",
+        )
+        session.add_all([checkpoint, lora, lora_alias, identity_group])
         await session.flush()
+        lora.identity_group_id = identity_group.id
+        lora_alias.identity_group_id = identity_group.id
         snapshot = WorkflowSnapshot(
             media_id=middle.id,
             reader_name="test",
@@ -113,7 +132,7 @@ async def test_media_library_sorts_by_source_time_and_filters_model_usages() -> 
         session.add_all(
             [
                 _usage(snapshot.id, checkpoint.id, "checkpoint_reference", 0),
-                _usage(snapshot.id, lora.id, "lora_reference", 1),
+                _usage(snapshot.id, lora_alias.id, "lora_reference", 1),
             ]
         )
         await session.commit()

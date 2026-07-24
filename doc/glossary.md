@@ -68,6 +68,12 @@ Optional provider metadata, such as Civitai information. Enrichment is independe
 
 The occurrence of a checkpoint or LoRA reference within one workflow, including pipeline pattern, usage slot, raw value, and confidence.
 
+## Model-reference alias group
+
+A reversible identity overlay joining exact workflow references that are confirmed to
+name the same model file. It changes filtering and analytics but never rewrites
+embedded values or workflow usages.
+
 ## N/A
 
 A criterion state meaning the axis cannot reasonably be judged. It counts as resolved but is excluded from numerical aggregation.

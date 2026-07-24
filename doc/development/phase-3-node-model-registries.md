@@ -263,6 +263,11 @@ GET   /api/v1/models/:id
 PATCH /api/v1/models/:id
 GET   /api/v1/model-references
 POST  /api/v1/model-references/:id/link
+GET   /api/v1/model-reference-filter-options
+GET   /api/v1/model-reference-alias-candidates
+GET   /api/v1/model-reference-alias-groups
+POST  /api/v1/model-reference-alias-groups
+POST  /api/v1/model-reference-alias-groups/:id/revoke
 
 GET   /api/v1/lora-series
 PATCH /api/v1/lora-series/:id
@@ -279,6 +284,12 @@ Model-usage roles are included in the media workflow response. Registry queries 
 bounded pagination and load large raw definitions only for explicit detail requests.
 Cookie-authenticated mutations require CSRF; API tokens can perform the same
 authenticated calls.
+
+Reference-alias candidates use a basename-and-known-suffix discovery key while
+retaining every exact embedded value. Shared-artifact candidates may confirm
+automatically; basename-only candidates require explicit confirmation; conflicting
+artifact links are rejected. Confirmed groups drive filter expansion and analytical
+identity and can be revoked without workflow reprocessing.
 
 MVP registry corrections use single-user last-write-wins behavior. Multi-user
 optimistic correction preconditions remain deferred with RBAC.

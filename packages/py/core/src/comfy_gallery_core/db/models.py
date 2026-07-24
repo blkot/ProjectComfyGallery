@@ -1143,6 +1143,34 @@ class ModelArtifact(TimestampMixin, Base):
     )
 
 
+class ModelReferenceGroup(TimestampMixin, Base):
+    __tablename__ = "model_reference_group"
+    __table_args__ = (
+        Index(
+            "ix_model_reference_group_lookup",
+            "reference_type",
+            "canonical_key",
+            "status",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid7)
+    reference_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    canonical_key: Mapped[str] = mapped_column(String(1024), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(1024), nullable=False)
+    source: Mapped[str] = mapped_column(String(64), nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="confirmed",
+        server_default="confirmed",
+        index=True,
+    )
+
+    references: Mapped[list[ModelReference]] = relationship(back_populates="identity_group")
+
+
 class ModelReference(TimestampMixin, Base):
     __tablename__ = "model_reference"
     __table_args__ = (
@@ -1157,6 +1185,10 @@ class ModelReference(TimestampMixin, Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid7)
     artifact_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("model_artifact.id", ondelete="SET NULL"),
+        index=True,
+    )
+    identity_group_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("model_reference_group.id", ondelete="SET NULL"),
         index=True,
     )
     reference_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
@@ -1196,6 +1228,7 @@ class ModelReference(TimestampMixin, Base):
     )
 
     artifact: Mapped[ModelArtifact | None] = relationship(back_populates="references")
+    identity_group: Mapped[ModelReferenceGroup | None] = relationship(back_populates="references")
     usages: Mapped[list[ModelUsage]] = relationship(
         back_populates="model_reference",
         cascade="all, delete-orphan",

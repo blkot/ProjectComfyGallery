@@ -70,6 +70,7 @@ from comfy_gallery_core.evaluation.service import (
     update_trash,
 )
 from comfy_gallery_core.media.errors import IngestionError
+from comfy_gallery_core.registry.aliases import reference_identity_ids
 
 router = APIRouter(prefix="/api/v1", tags=["evaluation"])
 REVIEWABLE_MEDIA_STATUSES = ("ready", "ready_with_warnings")
@@ -853,7 +854,7 @@ def _media_uses_model_reference(
         .join(WorkflowSnapshot, WorkflowSnapshot.id == ModelUsage.snapshot_id)
         .where(
             WorkflowSnapshot.media_id == Media.id,
-            ModelUsage.model_reference_id == reference_id,
+            ModelUsage.model_reference_id.in_(reference_identity_ids(reference_id)),
             ModelUsage.observation_type == observation_type,
         )
         .exists()

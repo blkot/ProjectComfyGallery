@@ -25,6 +25,7 @@ from comfy_gallery_core.db.models import (
     WorkflowNode,
 )
 from comfy_gallery_core.media.errors import IngestionError
+from comfy_gallery_core.registry.aliases import confirm_safe_reference_alias_groups
 
 TRAINING_SERIES_PATTERN = re.compile(r"^(?P<series>.+)_(?P<step>\d+)$")
 PRECISION_PATTERN = re.compile(r"(?:^|[_\-.])(bf16|fp(?:8|16|32))(?:$|[_\-.])", re.I)
@@ -283,6 +284,7 @@ async def resolve_model_references(
         occurrences=occurrences,
         snapshot_ids=snapshot_ids,
     )
+    await confirm_safe_reference_alias_groups(session)
     await session.commit()
     active_references = [reference for reference in references if reference.occurrence_count > 0]
     return ModelResolutionOutcome(

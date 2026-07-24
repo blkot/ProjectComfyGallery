@@ -2324,6 +2324,88 @@ textarea {
   font-size: 10px;
 }
 
+.alias-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.alias-columns > div {
+  min-width: 0;
+}
+
+.alias-columns h3 {
+  margin-bottom: 11px;
+}
+
+.alias-card-list {
+  display: grid;
+  gap: 10px;
+}
+
+.alias-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 210px;
+  min-width: 0;
+  padding: 17px;
+}
+
+.alias-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.alias-card-heading > span:first-child {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.alias-card-heading strong {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+
+.alias-card-heading small,
+.alias-reference-list small {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.alias-reference-list {
+  margin: 14px 0;
+  padding: 0;
+  border-block: 1px solid var(--line-soft);
+  list-style: none;
+}
+
+.alias-reference-list li {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line-soft);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.alias-reference-list li:last-child {
+  border-bottom: 0;
+}
+
+.alias-reference-list code {
+  overflow-wrap: anywhere;
+  font-size: 8px;
+}
+
+.status-chip[data-status="conflict"] {
+  border-color: rgba(255, 130, 120, 0.3);
+  color: var(--danger);
+}
+
 .registry-toolbar {
   margin-bottom: 14px;
   padding: 13px;
@@ -2780,7 +2862,8 @@ textarea {
   }
 
   .registry-sync-panel,
-  .registry-split {
+  .registry-split,
+  .alias-columns {
     grid-template-columns: 1fr;
   }
 

@@ -31,6 +31,7 @@ from comfy_gallery_core.db.models import (
     MediaTag,
     ModelArtifact,
     ModelReference,
+    ModelReferenceGroup,
     ModelUsage,
     ScoreRevision,
     SourceOccurrence,
@@ -632,15 +633,20 @@ async def _load_model_uses(
                 ModelUsage,
                 ModelReference,
                 ModelArtifact,
+                ModelReferenceGroup,
             )
             .join(ModelUsage, ModelUsage.snapshot_id == WorkflowSnapshot.id)
             .join(ModelReference, ModelReference.id == ModelUsage.model_reference_id)
             .outerjoin(ModelArtifact, ModelArtifact.id == ModelUsage.artifact_id)
+            .outerjoin(
+                ModelReferenceGroup,
+                ModelReferenceGroup.id == ModelReference.identity_group_id,
+            )
             .where(WorkflowSnapshot.media_id.in_(media_ids))
             .order_by(WorkflowSnapshot.media_id, ModelUsage.usage_order, ModelUsage.id)
         )
     ).all()
-    reference_ids = {reference.id for _, _, reference, _ in rows}
+    reference_ids = {reference.id for _, _, reference, _, _ in rows}
     series_by_reference: dict[UUID, list[SeriesMembership]] = defaultdict(list)
     if reference_ids:
         series_rows = (
@@ -660,14 +666,19 @@ async def _load_model_uses(
             )
 
     uses_by_media: dict[UUID, list[ModelUse]] = defaultdict(list)
-    for media_id, usage, reference, artifact in rows:
-        identity_key = (
-            f"artifact:{artifact.id}" if artifact is not None else f"reference:{reference.id}"
-        )
-        identity_label = artifact.display_name if artifact is not None else reference.raw_value
-        identity_state = (
-            artifact.identity_state if artifact is not None else reference.resolution_state
-        )
+    for media_id, usage, reference, artifact, identity_group in rows:
+        if identity_group is not None and identity_group.status == "confirmed":
+            identity_key = f"reference_group:{identity_group.id}"
+            identity_label = identity_group.display_name
+            identity_state = "alias_confirmed"
+        elif artifact is not None:
+            identity_key = f"artifact:{artifact.id}"
+            identity_label = artifact.display_name
+            identity_state = artifact.identity_state
+        else:
+            identity_key = f"reference:{reference.id}"
+            identity_label = reference.raw_value
+            identity_state = reference.resolution_state
         uses_by_media[media_id].append(
             ModelUse(
                 reference_id=reference.id,

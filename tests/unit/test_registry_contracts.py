@@ -4,6 +4,10 @@ import pytest
 from comfy_gallery_core.config import Settings
 from comfy_gallery_core.db.models import NodeDefinition
 from comfy_gallery_core.media.errors import IngestionError
+from comfy_gallery_core.registry.aliases import (
+    model_reference_alias_display,
+    model_reference_alias_key,
+)
 from comfy_gallery_core.registry.client import ComfyUIClient, normalize_comfyui_url
 from comfy_gallery_core.registry.models import parse_lora_training_series
 from comfy_gallery_core.registry.nodes import (
@@ -102,3 +106,10 @@ def test_node_mapping_suggestions_and_opaque_lora_series_rule() -> None:
     assert parsed.opaque_name == "Krea2_guzong_lora_v2"
     assert parsed.training_step == 3500
     assert parse_lora_training_series("Krea2_guzong_lora_v2.safetensors") is None
+
+
+def test_model_reference_alias_key_only_sanitizes_path_extension_and_match_case() -> None:
+    raw = "Krea2\\guzong\\Krea2_guzong_lora_v2_000003500.SAFETENSORS"
+
+    assert model_reference_alias_key(raw) == "krea2_guzong_lora_v2_000003500"
+    assert model_reference_alias_display(raw) == "Krea2_guzong_lora_v2_000003500"

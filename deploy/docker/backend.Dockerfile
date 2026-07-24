@@ -29,7 +29,7 @@ COPY --chown=comfy:comfy deploy/docker/container-entrypoint.sh deploy/docker/con
 
 RUN uv sync --frozen --no-dev --all-packages
 
-ARG CG_PROJECT_VERSION=0.1.0-rc.5
+ARG CG_PROJECT_VERSION=0.1.0-rc.6
 
 LABEL org.opencontainers.image.title="Project Comfy Gallery backend" \
     org.opencontainers.image.version="$CG_PROJECT_VERSION"

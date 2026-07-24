@@ -472,6 +472,7 @@ export type ModelArtifactUpdated = {
 export type ModelReference = {
   id: string;
   artifact_id: string | null;
+  identity_group_id: string | null;
   reference_type: string;
   raw_value: string;
   normalized_value: string;
@@ -496,6 +497,39 @@ export type ModelReferencePage = {
 export type ModelReferenceLinked = {
   reference: ModelReference;
   job: Job;
+};
+
+export type ModelReferenceAliasCandidate = {
+  canonical_key: string;
+  display_name: string;
+  reference_type: string;
+  evidence_method: string;
+  confidence: number;
+  conflict_reason: string | null;
+  occurrence_count: number;
+  references: ModelReference[];
+};
+
+export type ModelReferenceGroup = {
+  id: string;
+  reference_type: string;
+  canonical_key: string;
+  display_name: string;
+  source: string;
+  confidence: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  references: ModelReference[];
+};
+
+export type ModelReferenceFilterOption = {
+  reference_id: string;
+  identity_group_id: string | null;
+  reference_type: string;
+  display_name: string;
+  occurrence_count: number;
+  alias_count: number;
 };
 
 export type LoraSeriesMember = {

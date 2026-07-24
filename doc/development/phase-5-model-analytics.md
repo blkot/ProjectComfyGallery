@@ -1,7 +1,7 @@
 # Phase 5 Model-Focused Analytics
 
 **Status:** Implemented and verified on 2026-07-24
-**Release:** `0.1.0-rc.5`
+**Release:** `0.1.0-rc.6`
 
 ## Outcome
 

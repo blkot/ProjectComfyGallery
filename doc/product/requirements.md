@@ -88,6 +88,13 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
 - **MODEL-012:** Model usage MUST be one-to-many per workflow and retain pipeline pattern and usage slot.
 - **MODEL-013:** Canonical artifact identity MUST remain independent of its workflow usage role.
 - **MODEL-014:** Architecture family and pipeline pattern SHOULD form default analytical boundaries.
+- **MODEL-015:** Raw workflow model-reference values MUST remain unchanged when path-qualified
+  and basename-only aliases are grouped as one analytical identity.
+- **MODEL-016:** References linked to the same canonical artifact MAY be grouped automatically;
+  basename-only matches without shared artifact evidence MUST require confirmation, and
+  references linked to different artifacts MUST NOT be grouped.
+- **MODEL-017:** Confirmed reference-alias groups MUST be reversible and MUST be honored by
+  library/review filters and model analytics without reprocessing media or evaluations.
 
 ## Locally trained LoRA series
 
@@ -110,8 +117,9 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
 - **LIB-008:** Media Detail MUST provide Previous and Next traversal over the exact
   filtered and sorted library context from which it was opened, including across
   pagination boundaries.
-- **LIB-009:** The library and reusable filter scopes MUST support exact checkpoint
-  and LoRA-reference filters, including historical workflow-only references.
+- **LIB-009:** The library and reusable filter scopes MUST support checkpoint and
+  LoRA-reference identity filters, including historical workflow-only references and
+  confirmed aliases.
 
 ## Manual evaluation
 

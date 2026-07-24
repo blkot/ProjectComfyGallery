@@ -13,7 +13,7 @@ RUN chmod 0555 \
     /usr/local/bin/comfy-gallery-backup \
     /usr/local/bin/comfy-gallery-restore
 
-ARG CG_PROJECT_VERSION=0.1.0-rc.5
+ARG CG_PROJECT_VERSION=0.1.0-rc.6
 
 LABEL org.opencontainers.image.title="Project Comfy Gallery backup" \
     org.opencontainers.image.version="$CG_PROJECT_VERSION"

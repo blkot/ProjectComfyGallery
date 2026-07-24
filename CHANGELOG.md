@@ -2,6 +2,18 @@
 
 All notable changes to Project Comfy Gallery are recorded here.
 
+## 0.1.0-rc.6 — 2026-07-25
+
+Collision-safe model-reference aliases:
+
+- Detect path-qualified and basename-only checkpoint/LoRA references that may name
+  the same file while preserving every exact embedded workflow value.
+- Automatically group aliases only when they resolve to one canonical artifact;
+  require confirmation for basename-only evidence and reject conflicting artifacts.
+- Add confirm and undo controls to the Model Registry Duplicate aliases tab.
+- Collapse confirmed aliases in Library filters and analytics, expand them in media
+  and saved-review queries, and avoid media reprocessing or repeat evaluation.
+
 ## 0.1.0-rc.5 — 2026-07-25
 
 LoRA Manager structured-value hotfix:

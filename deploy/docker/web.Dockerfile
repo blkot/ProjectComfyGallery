@@ -21,7 +21,7 @@ RUN apk upgrade --no-cache
 COPY deploy/docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/apps/web/dist /usr/share/nginx/html
 
-ARG CG_PROJECT_VERSION=0.1.0-rc.5
+ARG CG_PROJECT_VERSION=0.1.0-rc.6
 
 LABEL org.opencontainers.image.title="Project Comfy Gallery web" \
     org.opencontainers.image.version="$CG_PROJECT_VERSION"

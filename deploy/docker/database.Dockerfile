@@ -7,7 +7,7 @@ RUN apk upgrade --no-cache && \
     grep -q 'exec su-exec postgres' /usr/local/bin/docker-entrypoint.sh && \
     rm /usr/local/bin/gosu
 
-ARG CG_PROJECT_VERSION=0.1.0-rc.5
+ARG CG_PROJECT_VERSION=0.1.0-rc.6
 
 LABEL org.opencontainers.image.title="Project Comfy Gallery database" \
     org.opencontainers.image.version="$CG_PROJECT_VERSION"

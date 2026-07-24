@@ -255,7 +255,18 @@ queries.
 - Inferred model type.
 - Availability and historical state.
 - Optional reversible link to a canonical artifact.
+- Optional confirmed reference identity group.
 - Link method and confidence.
+
+### `model_reference_group`
+
+- UUID and model-reference type.
+- Canonical normalized key and user-facing display name.
+- Group source, confidence, status, and audit timestamps.
+- Groups exact workflow references that differ only by a confirmed alias, such as
+  `Krea2/example.safetensors` and `example`.
+- Confirmation never rewrites the raw reference value or usage evidence.
+- Revocation restores separate analytical identities without reprocessing media.
 
 ### `model_usage`
 

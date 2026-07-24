@@ -30,6 +30,10 @@ from comfy_gallery_api.registry_schemas import (
     ModelArtifactResponse,
     ModelArtifactUpdatedResponse,
     ModelArtifactUpdateRequest,
+    ModelReferenceAliasCandidateResponse,
+    ModelReferenceFilterOptionResponse,
+    ModelReferenceGroupCreateRequest,
+    ModelReferenceGroupResponse,
     ModelReferenceLinkedResponse,
     ModelReferenceLinkRequest,
     ModelReferencePageResponse,
@@ -54,11 +58,19 @@ from comfy_gallery_core.db.models import (
     LoraSeriesMember,
     ModelArtifact,
     ModelReference,
+    ModelReferenceGroup,
     NodeDefinition,
     RegistrySyncRun,
 )
 from comfy_gallery_core.media.errors import IngestionError
 from comfy_gallery_core.queue import enqueue_registry_sync
+from comfy_gallery_core.registry.aliases import (
+    confirm_reference_alias_group,
+    list_reference_alias_candidates,
+    list_reference_filter_options,
+    list_reference_groups,
+    revoke_reference_alias_group,
+)
 from comfy_gallery_core.registry.client import normalize_comfyui_url
 from comfy_gallery_core.registry.models import (
     link_model_reference,
@@ -409,6 +421,123 @@ async def list_model_references(
         limit=limit,
         offset=offset,
     )
+
+
+@router.get(
+    "/model-reference-alias-candidates",
+    response_model=list[ModelReferenceAliasCandidateResponse],
+)
+async def list_model_reference_alias_candidates(
+    _principal: PrincipalDep,
+    session: DbSessionDep,
+    reference_type: str = "lora",
+) -> list[ModelReferenceAliasCandidateResponse]:
+    candidates = await list_reference_alias_candidates(
+        session,
+        reference_type=reference_type,
+    )
+    return [
+        ModelReferenceAliasCandidateResponse(
+            canonical_key=candidate.canonical_key,
+            display_name=candidate.display_name,
+            reference_type=candidate.reference_type,
+            evidence_method=candidate.evidence_method,
+            confidence=candidate.confidence,
+            conflict_reason=candidate.conflict_reason,
+            occurrence_count=sum(reference.occurrence_count for reference in candidate.references),
+            references=[
+                ModelReferenceResponse.model_validate(reference)
+                for reference in candidate.references
+            ],
+        )
+        for candidate in candidates
+    ]
+
+
+@router.get(
+    "/model-reference-alias-groups",
+    response_model=list[ModelReferenceGroupResponse],
+)
+async def get_model_reference_alias_groups(
+    _principal: PrincipalDep,
+    session: DbSessionDep,
+    reference_type: str | None = None,
+) -> list[ModelReferenceGroupResponse]:
+    groups = await list_reference_groups(
+        session,
+        reference_type=reference_type,
+    )
+    return [ModelReferenceGroupResponse.model_validate(group) for group in groups]
+
+
+@router.post(
+    "/model-reference-alias-groups",
+    response_model=ModelReferenceGroupResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_model_reference_alias_group(
+    request: ModelReferenceGroupCreateRequest,
+    _principal: CsrfPrincipalDep,
+    session: DbSessionDep,
+) -> ModelReferenceGroupResponse:
+    try:
+        group = await confirm_reference_alias_group(
+            session,
+            reference_ids=request.reference_ids,
+            display_name=request.display_name,
+        )
+    except IngestionError as error:
+        raise _registry_api_error(error) from error
+    return ModelReferenceGroupResponse.model_validate(group)
+
+
+@router.post(
+    "/model-reference-alias-groups/{group_id}/revoke",
+    response_model=ModelReferenceGroupResponse,
+)
+async def revoke_model_reference_alias_group(
+    group_id: UUID,
+    _principal: CsrfPrincipalDep,
+    session: DbSessionDep,
+) -> ModelReferenceGroupResponse:
+    group = await _get_or_404(
+        session,
+        ModelReferenceGroup,
+        group_id,
+        code="MODEL_ALIAS_GROUP_NOT_FOUND",
+        message="The model-reference alias group was not found.",
+    )
+    try:
+        revoked = await revoke_reference_alias_group(session, group=group)
+    except IngestionError as error:
+        raise _registry_api_error(error) from error
+    return ModelReferenceGroupResponse.model_validate(revoked)
+
+
+@router.get(
+    "/model-reference-filter-options",
+    response_model=list[ModelReferenceFilterOptionResponse],
+)
+async def get_model_reference_filter_options(
+    _principal: PrincipalDep,
+    session: DbSessionDep,
+    reference_type: str,
+) -> list[ModelReferenceFilterOptionResponse]:
+    options = await list_reference_filter_options(
+        session,
+        reference_type=reference_type,
+    )
+    return [
+        ModelReferenceFilterOptionResponse(
+            reference_id=option.reference_id,
+            identity_group_id=option.identity_group_id,
+            reference_type=option.reference_type,
+            display_name=option.display_name,
+            occurrence_count=option.occurrence_count,
+            alias_count=option.alias_count,
+        )
+        for option in options
+    ]
 
 
 @router.post(

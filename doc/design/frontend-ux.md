@@ -103,10 +103,17 @@ Filters include:
 
 Filter chips show active state. Complex filters use a validated expression model suitable for saving.
 
-The implemented checkpoint and LoRA selectors use exact `model_reference` identities
-rather than only current artifacts. This keeps deleted, renamed, private, and
-workflow-only historical model references filterable. Checkpoint and LoRA filters are
-combined with AND semantics; a media item must contain both selected usages.
+The implemented checkpoint and LoRA selectors are backed by `model_reference`
+identities rather than only current artifacts. Deleted, renamed, private, and
+workflow-only historical references remain filterable. Confirmed aliases collapse
+into one selector option with a combined usage count, while unconfirmed references
+remain separate. Checkpoint and LoRA filters are combined with AND semantics; a media
+item must contain both selected usages.
+
+The Model Registry includes a Duplicate aliases tab. It shows basename-derived
+candidates, their exact raw aliases and usage counts, disables conflicting candidates,
+and requires confirmation unless all members already share one canonical artifact.
+Confirmed groups can be undone without reprocessing media.
 
 ### Scope actions
 

@@ -29,6 +29,7 @@ from comfy_gallery_core.db.models import (
 )
 from comfy_gallery_core.media.errors import IngestionError
 from comfy_gallery_core.media.files import safe_managed_path
+from comfy_gallery_core.registry.aliases import reference_identity_ids
 
 router = APIRouter(prefix="/api/v1/media", tags=["media"])
 MediaSort = Literal[
@@ -448,7 +449,7 @@ def _model_usage_exists(
         .join(WorkflowSnapshot, WorkflowSnapshot.id == ModelUsage.snapshot_id)
         .where(
             WorkflowSnapshot.media_id == Media.id,
-            ModelUsage.model_reference_id == reference_id,
+            ModelUsage.model_reference_id.in_(reference_identity_ids(reference_id)),
             ModelUsage.observation_type == observation_type,
         )
         .exists()

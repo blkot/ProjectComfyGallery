@@ -18,6 +18,8 @@ import {
   type ModelArtifactPage,
   type ModelArtifactUpdated,
   type ModelReference,
+  type ModelReferenceAliasCandidate,
+  type ModelReferenceGroup,
   type ModelReferenceLinked,
   type ModelReferencePage,
   type RegistrySyncCreated,
@@ -25,7 +27,7 @@ import {
 } from "../lib/api";
 import { titleCase } from "../lib/format";
 
-type RegistryTab = "artifacts" | "references" | "series" | "groups";
+type RegistryTab = "artifacts" | "references" | "aliases" | "series" | "groups";
 
 const terminalStatuses = new Set(["succeeded", "partial", "failed", "cancelled"]);
 
@@ -69,6 +71,7 @@ export function ModelRegistryPage() {
     void Promise.all([
       queryClient.invalidateQueries({ queryKey: ["models"] }),
       queryClient.invalidateQueries({ queryKey: ["model-references"] }),
+      queryClient.invalidateQueries({ queryKey: ["model-reference-aliases"] }),
       queryClient.invalidateQueries({ queryKey: ["lora-series"] }),
     ]);
   }, [activeRun, queryClient, syncRuns.data]);
@@ -151,6 +154,9 @@ export function ModelRegistryPage() {
         <TabButton current={tab} value="references" onSelect={setTab}>
           Workflow references
         </TabButton>
+        <TabButton current={tab} value="aliases" onSelect={setTab}>
+          Duplicate aliases
+        </TabButton>
         <TabButton current={tab} value="series" onSelect={setTab}>
           Training series
         </TabButton>
@@ -161,6 +167,7 @@ export function ModelRegistryPage() {
 
       {tab === "artifacts" ? <ArtifactsPanel /> : null}
       {tab === "references" ? <ReferencesPanel /> : null}
+      {tab === "aliases" ? <ReferenceAliasesPanel /> : null}
       {tab === "series" ? <SeriesPanel /> : null}
       {tab === "groups" ? <ComparisonGroupsPanel /> : null}
     </main>
@@ -708,6 +715,174 @@ function ReferenceLinker({
         </button>
       </form>
     </aside>
+  );
+}
+
+function ReferenceAliasesPanel() {
+  const queryClient = useQueryClient();
+  const candidates = useQuery({
+    queryKey: ["model-reference-aliases", "candidates", "lora"],
+    queryFn: () =>
+      apiRequest<ModelReferenceAliasCandidate[]>(
+        "/api/v1/model-reference-alias-candidates?reference_type=lora",
+      ),
+  });
+  const groups = useQuery({
+    queryKey: ["model-reference-aliases", "groups", "lora"],
+    queryFn: () =>
+      apiRequest<ModelReferenceGroup[]>(
+        "/api/v1/model-reference-alias-groups?reference_type=lora",
+      ),
+  });
+  const invalidateAliases = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["model-reference-aliases"] }),
+      queryClient.invalidateQueries({ queryKey: ["model-references"] }),
+      queryClient.invalidateQueries({ queryKey: ["media"] }),
+    ]);
+  };
+  const confirm = useMutation({
+    mutationFn: (candidate: ModelReferenceAliasCandidate) =>
+      apiRequest<ModelReferenceGroup>("/api/v1/model-reference-alias-groups", {
+        method: "POST",
+        body: JSON.stringify({
+          reference_ids: candidate.references.map((reference) => reference.id),
+          display_name: candidate.display_name,
+        }),
+      }),
+    onSuccess: invalidateAliases,
+  });
+  const revoke = useMutation({
+    mutationFn: (groupId: string) =>
+      apiRequest<ModelReferenceGroup>(
+        `/api/v1/model-reference-alias-groups/${groupId}/revoke`,
+        { method: "POST" },
+      ),
+    onSuccess: invalidateAliases,
+  });
+
+  return (
+    <section className="registry-section">
+      <div className="section-heading">
+        <div>
+          <p className="kicker">Collision-safe normalization</p>
+          <h2>Duplicate workflow aliases</h2>
+        </div>
+        <span className="document-count">
+          {candidates.data?.length ?? "—"} candidates · {groups.data?.length ?? "—"} confirmed
+        </span>
+      </div>
+      <p className="muted registry-section-intro">
+        Paths, extensions, and letter case are normalized only to discover candidates.
+        Confirmed groups share filters and analysis identity; embedded workflow values
+        remain unchanged. Conflicting artifact links cannot be grouped.
+      </p>
+      {candidates.error ? (
+        <RegistryError error={candidates.error} fallback="Alias candidates failed to load." />
+      ) : null}
+      {groups.error ? (
+        <RegistryError error={groups.error} fallback="Confirmed aliases failed to load." />
+      ) : null}
+      {confirm.error ? (
+        <RegistryError error={confirm.error} fallback="Alias confirmation failed." />
+      ) : null}
+      {revoke.error ? (
+        <RegistryError error={revoke.error} fallback="Alias undo failed." />
+      ) : null}
+
+      <div className="alias-columns">
+        <div>
+          <h3>Probable duplicates</h3>
+          <div className="alias-card-list" aria-busy={candidates.isFetching}>
+            {candidates.data?.map((candidate) => (
+              <article className="panel alias-card" key={candidate.canonical_key}>
+                <div className="alias-card-heading">
+                  <span>
+                    <strong>{candidate.display_name}</strong>
+                    <small>
+                      {candidate.occurrence_count} uses · {candidate.references.length} aliases
+                    </small>
+                  </span>
+                  <RegistryStatusChip
+                    value={candidate.conflict_reason ? "conflict" : candidate.evidence_method}
+                  />
+                </div>
+                <AliasReferenceList references={candidate.references} />
+                {candidate.conflict_reason ? (
+                  <p className="notice error-notice">{candidate.conflict_reason}</p>
+                ) : (
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    disabled={confirm.isPending}
+                    onClick={() => confirm.mutate(candidate)}
+                  >
+                    {confirm.isPending ? "Confirming…" : "Confirm same LoRA"}
+                  </button>
+                )}
+              </article>
+            ))}
+            {candidates.data?.length === 0 ? (
+              <div className="empty-state">
+                <strong>No probable duplicates</strong>
+                <p>All basename matches are grouped or remain distinct.</p>
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <div>
+          <h3>Confirmed identities</h3>
+          <div className="alias-card-list" aria-busy={groups.isFetching}>
+            {groups.data?.map((group) => (
+              <article className="panel alias-card" key={group.id}>
+                <div className="alias-card-heading">
+                  <span>
+                    <strong>{group.display_name}</strong>
+                    <small>
+                      {group.references.reduce(
+                        (total, reference) => total + reference.occurrence_count,
+                        0,
+                      )}{" "}
+                      uses · {group.references.length} aliases
+                    </small>
+                  </span>
+                  <RegistryStatusChip value={group.source} />
+                </div>
+                <AliasReferenceList references={group.references} />
+                <button
+                  className="text-button inline-text-button"
+                  type="button"
+                  disabled={revoke.isPending}
+                  onClick={() => revoke.mutate(group.id)}
+                >
+                  Undo grouping
+                </button>
+              </article>
+            ))}
+            {groups.data?.length === 0 ? (
+              <div className="empty-state">
+                <strong>No confirmed aliases</strong>
+                <p>Confirm a probable duplicate to create a shared identity.</p>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function AliasReferenceList({ references }: { references: ModelReference[] }) {
+  return (
+    <ul className="alias-reference-list">
+      {references.map((reference) => (
+        <li key={reference.id}>
+          <code>{reference.raw_value}</code>
+          <small>{reference.occurrence_count} uses</small>
+        </li>
+      ))}
+    </ul>
   );
 }
 

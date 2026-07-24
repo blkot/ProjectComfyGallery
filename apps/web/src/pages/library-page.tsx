@@ -7,7 +7,7 @@ import {
   type Collection,
   type MediaPage,
   type MediaTag,
-  type ModelReferencePage,
+  type ModelReferenceFilterOption,
   type ReviewSession,
   type SavedFilter,
 } from "../lib/api";
@@ -49,16 +49,16 @@ export function LibraryPage() {
   const checkpointReferences = useQuery({
     queryKey: ["model-references", "library-checkpoint-options"],
     queryFn: () =>
-      apiRequest<ModelReferencePage>(
-        "/api/v1/model-references?reference_type=checkpoint&limit=500",
+      apiRequest<ModelReferenceFilterOption[]>(
+        "/api/v1/model-reference-filter-options?reference_type=checkpoint",
       ),
     staleTime: 60_000,
   });
   const loraReferences = useQuery({
     queryKey: ["model-references", "library-lora-options"],
     queryFn: () =>
-      apiRequest<ModelReferencePage>(
-        "/api/v1/model-references?reference_type=lora&limit=500",
+      apiRequest<ModelReferenceFilterOption[]>(
+        "/api/v1/model-reference-filter-options?reference_type=lora",
       ),
     staleTime: 60_000,
   });
@@ -294,9 +294,10 @@ export function LibraryPage() {
             }
           >
             <option value="">All checkpoints</option>
-            {checkpointReferences.data?.items.map((reference) => (
-              <option value={reference.id} key={reference.id}>
-                {reference.raw_value} ({reference.occurrence_count})
+            {checkpointReferences.data?.map((reference) => (
+              <option value={reference.reference_id} key={reference.reference_id}>
+                {reference.display_name} ({reference.occurrence_count})
+                {reference.alias_count > 1 ? ` · ${reference.alias_count} aliases` : ""}
               </option>
             ))}
           </select>
@@ -310,9 +311,10 @@ export function LibraryPage() {
             }
           >
             <option value="">All LoRAs</option>
-            {loraReferences.data?.items.map((reference) => (
-              <option value={reference.id} key={reference.id}>
-                {reference.raw_value} ({reference.occurrence_count})
+            {loraReferences.data?.map((reference) => (
+              <option value={reference.reference_id} key={reference.reference_id}>
+                {reference.display_name} ({reference.occurrence_count})
+                {reference.alias_count > 1 ? ` · ${reference.alias_count} aliases` : ""}
               </option>
             ))}
           </select>

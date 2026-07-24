@@ -182,6 +182,11 @@ GET    /api/v1/models/:id
 PATCH  /api/v1/models/:id
 GET    /api/v1/model-references
 POST   /api/v1/model-references/:id/link
+GET    /api/v1/model-reference-filter-options
+GET    /api/v1/model-reference-alias-candidates
+GET    /api/v1/model-reference-alias-groups
+POST   /api/v1/model-reference-alias-groups
+POST   /api/v1/model-reference-alias-groups/:id/revoke
 POST   /api/v1/model-registry/sync
 GET    /api/v1/lora-series
 PATCH  /api/v1/lora-series/:id
@@ -201,6 +206,12 @@ immediate, small PostgreSQL transactions. All mutable browser calls require CSRF
 List endpoints use bounded pagination where the result can grow with the installed
 ComfyUI/model inventory. Raw node schemas are returned only by the definition-detail
 endpoint.
+
+Model-reference filter options collapse members of confirmed alias groups into one
+choice and sum their occurrence counts. Media and review queries expand the selected
+representative reference to all members of its confirmed group. Alias confirmation
+and revocation change identity interpretation only: exact embedded values, model
+usages, media processing, and evaluations remain untouched.
 
 ### Evaluation and review
 

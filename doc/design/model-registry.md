@@ -184,6 +184,34 @@ When multiple artifacts share the alias:
 - Preserve all candidates.
 - Keep the reference ambiguous until manual or hash evidence resolves it.
 
+## Reference alias identity groups
+
+The embedded workflow value is evidence and is never normalized in place. A separate
+identity group handles cases where the same LoRA or checkpoint appears both with a
+parent path and as a plain filename.
+
+Candidate normalization is deliberately narrow:
+
+1. Normalize Unicode and path separators.
+2. Compare only the final path component.
+3. Remove one known model-file suffix (`.safetensors`, `.ckpt`, `.pt`, `.pth`,
+   `.bin`, or `.gguf`).
+4. Compare case-insensitively.
+
+This key discovers candidates; it does not prove identity. References that all link to
+one canonical artifact may be grouped automatically. A basename-only match requires
+manual confirmation. If members link to different artifacts, confirmation is rejected
+as a collision. The selected exact aliases, source, confidence, and status are stored
+on a reversible `model_reference_group`.
+
+Confirmed groups are identity overlays:
+
+- Raw `model_reference.raw_value` and every `model_usage` remain unchanged.
+- Library and saved-review filters expand one selected identity to all group members.
+- Analytics uses one group identity and avoids double-counting aliases.
+- Revocation immediately restores separate identities.
+- No media reprocessing or repeat evaluation is required.
+
 ## Architecture family and comparison boundaries
 
 Architecture family is broader than a checkpoint artifact.

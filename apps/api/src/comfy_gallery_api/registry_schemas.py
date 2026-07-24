@@ -171,6 +171,7 @@ class ModelReferenceResponse(BaseModel):
 
     id: UUID
     artifact_id: UUID | None
+    identity_group_id: UUID | None
     reference_type: str
     raw_value: str
     normalized_value: str
@@ -199,6 +200,46 @@ class ModelReferenceLinkRequest(BaseModel):
 class ModelReferenceLinkedResponse(BaseModel):
     reference: ModelReferenceResponse
     job: JobResponse
+
+
+class ModelReferenceAliasCandidateResponse(BaseModel):
+    canonical_key: str
+    display_name: str
+    reference_type: str
+    evidence_method: str
+    confidence: float
+    conflict_reason: str | None
+    occurrence_count: int
+    references: list[ModelReferenceResponse]
+
+
+class ModelReferenceGroupResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    reference_type: str
+    canonical_key: str
+    display_name: str
+    source: str
+    confidence: float
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    references: list[ModelReferenceResponse]
+
+
+class ModelReferenceGroupCreateRequest(BaseModel):
+    reference_ids: list[UUID] = Field(min_length=2, max_length=100)
+    display_name: str | None = Field(default=None, min_length=1, max_length=1024)
+
+
+class ModelReferenceFilterOptionResponse(BaseModel):
+    reference_id: UUID
+    identity_group_id: UUID | None
+    reference_type: str
+    display_name: str
+    occurrence_count: int
+    alias_count: int
 
 
 class LoraSeriesMemberResponse(BaseModel):
