@@ -15,7 +15,10 @@ from comfy_gallery_core.db.models import (
     WorkflowValue,
 )
 from comfy_gallery_core.registry.models import resolve_model_references
-from comfy_gallery_core.registry.nodes import create_registry_observations
+from comfy_gallery_core.registry.nodes import (
+    _mapped_observation_values,
+    create_registry_observations,
+)
 
 
 async def test_structured_lora_mapping_emits_only_active_adapter_references() -> None:
@@ -84,13 +87,13 @@ async def test_structured_lora_mapping_emits_only_active_adapter_references() ->
                 input_name="loras",
                 value_kind="object",
                 raw_value={
-                    "**value**": [
+                    "__value__": [
                         _lora("Krea2_guzong_lora_v2_000006750", active=True, strength="1.00"),
-                        _lora("realism_engine_krea2_v3.1", active=False, strength=1),
-                        _lora("RealisticSnapshotKrea2", active=True, strength="0.65"),
+                        _lora("realism_engine_krea2_v3.1", active=True, strength=1),
+                        _lora("RealisticSnapshotKrea2", active=False, strength="0.65"),
                         _lora("Krea2_HMNSFW_AIO", active=False, strength=1),
                         _lora("Krea2_wls_lora_v1_000007000", active=False, strength=1),
-                        _lora("wls_boob_krea_lora_v1_000003000", active=True, strength=1),
+                        _lora("wls_boob_krea_lora_v1_000003000", active=False, strength=1),
                     ]
                 },
                 normalized_text=None,
@@ -126,26 +129,35 @@ async def test_structured_lora_mapping_emits_only_active_adapter_references() ->
                 )
             )
         )
-        assert outcome.created_count == 3
+        assert outcome.created_count == 2
         assert {observation.value for observation in observations} == {
             "Krea2_guzong_lora_v2_000006750",
-            "RealisticSnapshotKrea2",
-            "wls_boob_krea_lora_v1_000003000",
+            "realism_engine_krea2_v3.1",
         }
-        realistic = next(
+        realism = next(
             observation
             for observation in observations
-            if observation.value == "RealisticSnapshotKrea2"
+            if observation.value == "realism_engine_krea2_v3.1"
         )
-        assert realistic.evidence["value_method"] == "active_lora_collection"
-        assert realistic.evidence["collection_container"] == "**value**"
-        assert realistic.evidence["strength"] == "0.65"
-        assert resolved.reference_count == 3
-        assert resolved.usage_count == 3
-        assert len(list(await session.scalars(select(ModelReference)))) == 3
-        assert len(list(await session.scalars(select(ModelUsage)))) == 3
+        assert realism.evidence["value_method"] == "active_lora_collection"
+        assert realism.evidence["collection_container"] == "__value__"
+        assert realism.evidence["strength"] == 1
+        assert resolved.reference_count == 2
+        assert resolved.usage_count == 2
+        assert len(list(await session.scalars(select(ModelReference)))) == 2
+        assert len(list(await session.scalars(select(ModelUsage)))) == 2
 
     await engine.dispose()
+
+
+def test_structured_lora_mapping_keeps_literal_legacy_wrapper_compatibility() -> None:
+    observations = _mapped_observation_values(
+        "lora_reference",
+        {"**value**": [_lora("legacy_adapter", active=True, strength=1)]},
+    )
+
+    assert [observation.value for observation in observations] == ["legacy_adapter"]
+    assert observations[0].evidence["collection_container"] == "**value**"
 
 
 def _lora(name: str, *, active: bool, strength: str | int) -> dict[str, object]:

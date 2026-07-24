@@ -42,7 +42,7 @@ x-backend-build: &backend-build
   context: .
   dockerfile: deploy/docker/backend.Dockerfile
   args:
-    CG_PROJECT_VERSION: 0.1.0-rc.4
+    CG_PROJECT_VERSION: 0.1.0-rc.5
 
 x-service-logging: &service-logging
   driver: json-file
@@ -52,12 +52,12 @@ x-service-logging: &service-logging
 
 services:
   postgres:
-    image: project-comfy-gallery/postgres:0.1.0-rc.4
+    image: project-comfy-gallery/postgres:0.1.0-rc.5
     build:
       context: .
       dockerfile: deploy/docker/database.Dockerfile
       args:
-        CG_PROJECT_VERSION: 0.1.0-rc.4
+        CG_PROJECT_VERSION: 0.1.0-rc.5
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-comfygallery}
@@ -86,12 +86,12 @@ services:
           memory: ${POSTGRES_MEMORY_LIMIT:-1G}
 
   redis:
-    image: project-comfy-gallery/redis:0.1.0-rc.4
+    image: project-comfy-gallery/redis:0.1.0-rc.5
     build:
       context: .
       dockerfile: deploy/docker/redis.Dockerfile
       args:
-        CG_PROJECT_VERSION: 0.1.0-rc.4
+        CG_PROJECT_VERSION: 0.1.0-rc.5
     restart: unless-stopped
     command:
       [
@@ -120,7 +120,7 @@ services:
           memory: ${REDIS_MEMORY_LIMIT:-256M}
 
   api:
-    image: project-comfy-gallery/backend:0.1.0-rc.4
+    image: project-comfy-gallery/backend:0.1.0-rc.5
     build: *backend-build
     restart: unless-stopped
     environment: *backend-environment
@@ -158,7 +158,7 @@ services:
           memory: ${API_MEMORY_LIMIT:-768M}
 
   worker:
-    image: project-comfy-gallery/backend:0.1.0-rc.4
+    image: project-comfy-gallery/backend:0.1.0-rc.5
     build: *backend-build
     restart: unless-stopped
     environment: *backend-environment
@@ -193,12 +193,12 @@ services:
           memory: ${WORKER_MEMORY_LIMIT:-2G}
 
   backup:
-    image: project-comfy-gallery/backup:0.1.0-rc.4
+    image: project-comfy-gallery/backup:0.1.0-rc.5
     build:
       context: .
       dockerfile: deploy/docker/backup.Dockerfile
       args:
-        CG_PROJECT_VERSION: 0.1.0-rc.4
+        CG_PROJECT_VERSION: 0.1.0-rc.5
     restart: unless-stopped
     environment:
       PGHOST: postgres
@@ -236,12 +236,12 @@ services:
           memory: ${BACKUP_MEMORY_LIMIT:-256M}
 
   web:
-    image: project-comfy-gallery/web:0.1.0-rc.4
+    image: project-comfy-gallery/web:0.1.0-rc.5
     build:
       context: .
       dockerfile: deploy/docker/web.Dockerfile
       args:
-        CG_PROJECT_VERSION: 0.1.0-rc.4
+        CG_PROJECT_VERSION: 0.1.0-rc.5
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-8080}:8080"

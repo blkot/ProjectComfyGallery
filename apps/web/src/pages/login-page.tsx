@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router";
 
 import { sessionQueryKey, useSession } from "../features/auth/use-session";
 import {

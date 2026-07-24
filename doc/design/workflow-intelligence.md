@@ -185,7 +185,7 @@ filename. For a mapping tagged as `lora_reference`, semantic extraction supports
 of these shapes:
 
 ```json
-{"**value**": [{"name": "adapter_a", "active": true, "strength": "1.00"}]}
+{"__value__": [{"name": "adapter_a", "active": true, "strength": "1.00"}]}
 ```
 
 ```json
@@ -203,6 +203,10 @@ Observation evidence records the collection container/index plus `strength` and
 MVP analysis factor. This rule is based on the semantic mapping and value shape, not a
 hardcoded node title or one schema fingerprint, so a manual mapping can remain useful
 across compatible loader variants.
+
+`__value__` is the canonical wrapper emitted by the LoRA Manager loader. The
+extractor also accepts the literal legacy/documentation alias `**value**`, but the
+double-underscore spelling is covered by the deployed-payload regression.
 
 ## Automatic first-run classification
 
@@ -315,7 +319,8 @@ Reprocessing:
 6. Marks affected live analysis previews stale.
 7. Never changes a saved analysis run.
 
-Extractor `2.1.0` introduces active-only structured multi-LoRA expansion. After
+Extractor `2.1.1` recognizes the LoRA Manager `__value__` wrapper for active-only
+structured multi-LoRA expansion. After
 upgrading from an earlier extractor, an operator runs the existing bulk “reprocess
 all” action once. Reprocessing reads the preserved ground truth, replaces the current
 derived model usages, and leaves prior extraction runs available for provenance.

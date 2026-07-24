@@ -4,7 +4,7 @@
 
 ## Target environment
 
-The current release is locked as `0.1.0-rc.4`. Compose-produced images use that
+The current release is locked as `0.1.0-rc.5`. Compose-produced images use that
 exact tag and OCI version label. Every upstream runtime/build base is pinned by
 immutable SHA-256 digest; changing a base digest is an explicit upgrade operation.
 

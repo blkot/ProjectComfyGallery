@@ -366,9 +366,12 @@ def _mapped_observation_values(
 
     container = "direct"
     items: object = raw_value
-    if isinstance(raw_value, dict) and "**value**" in raw_value:
-        container = "**value**"
-        items = raw_value["**value**"]
+    if isinstance(raw_value, dict):
+        for collection_key in ("__value__", "**value**"):
+            if collection_key in raw_value:
+                container = collection_key
+                items = raw_value[collection_key]
+                break
     if not isinstance(items, list):
         return (MappedObservationValue(value=raw_value, evidence={}),)
 

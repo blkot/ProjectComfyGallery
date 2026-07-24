@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type PropsWithChildren } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router";
 
 import { sessionQueryKey } from "../features/auth/use-session";
 import { apiRequest, type User } from "../lib/api";

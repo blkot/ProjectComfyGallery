@@ -5,7 +5,7 @@ import {
   useNavigate,
   useParams,
   useSearchParams,
-} from "react-router-dom";
+} from "react-router";
 
 import { WorkflowInspector } from "../components/workflow-inspector";
 import {

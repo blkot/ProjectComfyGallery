@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 GRAPH_VERSION = "generic-graph-v1"
 EXTRACTOR_NAME = "builtin_semantics"
-EXTRACTOR_VERSION = "2.1.0"
+EXTRACTOR_VERSION = "2.1.1"
 
 API_REPRESENTATION = "api_prompt"
 VISUAL_REPRESENTATION = "visual_workflow"

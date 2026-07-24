@@ -2,6 +2,20 @@
 
 All notable changes to Project Comfy Gallery are recorded here.
 
+## 0.1.0-rc.5 — 2026-07-25
+
+LoRA Manager structured-value hotfix:
+
+- Recognize the deployed LoRA Manager `__value__` collection wrapper instead of
+  treating its complete object as one LoRA reference.
+- Emit one semantic observation and model usage for each explicitly active named
+  adapter while keeping inactive entries only in preserved workflow ground truth.
+- Retain compatibility with the literal `**value**` wrapper documented in rc.4.
+- Upgrade semantic extraction to `2.1.1`; affected existing workflows require
+  reprocessing.
+- Migrate the SPA from `react-router-dom` 7 to `react-router` 8.3.0 after the
+  dependency audit identified a newly published high-severity advisory.
+
 ## 0.1.0-rc.4 — 2026-07-24
 
 Library navigation and structured-LoRA interpretation:
