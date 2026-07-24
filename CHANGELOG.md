@@ -15,6 +15,8 @@ LoRA Manager structured-value hotfix:
   reprocessing.
 - Migrate the SPA from `react-router-dom` 7 to `react-router` 8.3.0 after the
   dependency audit identified a newly published high-severity advisory.
+- Move release-only OCI labels after expensive Docker build layers so a version
+  bump no longer invalidates unchanged OS and dependency caches.
 
 ## 0.1.0-rc.4 — 2026-07-24
 

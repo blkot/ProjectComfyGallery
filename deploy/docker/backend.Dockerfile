@@ -1,10 +1,5 @@
 FROM ghcr.io/astral-sh/uv:python3.13-alpine@sha256:48fb7780491d06b7a8705341808536c2c20356c85d7a100858998038a11703f3
 
-ARG CG_PROJECT_VERSION=0.1.0-rc.5
-
-LABEL org.opencontainers.image.title="Project Comfy Gallery backend" \
-    org.opencontainers.image.version="$CG_PROJECT_VERSION"
-
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_COMPILE_BYTECODE=1 \
@@ -33,6 +28,11 @@ COPY --chown=comfy:comfy deploy/docker/api-entrypoint.sh deploy/docker/api-entry
 COPY --chown=comfy:comfy deploy/docker/container-entrypoint.sh deploy/docker/container-entrypoint.sh
 
 RUN uv sync --frozen --no-dev --all-packages
+
+ARG CG_PROJECT_VERSION=0.1.0-rc.5
+
+LABEL org.opencontainers.image.title="Project Comfy Gallery backend" \
+    org.opencontainers.image.version="$CG_PROJECT_VERSION"
 
 EXPOSE 8000
 
