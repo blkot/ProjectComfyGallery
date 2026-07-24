@@ -37,9 +37,13 @@ behavior.
   deployment requires it; the ordinary worker/job controls remain observable and
   cancellable.
 
-### Future API ingestion
+### Machine-client API ingestion
 
-Deferred. A future ComfyUI custom node will upload/announce a media file and enqueue the same pipeline. It must not introduce a separate ingestion code path.
+The authenticated multipart endpoint used by browser uploads also accepts bearer
+API tokens and is the implemented machine-client contract. A future ComfyUI custom
+node will upload the exact saved media bytes through this endpoint and enqueue the
+same pipeline; it must not introduce a separate ingestion code path. See the
+[custom-node upload integration guide](../interfaces/comfyui-custom-node-upload.md).
 
 ## Source inventory algorithm
 

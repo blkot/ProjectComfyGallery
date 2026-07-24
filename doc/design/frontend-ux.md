@@ -67,6 +67,8 @@ visualizations, and media drill-down.
 
 - Server-paginated grid (48 records per page in Phase 1; virtualization remains an
   option if measured gallery behavior requires it).
+- Three larger cards per desktop row with a default 2:3 portrait preview frame,
+  matching common 1024×1536 generations. Narrow layouts remain responsive.
 - Deterministic server sorting by file time, import time, filename, or byte size.
   Newest file time is the default. For NAS sources, file time is the latest active
   source occurrence modification time; browser uploads fall back to the media import
@@ -75,7 +77,8 @@ visualizations, and media drill-down.
 - Evaluation state and warning badges.
 - Selection with keyboard modifiers.
 - Multi-select actions for collection/tag/review.
-- Progressive image loading and fixed aspect-ratio placeholders.
+- Progressive image loading, fixed aspect-ratio placeholders, and off-screen
+  rendering containment for the larger cards.
 
 ### Table view
 

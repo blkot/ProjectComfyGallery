@@ -2,6 +2,13 @@
 
 All notable changes to Project Comfy Gallery are recorded here.
 
+## Unreleased
+
+- Use larger three-column gallery cards with a 2:3 portrait preview frame.
+- Document the implemented bearer-authenticated import contract for a future
+  ComfyUI save/upload custom node.
+- Document targeted single-service deployments and the NAS build-cache cost model.
+
 ## 0.1.0-rc.6 — 2026-07-25
 
 Collision-safe model-reference aliases:

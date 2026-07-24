@@ -90,6 +90,12 @@ implements workflow summary/graph, explicit raw-evidence retrieval, per-media
 reprocessing, bulk missing/all backfill, and `workflow_status` list filtering.
 Phase 3 includes current model usages in the workflow summary response.
 
+`POST /api/v1/media/imports` accepts session-authenticated browser requests and
+bearer-authenticated machine clients. It streams repeated multipart `files` fields
+to staging, returns `202 Accepted` with a durable batch, and enqueues the ordinary
+processing pipeline. The future ComfyUI node client contract is documented in
+[ComfyUI custom-node upload integration](comfyui-custom-node-upload.md).
+
 The media list accepts exact `checkpoint_reference_id` and `lora_reference_id`
 filters plus a deterministic `sort` value:
 
@@ -342,14 +348,16 @@ The adapter expects current-list, metadata, scan, and fetch operations for LoRAs
 
 The application does not need to call Civitai directly in MVP. LoRA Manager may perform enrichment. The application stores returned provider metadata and provenance.
 
-## Future ComfyUI custom-node API
+## ComfyUI custom-node integration
 
-Deferred, but the design must reuse:
+The generic bearer-authenticated ingestion endpoint is implemented. The packaged
+ComfyUI save/upload node and retrieval endpoints remain deferred. The upload node
+must reuse:
 
 - Bearer token authentication.
 - Idempotent import commands.
 - The same managed-original and processing pipeline.
-- Media UUID response.
+- Upload-batch/item response and eventual media UUID.
 - Job status model.
 
 Future retrieval may return:

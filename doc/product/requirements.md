@@ -40,6 +40,8 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
 - **ING-013:** Browser-incompatible video MUST retain its original and MAY receive an H.264 MP4 proxy.
 - **ING-014:** The UI MUST distinguish proxies from originals and permit original download.
 - **ING-015:** Import progress MUST survive API or worker restarts.
+- **ING-016:** Authenticated machine clients MUST be able to submit media through
+  the same durable multipart import and processing pipeline used by browser uploads.
 
 ## Workflow ground truth and graph
 
@@ -120,6 +122,9 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
 - **LIB-009:** The library and reusable filter scopes MUST support checkpoint and
   LoRA-reference identity filters, including historical workflow-only references and
   confirmed aliases.
+- **LIB-010:** The gallery grid MUST default to a 2:3 portrait preview frame and use
+  responsive card sizing that keeps common portrait generations comfortably
+  inspectable on a laptop display.
 
 ## Manual evaluation
 

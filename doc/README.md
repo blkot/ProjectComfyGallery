@@ -43,6 +43,7 @@ This structure borrows the audience separation of the Diátaxis documentation mo
 ### Interfaces and integrations
 
 - [API and integrations](interfaces/api-and-integrations.md)
+- [ComfyUI custom-node upload integration](interfaces/comfyui-custom-node-upload.md)
 
 ### Operations
 

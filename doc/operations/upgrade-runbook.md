@@ -34,6 +34,35 @@ The normal API entrypoint also runs `upgrade head`; the explicit preflight makes
 migration failure visible before services are replaced. Omit `pull` for a source-only
 deployment without published images.
 
+### Targeted source deployments
+
+When a change is isolated to one service and contains no migration or shared
+runtime-contract change, rebuild and replace only that service. For a
+frontend-only change:
+
+```bash
+docker compose -f compose.yaml -f compose.production.yaml build web
+docker compose -f compose.yaml -f compose.production.yaml \
+  up -d --no-deps --no-build web
+```
+
+This preserves API, worker, database, Redis, and backup containers. Docker can also
+reuse the web dependency-install layer when `package.json` and `pnpm-lock.yaml` are
+unchanged.
+
+Do not use a targeted deployment when a database migration, shared API contract,
+runtime dependency, environment contract, or cross-service version change is
+involved. Use the full upgrade procedure in those cases.
+
+On the J4125 NAS, avoid treating `docker compose build` as the default for every
+source change: it evaluates and may rebuild all application services. Dependency
+manifest/version changes invalidate expensive `uv sync` or `pnpm install` layers;
+uncached base-image downloads and Alpine package upgrades add network-dependent
+latency. The preferred long-term production path is CI-built, immutable
+architecture-compatible images in a private registry, with the NAS limited to
+`pull`, migration preflight, and `up`. A registry-backed BuildKit cache can also
+retain dependency layers across release tags and NAS cache cleanup.
+
 ## Verify
 
 ```bash

@@ -239,4 +239,5 @@ one thread; the analytics engine has no CUDA or GPU dependency.
 
 Phase 5 is observational and manual-evaluation driven. Automated GPU benchmarks,
 causal adjustment, prompt balancing, dedicated sampler/strength reports, portable
-exports, and the future ComfyUI custom-node ingestion API remain outside this phase.
+exports, and the future ComfyUI custom-node client package remain outside this
+phase. The generic bearer-authenticated ingestion endpoint already exists.

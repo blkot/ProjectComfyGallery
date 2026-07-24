@@ -80,7 +80,7 @@ The following are **Deferred** and MUST NOT be introduced into the MVP accidenta
 
 ### Integration and analysis extensions
 
-- Ingestion endpoint and ComfyUI custom save node.
+- ComfyUI custom save/upload node using the implemented generic ingestion endpoint.
 - Media/workflow retrieval API for ComfyUI custom nodes.
 - Hugging Face enrichment provider.
 - Declarative parser rule editor with impact preview.

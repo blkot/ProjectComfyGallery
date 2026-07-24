@@ -857,8 +857,8 @@ textarea {
 
 .media-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 13px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
 }
 
 .media-card {
@@ -873,6 +873,8 @@ textarea {
   transition:
     border-color 140ms ease,
     transform 140ms ease;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 620px;
 }
 
 .media-card > a {
@@ -915,7 +917,7 @@ textarea {
 .media-preview {
   position: relative;
   overflow: hidden;
-  aspect-ratio: 1;
+  aspect-ratio: 2 / 3;
   background:
     linear-gradient(135deg, rgba(226, 255, 100, 0.04), transparent),
     #0a0a09;
