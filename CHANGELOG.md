@@ -2,6 +2,22 @@
 
 All notable changes to Project Comfy Gallery are recorded here.
 
+## 0.1.0-rc.4 — 2026-07-24
+
+Library navigation and structured-LoRA interpretation:
+
+- Sort the Media Library by file time, import time, filename, or size; file time
+  descending is the default.
+- Filter the Media Library and saved review scopes by exact checkpoint and LoRA
+  references, including historical workflow-only references.
+- Traverse the current filtered and sorted library from Media Detail with
+  Previous/Next controls, arrow keys, neighbor prefetch, position, and a
+  context-preserving return link.
+- Expand structured LoRA-loader values into one semantic observation per active
+  entry while preserving the complete raw collection and strength evidence.
+- Upgrade semantic extraction to `2.1.0`; existing workflow snapshots require one
+  bulk reprocess to receive structured active-LoRA usages.
+
 ## 0.1.0-rc.3 — 2026-07-24
 
 Bulk-scan reliability hotfix:

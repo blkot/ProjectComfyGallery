@@ -815,6 +815,7 @@ code {
   border-radius: 9px;
   background: rgba(24, 24, 20, 0.7);
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   gap: 12px;
 }
@@ -1763,12 +1764,14 @@ textarea {
 
 .detail-nav {
   margin-bottom: 22px;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) auto minmax(120px, 1fr);
   align-items: center;
-  justify-content: space-between;
+  gap: 16px;
 }
 
 .detail-nav > a:first-child {
+  justify-self: start;
   color: var(--muted);
   font-size: 11px;
   text-decoration: none;
@@ -1776,6 +1779,24 @@ textarea {
 
 .detail-nav > a:first-child:hover {
   color: var(--text);
+}
+
+.detail-nav > a:last-child {
+  justify-self: end;
+}
+
+.media-view-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+
+.media-view-navigation > span {
+  min-width: 80px;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
 }
 
 .media-detail-layout {
@@ -1888,6 +1909,13 @@ textarea {
 .workflow-backfill-panel small {
   color: var(--muted);
   font-size: 9px;
+}
+
+.workflow-reprocess-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .workflow-section {
@@ -2825,6 +2853,15 @@ textarea {
     margin: 5px 0 0;
   }
 
+  .detail-nav {
+    grid-template-columns: 1fr auto;
+  }
+
+  .media-view-navigation {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
   .media-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
@@ -2845,6 +2882,10 @@ textarea {
 
   .workflow-backfill-panel > div:last-child {
     align-items: flex-start;
+  }
+
+  .workflow-reprocess-actions {
+    justify-content: flex-start;
   }
 
   .workflow-metric-grid,

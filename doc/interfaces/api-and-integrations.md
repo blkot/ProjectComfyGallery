@@ -73,6 +73,7 @@ retain revoked records for audit; a revoked token can no longer authenticate.
 GET    /api/v1/media
 POST   /api/v1/media/imports
 GET    /api/v1/media/:id
+GET    /api/v1/media/:id/navigation
 GET    /api/v1/media/:id/original
 GET    /api/v1/media/:id/preview
 GET    /api/v1/media/:id/playback
@@ -88,6 +89,21 @@ Phase 1 implements list/detail/original/preview/playback/import paths. Phase 2
 implements workflow summary/graph, explicit raw-evidence retrieval, per-media
 reprocessing, bulk missing/all backfill, and `workflow_status` list filtering.
 Phase 3 includes current model usages in the workflow summary response.
+
+The media list accepts exact `checkpoint_reference_id` and `lora_reference_id`
+filters plus a deterministic `sort` value:
+
+```text
+file_created_desc | file_created_asc
+imported_desc     | imported_asc
+filename_asc      | filename_desc
+size_desc          | size_asc
+```
+
+`file_created_desc` is the default. The navigation endpoint accepts the same filters
+and sort but no pagination boundary, and returns the current one-based position,
+population total, and adjacent media UUIDs/positions. A filtered-out media UUID
+returns `MEDIA_NOT_IN_VIEW`.
 
 The workflow summary endpoint uses bounded node/edge limits and never appears in a
 gallery list response. The raw endpoint returns preserved decoded carrier metadata,

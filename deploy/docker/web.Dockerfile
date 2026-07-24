@@ -16,7 +16,7 @@ RUN pnpm --filter @comfy-gallery/web build
 
 FROM nginx:1.29-alpine@sha256:5616878291a2eed594aee8db4dade5878cf7edcb475e59193904b198d9b830de
 
-ARG CG_PROJECT_VERSION=0.1.0-rc.3
+ARG CG_PROJECT_VERSION=0.1.0-rc.4
 
 LABEL org.opencontainers.image.title="Project Comfy Gallery web" \
     org.opencontainers.image.version="$CG_PROJECT_VERSION"

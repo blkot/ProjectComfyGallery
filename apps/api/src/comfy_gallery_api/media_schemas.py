@@ -148,6 +148,7 @@ class MediaListItemResponse(BaseModel):
     workflow_status: str
     evaluation_state: str
     is_trash: bool
+    file_created_at: datetime
     created_at: datetime
     preview_url: str
 
@@ -157,6 +158,16 @@ class MediaPageResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class MediaNavigationResponse(BaseModel):
+    media_id: UUID
+    position: int
+    total: int
+    previous_id: UUID | None
+    previous_position: int | None
+    next_id: UUID | None
+    next_position: int | None
 
 
 class MediaDetailResponse(BaseModel):

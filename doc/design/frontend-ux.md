@@ -67,6 +67,10 @@ visualizations, and media drill-down.
 
 - Server-paginated grid (48 records per page in Phase 1; virtualization remains an
   option if measured gallery behavior requires it).
+- Deterministic server sorting by file time, import time, filename, or byte size.
+  Newest file time is the default. For NAS sources, file time is the latest active
+  source occurrence modification time; browser uploads fall back to the media import
+  time.
 - Thumbnail/poster and media-type indicator.
 - Evaluation state and warning badges.
 - Selection with keyboard modifiers.
@@ -99,6 +103,11 @@ Filters include:
 
 Filter chips show active state. Complex filters use a validated expression model suitable for saving.
 
+The implemented checkpoint and LoRA selectors use exact `model_reference` identities
+rather than only current artifacts. This keeps deleted, renamed, private, and
+workflow-only historical model references filterable. Checkpoint and LoRA filters are
+combined with AND semantics; a media item must contain both selected usages.
+
 ### Scope actions
 
 From current results or selection:
@@ -121,6 +130,23 @@ The media record exposes:
   in-player proxy badge is a small follow-up.
 - Zoom/pan for images.
 - Poster, seek, volume, playback rate, frame stepping if practical for video review.
+
+### Library viewing navigation
+
+Media Detail viewing is separate from blind Review:
+
+- Opening a gallery card carries the current filter, sort, and page context in the
+  URL, so refresh, history, and copied links remain deterministic.
+- Previous and Next query the complete filtered/sorted population rather than only
+  the 48 cards on the current page.
+- The browser updates the remembered gallery offset when traversal crosses a page
+  boundary, so “Media library” returns to the target card's page.
+- Left/Right arrow keys mirror Previous/Next unless focus is in an editable control.
+- Neighbor detail data is prefetched on pointer hover or keyboard focus.
+- The header shows the current one-based position and total population.
+
+Direct detail links without explicit context use the default all-media,
+newest-file-time view.
 
 ### Identity/provenance
 
@@ -171,6 +197,17 @@ The media record exposes:
 - Manual rescan.
 - Counts for new, skipped, duplicates, missing, and failed.
 - Drill-down to individual entries.
+
+### Workflow backfill and upgrades
+
+The Imports page provides two explicit workflow actions:
+
+- **Process unparsed media** queues only records without a workflow snapshot.
+- **Reprocess all workflows** queues every record after a semantic extractor upgrade
+  or other global interpretation change.
+
+Both actions use durable jobs, skip media with an already queued/running extraction,
+and never rewrite originals or embedded ground truth.
 
 ### Job center
 

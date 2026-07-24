@@ -9,7 +9,7 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from sqlalchemy.sql import Select
+from sqlalchemy.sql import ColumnElement, Select
 
 from comfy_gallery_api.dependencies import CsrfPrincipalDep, DbSessionDep, PrincipalDep
 from comfy_gallery_api.errors import ApiError
@@ -51,6 +51,7 @@ from comfy_gallery_core.db.models import (
     Media,
     MediaCollection,
     MediaTag,
+    ModelUsage,
     ReviewSession,
     ReviewSessionItem,
     SavedFilter,
@@ -59,6 +60,7 @@ from comfy_gallery_core.db.models import (
     SourceOccurrence,
     Tag,
     WorkflowNode,
+    WorkflowSnapshot,
 )
 from comfy_gallery_core.evaluation.catalog import ensure_evaluation_catalog
 from comfy_gallery_core.evaluation.service import (
@@ -794,6 +796,20 @@ def _media_scope_query(media_filter: MediaFilterRequest) -> Select[tuple[UUID]]:
         )
     if media_filter.tag_id:
         query = query.where(Media.tag_memberships.any(MediaTag.tag_id == media_filter.tag_id))
+    if media_filter.checkpoint_reference_id:
+        query = query.where(
+            _media_uses_model_reference(
+                media_filter.checkpoint_reference_id,
+                observation_type="checkpoint_reference",
+            )
+        )
+    if media_filter.lora_reference_id:
+        query = query.where(
+            _media_uses_model_reference(
+                media_filter.lora_reference_id,
+                observation_type="lora_reference",
+            )
+        )
     if media_filter.evaluation_state == "not_started":
         query = query.where(
             or_(
@@ -825,6 +841,23 @@ def _media_scope_query(media_filter: MediaFilterRequest) -> Select[tuple[UUID]]:
             )
         )
     return query
+
+
+def _media_uses_model_reference(
+    reference_id: UUID,
+    *,
+    observation_type: str,
+) -> ColumnElement[bool]:
+    return (
+        select(ModelUsage.id)
+        .join(WorkflowSnapshot, WorkflowSnapshot.id == ModelUsage.snapshot_id)
+        .where(
+            WorkflowSnapshot.media_id == Media.id,
+            ModelUsage.model_reference_id == reference_id,
+            ModelUsage.observation_type == observation_type,
+        )
+        .exists()
+    )
 
 
 async def _session_response(

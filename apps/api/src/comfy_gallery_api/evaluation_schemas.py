@@ -102,6 +102,8 @@ class MediaFilterRequest(BaseModel):
     evaluation_state: Literal["not_started", "in_progress", "complete"] | None = None
     trash: bool | None = None
     source_root_id: UUID | None = None
+    checkpoint_reference_id: UUID | None = None
+    lora_reference_id: UUID | None = None
     collection_id: UUID | None = None
     tag_id: UUID | None = None
 

@@ -4,7 +4,7 @@ Self-hosted ComfyUI media intelligence, manual evaluation, and observational mod
 
 The governing product and engineering documentation starts at [doc/README.md](doc/README.md).
 
-**Locked release candidate:** `0.1.0-rc.3`. Runtime images use the same tag and
+**Locked release candidate:** `0.1.0-rc.4`. Runtime images use the same tag and
 OCI version label; upstream base images are pinned by digest.
 
 ## MVP release status
@@ -26,7 +26,8 @@ Phases 0–6 are implemented and verified, including the real x86 J4125 NAS rele
 - PNG/JPEG/WebP and MP4/WebM content validation and probing.
 - Versioned image thumbnails, video posters, and H.264 browser proxies.
 - Durable job, stage-attempt, scan-batch, and upload-batch records.
-- Media Library, Imports, Jobs, and Media Detail pages.
+- Media Library, Imports, Jobs, and Media Detail pages, including deterministic
+  sorting and context-preserving Previous/Next viewing.
 - Immutable decoded workflow evidence with independent API-prompt and visual-workflow
   states.
 - PNG/JPEG/WebP and MP4/WebM embedded metadata readers.
@@ -54,7 +55,10 @@ Phases 0–6 are implemented and verified, including the real x86 J4125 NAS rele
   random media, or the global In progress pool.
 - Configuration-blind image/video review with exact prompts, autosave, undo, keyboard
   navigation, and no automatic advance.
-- Library collections, tags, saved filters, selection actions, and evaluation filters.
+- Library collections, tags, saved filters, selection actions, evaluation filters,
+  and exact checkpoint/LoRA filters.
+- Structured multi-LoRA loader extraction that links only explicitly active entries
+  while retaining the full raw embedded value.
 - Six checkpoint/LoRA reports with architecture, pipeline, slot, ordered-pair, and
   local-series boundaries.
 - Shared-criterion composites with versioned weighting profiles and no missing-value

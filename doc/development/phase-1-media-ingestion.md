@@ -1,7 +1,7 @@
 # Phase 1 Media Ingestion and Verification
 
 **Status:** Implemented and verified on 2026-07-23
-**Release:** `0.1.0-rc.3`
+**Release:** `0.1.0-rc.4`
 
 ## Outcome
 

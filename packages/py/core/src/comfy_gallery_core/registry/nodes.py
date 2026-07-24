@@ -72,6 +72,12 @@ class MappingSuggestion:
     evidence: dict[str, object]
 
 
+@dataclass(frozen=True, slots=True)
+class MappedObservationValue:
+    value: object
+    evidence: dict[str, object]
+
+
 async def import_node_definitions(
     session: AsyncSession,
     *,
@@ -313,33 +319,79 @@ async def create_registry_observations(
             value = values_by_locator.get(mapping.locator)
             if value is None or value.value_kind == "link":
                 continue
-            key = (node.id, mapping.semantic_type, _canonical_json(value.raw_value))
-            if key in existing_keys:
-                continue
-            session.add(
-                SemanticObservation(
-                    run_id=run_id,
-                    node_id=node.id,
-                    observation_type=mapping.semantic_type,
-                    role=mapping.role,
-                    value=value.raw_value,
-                    confidence=mapping.confidence,
-                    correction_state=mapping.correction_state,
-                    evidence={
-                        "representation": node.representation,
-                        "node_id": node.original_node_id,
-                        "class_type": node.class_type,
-                        "locator": mapping.locator,
-                        "mapping_id": str(mapping.id),
-                        "mapping_source": mapping.source,
-                        "method": "node_registry_mapping",
-                    },
+            for observation_value in _mapped_observation_values(
+                mapping.semantic_type,
+                value.raw_value,
+            ):
+                key = (
+                    node.id,
+                    mapping.semantic_type,
+                    _canonical_json(observation_value.value),
                 )
-            )
-            existing_keys.add(key)
-            created_count += 1
+                if key in existing_keys:
+                    continue
+                session.add(
+                    SemanticObservation(
+                        run_id=run_id,
+                        node_id=node.id,
+                        observation_type=mapping.semantic_type,
+                        role=mapping.role,
+                        value=observation_value.value,
+                        confidence=mapping.confidence,
+                        correction_state=mapping.correction_state,
+                        evidence={
+                            "representation": node.representation,
+                            "node_id": node.original_node_id,
+                            "class_type": node.class_type,
+                            "locator": mapping.locator,
+                            "mapping_id": str(mapping.id),
+                            "mapping_source": mapping.source,
+                            "method": "node_registry_mapping",
+                            **observation_value.evidence,
+                        },
+                    )
+                )
+                existing_keys.add(key)
+                created_count += 1
     await session.flush()
     return RegistryObservationOutcome(created_count=created_count)
+
+
+def _mapped_observation_values(
+    semantic_type: str,
+    raw_value: object,
+) -> tuple[MappedObservationValue, ...]:
+    if semantic_type != "lora_reference":
+        return (MappedObservationValue(value=raw_value, evidence={}),)
+
+    container = "direct"
+    items: object = raw_value
+    if isinstance(raw_value, dict) and "**value**" in raw_value:
+        container = "**value**"
+        items = raw_value["**value**"]
+    if not isinstance(items, list):
+        return (MappedObservationValue(value=raw_value, evidence={}),)
+
+    active_loras: list[MappedObservationValue] = []
+    for index, item in enumerate(items):
+        if not isinstance(item, dict) or item.get("active") is not True:
+            continue
+        name = item.get("name")
+        if not isinstance(name, str) or not name.strip():
+            continue
+        active_loras.append(
+            MappedObservationValue(
+                value=name.strip(),
+                evidence={
+                    "value_method": "active_lora_collection",
+                    "collection_container": container,
+                    "collection_index": index,
+                    "strength": item.get("strength"),
+                    "clip_strength": item.get("clipStrength"),
+                },
+            )
+        )
+    return tuple(active_loras)
 
 
 async def set_manual_mapping(

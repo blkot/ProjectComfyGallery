@@ -69,6 +69,7 @@ export type MediaListItem = {
   workflow_status: string;
   evaluation_state: "not_started" | "in_progress" | "complete";
   is_trash: boolean;
+  file_created_at: string;
   created_at: string;
   preview_url: string;
 };
@@ -78,6 +79,16 @@ export type MediaPage = {
   total: number;
   limit: number;
   offset: number;
+};
+
+export type MediaNavigation = {
+  media_id: string;
+  position: number;
+  total: number;
+  previous_id: string | null;
+  previous_position: number | null;
+  next_id: string | null;
+  next_position: number | null;
 };
 
 export type Derivative = {

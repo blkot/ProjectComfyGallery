@@ -43,7 +43,10 @@ The user can:
 
 - Switch between virtualized gallery and record table.
 - Filter by media type, source folder, readiness, evaluation state, Trash, checkpoint, LoRA, architecture, pipeline pattern, tags, or errors.
+- Sort by newest/oldest file time, import time, filename, or file size.
 - Inspect media, original prompt/workflow metadata, normalized nodes, semantic observations, model usages, and provenance.
+- Move to the previous or next item in the same filtered/sorted population without
+  entering blind Review; return to the correct gallery page afterward.
 - Add media to static collections or apply tags.
 - Save the current filter as a dynamic reusable view.
 - Open the original or download it instead of a proxy.

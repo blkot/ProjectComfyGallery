@@ -178,6 +178,32 @@ Mappings may be:
 
 Manual overrides never modify the raw workflow or delete earlier extractor runs.
 
+### Structured multi-LoRA values
+
+Some LoRA loaders expose one mapped input as a structured collection rather than one
+filename. For a mapping tagged as `lora_reference`, semantic extraction supports both
+of these shapes:
+
+```json
+{"**value**": [{"name": "adapter_a", "active": true, "strength": "1.00"}]}
+```
+
+```json
+[{"name": "adapter_a", "active": true, "strength": 1}]
+```
+
+Each object with a non-empty `name` and the explicit boolean `active: true` becomes a
+separate LoRA semantic observation and subsequent model usage. Entries with
+`active: false`, a missing/invalid `active` flag, or no name are not current usages.
+Their values still remain in the generic workflow value and immutable embedded ground
+truth.
+
+Observation evidence records the collection container/index plus `strength` and
+`clipStrength` when present. Strength is evidence/filtering metadata, not a dominant
+MVP analysis factor. This rule is based on the semantic mapping and value shape, not a
+hardcoded node title or one schema fingerprint, so a manual mapping can remain useful
+across compatible loader variants.
+
 ## Automatic first-run classification
 
 The application, not the user, performs the first pass.
@@ -277,6 +303,7 @@ Triggers include:
 - Mapping confirmation or correction.
 - Model-registry link correction.
 - Pipeline-pattern correction.
+- Structured semantic-extractor upgrades.
 
 Reprocessing:
 
@@ -287,6 +314,11 @@ Reprocessing:
 5. Recomputes current semantic views by precedence.
 6. Marks affected live analysis previews stale.
 7. Never changes a saved analysis run.
+
+Extractor `2.1.0` introduces active-only structured multi-LoRA expansion. After
+upgrading from an earlier extractor, an operator runs the existing bulk “reprocess
+all” action once. Reprocessing reads the preserved ground truth, replaces the current
+derived model usages, and leaves prior extraction runs available for provenance.
 
 ## Failure behavior
 

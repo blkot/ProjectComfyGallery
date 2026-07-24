@@ -1,55 +1,66 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import {
   apiRequest,
   type Collection,
   type MediaPage,
   type MediaTag,
+  type ModelReferencePage,
   type ReviewSession,
   type SavedFilter,
 } from "../lib/api";
-import { formatBytes, formatDuration, titleCase } from "../lib/format";
-
-const pageSize = 48;
+import { formatBytes, formatDate, formatDuration, titleCase } from "../lib/format";
+import {
+  defaultMediaSort,
+  mediaDetailHref,
+  mediaListQuery,
+  mediaPageSize,
+  parseOffset,
+} from "../lib/media-view";
 
 export function LibraryPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [kind, setKind] = useState("");
-  const [status, setStatus] = useState("");
-  const [workflowStatus, setWorkflowStatus] = useState("");
-  const [evaluationState, setEvaluationState] = useState("");
-  const [trash, setTrash] = useState("");
-  const [offset, setOffset] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [collectionName, setCollectionName] = useState("");
   const [collectionId, setCollectionId] = useState("");
   const [tagName, setTagName] = useState("");
   const [tagId, setTagId] = useState("");
   const [savedFilterName, setSavedFilterName] = useState("");
-  const search = new URLSearchParams({
-    limit: String(pageSize),
-    offset: String(offset),
-  });
-  if (kind) search.set("kind", kind);
-  if (status) search.set("status", status);
-  if (workflowStatus) search.set("workflow_status", workflowStatus);
-  if (evaluationState) search.set("evaluation_state", evaluationState);
-  if (trash) search.set("trash", trash);
+  const kind = searchParams.get("kind") ?? "";
+  const status = searchParams.get("status") ?? "";
+  const workflowStatus = searchParams.get("workflow_status") ?? "";
+  const evaluationState = searchParams.get("evaluation_state") ?? "";
+  const trash = searchParams.get("trash") ?? "";
+  const checkpointReferenceId =
+    searchParams.get("checkpoint_reference_id") ?? "";
+  const loraReferenceId = searchParams.get("lora_reference_id") ?? "";
+  const sort = searchParams.get("sort") || defaultMediaSort;
+  const offset = parseOffset(searchParams.get("offset"));
+  const requestSearch = mediaListQuery(searchParams).toString();
 
   const media = useQuery({
-    queryKey: [
-      "media",
-      kind,
-      status,
-      workflowStatus,
-      evaluationState,
-      trash,
-      offset,
-    ],
-    queryFn: () => apiRequest<MediaPage>(`/api/v1/media?${search.toString()}`),
+    queryKey: ["media", requestSearch],
+    queryFn: () => apiRequest<MediaPage>(`/api/v1/media?${requestSearch}`),
+  });
+  const checkpointReferences = useQuery({
+    queryKey: ["model-references", "library-checkpoint-options"],
+    queryFn: () =>
+      apiRequest<ModelReferencePage>(
+        "/api/v1/model-references?reference_type=checkpoint&limit=500",
+      ),
+    staleTime: 60_000,
+  });
+  const loraReferences = useQuery({
+    queryKey: ["model-references", "library-lora-options"],
+    queryFn: () =>
+      apiRequest<ModelReferencePage>(
+        "/api/v1/model-references?reference_type=lora&limit=500",
+      ),
+    staleTime: 60_000,
   });
   const collections = useQuery({
     queryKey: ["collections"],
@@ -143,6 +154,8 @@ export function LibraryPage() {
             workflow_status: workflowStatus || null,
             evaluation_state: evaluationState || null,
             trash: trash ? trash === "true" : null,
+            checkpoint_reference_id: checkpointReferenceId || null,
+            lora_reference_id: loraReferenceId || null,
           },
         }),
       }),
@@ -152,19 +165,23 @@ export function LibraryPage() {
     },
   });
 
-  function changeKind(value: string) {
-    setKind(value);
-    setOffset(0);
+  function changeLibraryParameter(name: string, value: string) {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      if (value) next.set(name, value);
+      else next.delete(name);
+      next.delete("offset");
+      return next;
+    });
   }
 
-  function changeStatus(value: string) {
-    setStatus(value);
-    setOffset(0);
-  }
-
-  function changeWorkflowStatus(value: string) {
-    setWorkflowStatus(value);
-    setOffset(0);
+  function changeOffset(nextOffset: number) {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      if (nextOffset > 0) next.set("offset", String(nextOffset));
+      else next.delete("offset");
+      return next;
+    });
   }
 
   function toggleSelected(id: string) {
@@ -195,7 +212,12 @@ export function LibraryPage() {
       <section className="toolbar" aria-label="Media filters">
         <label>
           Media type
-          <select value={kind} onChange={(event) => changeKind(event.target.value)}>
+          <select
+            value={kind}
+            onChange={(event) =>
+              changeLibraryParameter("kind", event.target.value)
+            }
+          >
             <option value="">All types</option>
             <option value="image">Images</option>
             <option value="video">Videos</option>
@@ -205,10 +227,9 @@ export function LibraryPage() {
           Evaluation
           <select
             value={evaluationState}
-            onChange={(event) => {
-              setEvaluationState(event.target.value);
-              setOffset(0);
-            }}
+            onChange={(event) =>
+              changeLibraryParameter("evaluation_state", event.target.value)
+            }
           >
             <option value="">All evaluation states</option>
             <option value="not_started">Not started</option>
@@ -220,10 +241,9 @@ export function LibraryPage() {
           Trash
           <select
             value={trash}
-            onChange={(event) => {
-              setTrash(event.target.value);
-              setOffset(0);
-            }}
+            onChange={(event) =>
+              changeLibraryParameter("trash", event.target.value)
+            }
           >
             <option value="">Any disposition</option>
             <option value="false">Exclude Trash</option>
@@ -232,7 +252,12 @@ export function LibraryPage() {
         </label>
         <label>
           Processing status
-          <select value={status} onChange={(event) => changeStatus(event.target.value)}>
+          <select
+            value={status}
+            onChange={(event) =>
+              changeLibraryParameter("status", event.target.value)
+            }
+          >
             <option value="">All statuses</option>
             <option value="ready">Ready</option>
             <option value="ready_with_warnings">Ready with warnings</option>
@@ -244,7 +269,9 @@ export function LibraryPage() {
           Workflow evidence
           <select
             value={workflowStatus}
-            onChange={(event) => changeWorkflowStatus(event.target.value)}
+            onChange={(event) =>
+              changeLibraryParameter("workflow_status", event.target.value)
+            }
           >
             <option value="">All workflow states</option>
             <option value="parsed">Parsed</option>
@@ -253,6 +280,59 @@ export function LibraryPage() {
             <option value="malformed">Malformed</option>
             <option value="failed">Failed</option>
             <option value="unprocessed">Unprocessed</option>
+          </select>
+        </label>
+        <label>
+          Checkpoint
+          <select
+            value={checkpointReferenceId}
+            onChange={(event) =>
+              changeLibraryParameter(
+                "checkpoint_reference_id",
+                event.target.value,
+              )
+            }
+          >
+            <option value="">All checkpoints</option>
+            {checkpointReferences.data?.items.map((reference) => (
+              <option value={reference.id} key={reference.id}>
+                {reference.raw_value} ({reference.occurrence_count})
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          LoRA
+          <select
+            value={loraReferenceId}
+            onChange={(event) =>
+              changeLibraryParameter("lora_reference_id", event.target.value)
+            }
+          >
+            <option value="">All LoRAs</option>
+            {loraReferences.data?.items.map((reference) => (
+              <option value={reference.id} key={reference.id}>
+                {reference.raw_value} ({reference.occurrence_count})
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Sort
+          <select
+            value={sort}
+            onChange={(event) =>
+              changeLibraryParameter("sort", event.target.value)
+            }
+          >
+            <option value="file_created_desc">File time · newest</option>
+            <option value="file_created_asc">File time · oldest</option>
+            <option value="imported_desc">Imported · newest</option>
+            <option value="imported_asc">Imported · oldest</option>
+            <option value="filename_asc">Filename · A–Z</option>
+            <option value="filename_desc">Filename · Z–A</option>
+            <option value="size_desc">File size · largest</option>
+            <option value="size_asc">File size · smallest</option>
           </select>
         </label>
         <span className="result-count">
@@ -436,62 +516,86 @@ export function LibraryPage() {
               />
               <span className="sr-only">Select media</span>
             </label>
-            <Link to={`/library/${item.id}`} aria-label="Open media record">
-            <div className="media-preview">
-              {item.status === "ready" || item.status === "ready_with_warnings" ? (
-                <img src={item.preview_url} alt="" loading="lazy" />
-              ) : (
-                <span>{titleCase(item.status)}</span>
-              )}
-              {item.kind === "video" ? (
-                <span className="media-duration">{formatDuration(item.duration_seconds)}</span>
-              ) : null}
-              {item.warning_count > 0 ? (
-                <span className="warning-badge">Warning</span>
-              ) : null}
-              <span className="workflow-badge" data-status={item.workflow_status}>
-                WF · {titleCase(item.workflow_status)}
-              </span>
-              <span className="evaluation-badge" data-status={item.evaluation_state}>
-                {item.is_trash ? "Trash" : titleCase(item.evaluation_state)}
-              </span>
-            </div>
-            <div className="media-card-body">
-              <strong title={item.original_filename}>{item.original_filename}</strong>
-              <small>
-                {item.width && item.height ? `${item.width} × ${item.height}` : "Unknown size"}
-                {" · "}
-                {formatBytes(item.byte_size)}
-              </small>
-              <small>
-                {titleCase(item.detected_format ?? item.kind)}
-                {item.source_count ? ` · ${item.source_count} source path(s)` : ""}
-              </small>
-            </div>
+            <Link
+              to={mediaDetailHref(item.id, searchParams)}
+              aria-label="Open media record"
+            >
+              <div className="media-preview">
+                {item.status === "ready" ||
+                item.status === "ready_with_warnings" ? (
+                  <img src={item.preview_url} alt="" loading="lazy" />
+                ) : (
+                  <span>{titleCase(item.status)}</span>
+                )}
+                {item.kind === "video" ? (
+                  <span className="media-duration">
+                    {formatDuration(item.duration_seconds)}
+                  </span>
+                ) : null}
+                {item.warning_count > 0 ? (
+                  <span className="warning-badge">Warning</span>
+                ) : null}
+                <span
+                  className="workflow-badge"
+                  data-status={item.workflow_status}
+                >
+                  WF · {titleCase(item.workflow_status)}
+                </span>
+                <span
+                  className="evaluation-badge"
+                  data-status={item.evaluation_state}
+                >
+                  {item.is_trash
+                    ? "Trash"
+                    : titleCase(item.evaluation_state)}
+                </span>
+              </div>
+              <div className="media-card-body">
+                <strong title={item.original_filename}>
+                  {item.original_filename}
+                </strong>
+                <small>
+                  {item.width && item.height
+                    ? `${item.width} × ${item.height}`
+                    : "Unknown size"}
+                  {" · "}
+                  {formatBytes(item.byte_size)}
+                </small>
+                <small>
+                  {titleCase(item.detected_format ?? item.kind)}
+                  {item.source_count
+                    ? ` · ${item.source_count} source path(s)`
+                    : ""}
+                </small>
+                <small>File time · {formatDate(item.file_created_at)}</small>
+              </div>
             </Link>
           </article>
         ))}
       </section>
 
-      {media.data && media.data.total > pageSize ? (
+      {media.data && media.data.total > mediaPageSize ? (
         <nav className="pagination" aria-label="Media pages">
           <button
             className="secondary-button"
             type="button"
             disabled={offset === 0}
-            onClick={() => setOffset(Math.max(0, offset - pageSize))}
+            onClick={() =>
+              changeOffset(Math.max(0, offset - mediaPageSize))
+            }
           >
             Previous
           </button>
           <span>
-            {offset + 1}–{Math.min(offset + pageSize, media.data.total)} of{" "}
+            {offset + 1}–
+            {Math.min(offset + mediaPageSize, media.data.total)} of{" "}
             {media.data.total}
           </span>
           <button
             className="secondary-button"
             type="button"
-            disabled={offset + pageSize >= media.data.total}
-            onClick={() => setOffset(offset + pageSize)}
+            disabled={offset + mediaPageSize >= media.data.total}
+            onClick={() => changeOffset(offset + mediaPageSize)}
           >
             Next
           </button>

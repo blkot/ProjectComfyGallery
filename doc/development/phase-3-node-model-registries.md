@@ -139,6 +139,12 @@ persistent manual input-mapping editor.
 Manual mappings use the highest precedence. Saving one queues workflow reprocessing;
 older extraction runs and raw evidence remain unchanged.
 
+Release `0.1.0-rc.4` extends a manual `lora_reference` mapping to structured loader
+collections. The extractor emits one observation/model usage for every explicitly
+active named entry, ignores inactive entries as current usages, and preserves
+collection index and strength evidence. It intentionally keys this behavior by
+semantic type and value shape instead of one node title or schema fingerprint.
+
 ## Automatic semantic mapping
 
 The first run maps supported meanings from schema and graph evidence:

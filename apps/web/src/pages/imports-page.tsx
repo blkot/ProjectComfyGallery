@@ -79,11 +79,11 @@ export function ImportsPage() {
       ]);
     },
   });
-  const reprocessMissing = useMutation({
-    mutationFn: () =>
+  const reprocessWorkflows = useMutation({
+    mutationFn: (mode: "missing" | "all") =>
       apiRequest<WorkflowBulkReprocessResult>("/api/v1/workflows/reprocess", {
         method: "POST",
-        body: JSON.stringify({ mode: "missing" }),
+        body: JSON.stringify({ mode }),
       }),
     onSuccess: async () => {
       await Promise.all([
@@ -99,7 +99,7 @@ export function ImportsPage() {
   }
 
   const mutationError =
-    upload.error ?? createRoot.error ?? startScan.error ?? reprocessMissing.error;
+    upload.error ?? createRoot.error ?? startScan.error ?? reprocessWorkflows.error;
 
   return (
     <main className="page">
@@ -201,28 +201,43 @@ export function ImportsPage() {
           <p className="kicker">Phase 2 backfill</p>
           <h2>Extract existing workflows</h2>
           <p className="muted">
-            Queue metadata extraction only for media imported before workflow support.
-            Originals are read from managed storage and never rewritten.
+            Process media imported before workflow support, or reprocess every
+            workflow after an extractor upgrade. Originals and embedded ground truth
+            are read from managed storage and never rewritten.
           </p>
         </div>
         <div>
-          {reprocessMissing.data ? (
+          {reprocessWorkflows.data ? (
             <small>
-              {reprocessMissing.data.queued_count} queued ·{" "}
-              {reprocessMissing.data.already_active_count} already active ·{" "}
-              {reprocessMissing.data.queue_failed_count} queue failures
+              {reprocessWorkflows.data.queued_count} queued ·{" "}
+              {reprocessWorkflows.data.already_active_count} already active ·{" "}
+              {reprocessWorkflows.data.queue_failed_count} queue failures
             </small>
           ) : null}
-          <button
-            className="secondary-button"
-            type="button"
-            disabled={reprocessMissing.isPending}
-            onClick={() => reprocessMissing.mutate()}
-          >
-            {reprocessMissing.isPending
-              ? "Queuing extraction…"
-              : "Process unparsed media"}
-          </button>
+          <div className="workflow-reprocess-actions">
+            <button
+              className="secondary-button"
+              type="button"
+              disabled={reprocessWorkflows.isPending}
+              onClick={() => reprocessWorkflows.mutate("missing")}
+            >
+              {reprocessWorkflows.isPending &&
+              reprocessWorkflows.variables === "missing"
+                ? "Queuing extraction…"
+                : "Process unparsed media"}
+            </button>
+            <button
+              className="secondary-button"
+              type="button"
+              disabled={reprocessWorkflows.isPending}
+              onClick={() => reprocessWorkflows.mutate("all")}
+            >
+              {reprocessWorkflows.isPending &&
+              reprocessWorkflows.variables === "all"
+                ? "Queuing reprocessing…"
+                : "Reprocess all workflows"}
+            </button>
+          </div>
         </div>
       </section>
 

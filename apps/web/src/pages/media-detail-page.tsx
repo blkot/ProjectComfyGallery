@@ -1,17 +1,94 @@
-import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
+import {
+  Link,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 
 import { WorkflowInspector } from "../components/workflow-inspector";
-import { apiRequest, type MediaDetail } from "../lib/api";
+import {
+  apiRequest,
+  type MediaDetail,
+  type MediaNavigation,
+} from "../lib/api";
 import { formatBytes, formatDate, formatDuration, titleCase } from "../lib/format";
+import {
+  mediaDetailHref,
+  mediaLibraryHref,
+  mediaNavigationQuery,
+} from "../lib/media-view";
 
 export function MediaDetailPage() {
   const { mediaId = "" } = useParams();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const navigationSearch = mediaNavigationQuery(searchParams).toString();
+  const libraryHref = mediaLibraryHref(searchParams);
   const media = useQuery({
     queryKey: ["media-detail", mediaId],
     queryFn: () => apiRequest<MediaDetail>(`/api/v1/media/${mediaId}`),
     enabled: Boolean(mediaId),
   });
+  const navigation = useQuery({
+    queryKey: ["media-navigation", mediaId, navigationSearch],
+    queryFn: () =>
+      apiRequest<MediaNavigation>(
+        `/api/v1/media/${mediaId}/navigation?${navigationSearch}`,
+      ),
+    enabled: Boolean(mediaId),
+  });
+  const previousHref = navigation.data?.previous_id
+    ? mediaDetailHref(
+        navigation.data.previous_id,
+        searchParams,
+        navigation.data.previous_position,
+      )
+    : null;
+  const nextHref = navigation.data?.next_id
+    ? mediaDetailHref(
+        navigation.data.next_id,
+        searchParams,
+        navigation.data.next_position,
+      )
+    : null;
+
+  useEffect(() => {
+    function handleKeyboardNavigation(event: KeyboardEvent) {
+      const target = event.target;
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+        return;
+      }
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          ["AUDIO", "INPUT", "SELECT", "TEXTAREA", "VIDEO"].includes(
+            target.tagName,
+          ))
+      ) {
+        return;
+      }
+      if (event.key === "ArrowLeft" && previousHref) {
+        event.preventDefault();
+        navigate(previousHref);
+      } else if (event.key === "ArrowRight" && nextHref) {
+        event.preventDefault();
+        navigate(nextHref);
+      }
+    }
+    window.addEventListener("keydown", handleKeyboardNavigation);
+    return () => window.removeEventListener("keydown", handleKeyboardNavigation);
+  }, [navigate, nextHref, previousHref]);
+
+  function prefetchMedia(targetId: string | null) {
+    if (!targetId) return;
+    void queryClient.prefetchQuery({
+      queryKey: ["media-detail", targetId],
+      queryFn: () => apiRequest<MediaDetail>(`/api/v1/media/${targetId}`),
+    });
+  }
 
   if (media.isPending) {
     return (
@@ -24,7 +101,7 @@ export function MediaDetailPage() {
     return (
       <main className="page">
         <p className="notice error-notice">The media record could not be loaded.</p>
-        <Link className="secondary-button link-button" to="/library">
+        <Link className="secondary-button link-button" to={libraryHref}>
           Back to library
         </Link>
       </main>
@@ -35,8 +112,52 @@ export function MediaDetailPage() {
   return (
     <main className="page media-detail-page">
       <header className="detail-nav">
-        <Link to="/library">← Media library</Link>
-        <a className="secondary-button link-button" href={`${item.original_url}?download=true`}>
+        <Link to={libraryHref}>← Media library</Link>
+        <nav className="media-view-navigation" aria-label="Media viewer navigation">
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={!previousHref}
+            aria-keyshortcuts="ArrowLeft"
+            onClick={() => {
+              if (previousHref) navigate(previousHref);
+            }}
+            onFocus={() =>
+              prefetchMedia(navigation.data?.previous_id ?? null)
+            }
+            onMouseEnter={() =>
+              prefetchMedia(navigation.data?.previous_id ?? null)
+            }
+          >
+            ← Previous
+          </button>
+          <span aria-live="polite">
+            {navigation.data
+              ? `${navigation.data.position} of ${navigation.data.total}`
+              : navigation.isError
+                ? "Outside this view"
+              : "Locating…"}
+          </span>
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={!nextHref}
+            aria-keyshortcuts="ArrowRight"
+            onClick={() => {
+              if (nextHref) navigate(nextHref);
+            }}
+            onFocus={() => prefetchMedia(navigation.data?.next_id ?? null)}
+            onMouseEnter={() =>
+              prefetchMedia(navigation.data?.next_id ?? null)
+            }
+          >
+            Next →
+          </button>
+        </nav>
+        <a
+          className="secondary-button link-button"
+          href={`${item.original_url}?download=true`}
+        >
           Download original
         </a>
       </header>

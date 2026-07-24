@@ -268,6 +268,11 @@ queries.
 - Strength/configuration retained as raw structured data.
 - Extraction confidence and version.
 
+One mapped workflow value may yield multiple model usages. Structured LoRA collections
+retain the complete raw value in `workflow_value`; only explicitly active named
+entries yield current `semantic_observation` and `model_usage` rows. Collection
+position and strength fields remain in observation evidence for traceability.
+
 ### `lora_series`
 
 - UUID and opaque series name.

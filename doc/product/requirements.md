@@ -67,6 +67,10 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
 - **NODE-009:** A correction MUST be able to trigger reprocessing of every affected workflow.
 - **NODE-010:** The MVP MUST provide an unknown-node inbox and persistent manual input mappings.
 - **NODE-011:** A full visual rule-authoring system is deferred.
+- **NODE-012:** A LoRA mapping whose located value is a structured collection MUST
+  create one current semantic observation for each explicitly active entry, MUST
+  exclude explicitly inactive entries from current model usage, and MUST preserve
+  the complete collection in embedded ground truth.
 
 ## Model registry
 
@@ -101,6 +105,13 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
 - **LIB-004:** The library MUST support manual tags.
 - **LIB-005:** Large galleries MUST use pagination or virtualization rather than rendering every item.
 - **LIB-006:** Import, processing, parsing, and registry errors MUST be visible and filterable.
+- **LIB-007:** The library MUST support deterministic sorting by file time, import
+  time, filename, and byte size, with newest file time as the default.
+- **LIB-008:** Media Detail MUST provide Previous and Next traversal over the exact
+  filtered and sorted library context from which it was opened, including across
+  pagination boundaries.
+- **LIB-009:** The library and reusable filter scopes MUST support exact checkpoint
+  and LoRA-reference filters, including historical workflow-only references.
 
 ## Manual evaluation
 
