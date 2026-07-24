@@ -8,8 +8,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN apk upgrade --no-cache && \
-    apk add --no-cache ffmpeg su-exec
+RUN apk update && \
+    apk upgrade && \
+    apk add ffmpeg su-exec && \
+    rm -rf /var/cache/apk/*
 
 RUN addgroup -S -g 10001 comfy && \
     adduser -S -D -H -u 10001 -G comfy -s /sbin/nologin comfy

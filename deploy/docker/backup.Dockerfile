@@ -1,8 +1,10 @@
 FROM postgres:17-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
 
-RUN apk upgrade --no-cache && \
-    apk add --no-cache su-exec && \
-    rm /usr/local/bin/gosu
+RUN apk update && \
+    apk upgrade && \
+    apk add su-exec && \
+    rm /usr/local/bin/gosu && \
+    rm -rf /var/cache/apk/*
 
 COPY deploy/operations/backup-entrypoint.sh /usr/local/bin/backup-entrypoint
 COPY deploy/operations/backup.sh /usr/local/bin/comfy-gallery-backup
