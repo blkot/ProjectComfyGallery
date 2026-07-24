@@ -2,7 +2,7 @@
 
 All notable changes to Project Comfy Gallery are recorded here.
 
-## Unreleased
+## 0.1.0-rc.7 — 2026-07-25
 
 - Use larger three-column gallery cards with a 2:3 portrait preview frame.
 - Document the implemented bearer-authenticated import contract for a future

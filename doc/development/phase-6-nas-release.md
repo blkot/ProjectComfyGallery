@@ -2,7 +2,7 @@
 
 **Status:** Complete and verified on 2026-07-24
 
-**Locked release:** `0.1.0-rc.6`
+**Locked release:** `0.1.0-rc.7`
 
 ## Delivered release slice
 

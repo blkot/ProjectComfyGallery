@@ -63,6 +63,14 @@ architecture-compatible images in a private registry, with the NAS limited to
 `pull`, migration preflight, and `up`. A registry-backed BuildKit cache can also
 retain dependency layers across release tags and NAS cache cleanup.
 
+Measured on the target J4125 NAS on 2026-07-25, a CSS-only web build took 84
+seconds: roughly 61 seconds resolving the already pinned Node/Nginx image metadata,
+18.7 seconds running the frontend build, and about four seconds exporting the
+image. `pnpm install` and the Alpine hardening layer were cache hits. Replacing the
+web container took three seconds. This measurement distinguishes registry latency
+from application compilation and supports targeted deployment as the immediate
+workflow.
+
 ## Verify
 
 ```bash
