@@ -16,7 +16,11 @@ RUN pnpm --filter @comfy-gallery/web build
 
 FROM nginx:1.29-alpine@sha256:5616878291a2eed594aee8db4dade5878cf7edcb475e59193904b198d9b830de
 
-RUN apk upgrade --no-cache
+ARG ALPINE_MIRROR=https://dl-cdn.alpinelinux.org/alpine
+
+RUN sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${ALPINE_MIRROR%/}|g" \
+        /etc/apk/repositories && \
+    apk upgrade --no-cache
 
 COPY deploy/docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/apps/web/dist /usr/share/nginx/html

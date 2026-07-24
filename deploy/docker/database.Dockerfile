@@ -1,6 +1,10 @@
 FROM postgres:17-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
 
-RUN apk update && \
+ARG ALPINE_MIRROR=https://dl-cdn.alpinelinux.org/alpine
+
+RUN sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${ALPINE_MIRROR%/}|g" \
+        /etc/apk/repositories && \
+    apk update && \
     apk upgrade && \
     apk add su-exec && \
     sed -i 's/exec gosu postgres/exec su-exec postgres/' \

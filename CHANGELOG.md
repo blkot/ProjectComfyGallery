@@ -13,8 +13,8 @@ Collision-safe model-reference aliases:
 - Add confirm and undo controls to the Model Registry Duplicate aliases tab.
 - Collapse confirmed aliases in Library filters and analytics, expand them in media
   and saved-review queries, and avoid media reprocessing or repeat evaluation.
-- Reuse one Alpine package-index refresh per Docker hardening layer to avoid duplicate
-  network requests during NAS builds.
+- Reuse one Alpine package-index refresh per Docker hardening layer and support a
+  configurable `ALPINE_MIRROR` to avoid slow or duplicate NAS build downloads.
 
 ## 0.1.0-rc.5 — 2026-07-25
 

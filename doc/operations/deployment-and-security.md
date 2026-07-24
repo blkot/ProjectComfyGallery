@@ -93,6 +93,12 @@ Phase 0 Compose requires `POSTGRES_PASSWORD` and `CG_ADMIN_PASSWORD` and refuses
 configuration without them. `.env.example` contains non-secret replacement
 markers.
 
+`ALPINE_MIRROR` is an optional build-only repository base. It defaults to Alpine's
+official CDN and is applied consistently to all runtime-image hardening steps. An
+operator may select a geographically closer compatible mirror when the official CDN
+is slow; the NAS deployment currently uses `https://mirrors.aliyun.com/alpine` after
+an in-container download check.
+
 ## Resource profile
 
 Initial conservative defaults:

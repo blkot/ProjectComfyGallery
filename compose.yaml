@@ -43,6 +43,7 @@ x-backend-build: &backend-build
   dockerfile: deploy/docker/backend.Dockerfile
   args:
     CG_PROJECT_VERSION: 0.1.0-rc.6
+    ALPINE_MIRROR: ${ALPINE_MIRROR:-https://dl-cdn.alpinelinux.org/alpine}
 
 x-service-logging: &service-logging
   driver: json-file
@@ -58,6 +59,7 @@ services:
       dockerfile: deploy/docker/database.Dockerfile
       args:
         CG_PROJECT_VERSION: 0.1.0-rc.6
+        ALPINE_MIRROR: ${ALPINE_MIRROR:-https://dl-cdn.alpinelinux.org/alpine}
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-comfygallery}
@@ -92,6 +94,7 @@ services:
       dockerfile: deploy/docker/redis.Dockerfile
       args:
         CG_PROJECT_VERSION: 0.1.0-rc.6
+        ALPINE_MIRROR: ${ALPINE_MIRROR:-https://dl-cdn.alpinelinux.org/alpine}
     restart: unless-stopped
     command:
       [
@@ -199,6 +202,7 @@ services:
       dockerfile: deploy/docker/backup.Dockerfile
       args:
         CG_PROJECT_VERSION: 0.1.0-rc.6
+        ALPINE_MIRROR: ${ALPINE_MIRROR:-https://dl-cdn.alpinelinux.org/alpine}
     restart: unless-stopped
     environment:
       PGHOST: postgres
@@ -242,6 +246,7 @@ services:
       dockerfile: deploy/docker/web.Dockerfile
       args:
         CG_PROJECT_VERSION: 0.1.0-rc.6
+        ALPINE_MIRROR: ${ALPINE_MIRROR:-https://dl-cdn.alpinelinux.org/alpine}
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-8080}:8080"
