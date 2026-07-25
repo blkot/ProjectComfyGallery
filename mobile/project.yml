@@ -18,6 +18,8 @@ targets:
       base:
         INFOPLIST_FILE: ComfyGalleryMobile/Resources/Info.plist
         PRODUCT_BUNDLE_IDENTIFIER: com.comfygallery.mobile
+        PRODUCT_NAME: ComfyGalleryMobile
+        DEVELOPMENT_LANGUAGE: en
     configFiles:
       Debug: Config/Debug.xcconfig
       Release: Config/Release.xcconfig
