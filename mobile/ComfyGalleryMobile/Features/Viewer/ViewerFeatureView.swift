@@ -12,6 +12,7 @@ struct ViewerFeatureView: View {
     @State private var videoURL: URL?
     @State private var posterImage: UIImage?
     @State private var isLoading = true
+    @State private var loadFailed = false
     @State private var showControls = true
 
     init(initialItem: MobileMediaSummary, items: [MobileMediaSummary]) {
@@ -26,82 +27,114 @@ struct ViewerFeatureView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            GeometryReader { geometry in
-                ZStack {
-                    Color.black.ignoresSafeArea()
+        GeometryReader { _ in
+            ZStack {
+                Color.black.ignoresSafeArea()
 
-                    if let item = currentItem {
-                        if isLoading {
+                if let item = currentItem {
+                    if isLoading {
+                        VStack(spacing: 12) {
                             ProgressView()
                                 .tint(.white)
-                        } else if item.kind == .video, let url = videoURL {
-                            VideoPlayerView(videoURL: url, posterImage: posterImage)
-                        } else if let image = image {
-                            ImageViewer(image: image)
+                            Text("Loading...")
+                                .foregroundStyle(.secondary)
                         }
-                    }
-                }
-                .overlay(alignment: .top) {
-                    if showControls {
-                        HStack {
-                            Button {
-                                dismiss()
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.title2)
-                                    .foregroundStyle(.white)
+                    } else if loadFailed {
+                        VStack(spacing: 16) {
+                            Image(systemName: "exclamationmark.triangle")
+                                .font(.system(size: 40))
+                                .foregroundStyle(.orange)
+                            Text("Could not load media")
+                                .foregroundStyle(.secondary)
+                            Button("Retry") {
+                                Task { await loadCurrentItem() }
                             }
-
-                            Spacer()
-
-                            Text("\(currentIndex + 1) / \(items.count)")
-                                .foregroundStyle(.white)
-                                .font(.subheadline)
+                            .buttonStyle(.bordered)
+                            .tint(.white)
                         }
-                        .padding()
-                        .background(.black.opacity(0.4))
-                    }
-                }
-                .overlay(alignment: .bottom) {
-                    if showControls {
-                        HStack {
-                            Button {
-                                navigateToPrevious()
-                            } label: {
-                                Image(systemName: "arrow.left.circle.fill")
-                                    .font(.title2)
-                                    .foregroundStyle(currentIndex > 0 ? .white : .gray)
+                    } else if item.kind == .video, let url = videoURL {
+                        VideoPlayerView(videoURL: url, posterImage: posterImage)
+                    } else if let image = image {
+                        ImageViewer(image: image)
+                    } else {
+                        VStack(spacing: 16) {
+                            Image(systemName: item.kind == .video ? "play.slash" : "photo")
+                                .font(.system(size: 40))
+                                .foregroundStyle(.secondary)
+                            Text("Could not load media")
+                                .foregroundStyle(.secondary)
+                            Button("Retry") {
+                                Task { await loadCurrentItem() }
                             }
-                            .disabled(currentIndex <= 0)
-
-                            Spacer()
-
-                            Button {
-                                navigateToNext()
-                            } label: {
-                                Image(systemName: "arrow.right.circle.fill")
-                                    .font(.title2)
-                                    .foregroundStyle(currentIndex < items.count - 1 ? .white : .gray)
-                            }
-                            .disabled(currentIndex >= items.count - 1)
+                            .buttonStyle(.bordered)
+                            .tint(.white)
                         }
-                        .padding()
-                        .background(.black.opacity(0.4))
-                    }
-                }
-                .onTapGesture {
-                    withAnimation {
-                        showControls.toggle()
                     }
                 }
             }
-            .navigationBarHidden(true)
+            .overlay(alignment: .top) {
+                if showControls {
+                    HStack {
+                        Button {
+                            dismiss()
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(.white)
+                        }
+
+                        Spacer()
+
+                        Text("\(currentIndex + 1) / \(items.count)")
+                            .foregroundStyle(.white)
+                            .font(.subheadline)
+                    }
+                    .padding()
+                    .background(.black.opacity(0.4))
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if showControls {
+                    HStack {
+                        Button {
+                            navigateToPrevious()
+                        } label: {
+                            Image(systemName: "arrow.left.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(currentIndex > 0 ? .white : .gray)
+                        }
+                        .disabled(currentIndex <= 0)
+
+                        Spacer()
+
+                        Button {
+                            navigateToNext()
+                        } label: {
+                            Image(systemName: "arrow.right.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(currentIndex < items.count - 1 ? .white : .gray)
+                        }
+                        .disabled(currentIndex >= items.count - 1)
+                    }
+                    .padding()
+                    .background(.black.opacity(0.4))
+                }
+            }
+            .onTapGesture {
+                withAnimation {
+                    showControls.toggle()
+                }
+            }
         }
         .task {
             await loadCurrentItem()
         }
         .onChange(of: currentIndex) { _, _ in
+            image = nil
+            videoURL = nil
+            posterImage = nil
+            isLoading = true
+            loadFailed = false
             Task { await loadCurrentItem() }
         }
     }
@@ -109,26 +142,26 @@ struct ViewerFeatureView: View {
     private func loadCurrentItem() async {
         guard let item = currentItem else { return }
         isLoading = true
-        image = nil
-        videoURL = nil
-        posterImage = nil
+        loadFailed = false
 
         do {
             let repo = environment.mediaRepository
-            let targetSize = CGSize(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.width * 1.5)
-            posterImage = try await repo.fetchPreviewImage(
+            let targetSize = CGSize(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+            let img = try await repo.fetchPreviewImage(
                 mediaID: item.id,
                 targetSize: targetSize
             )
+            posterImage = img
             if item.kind == .image {
-                image = posterImage
+                image = img
             } else if item.kind == .video {
                 videoURL = try await repo.fetchPlaybackVideo(mediaID: item.id)
             }
+            isLoading = false
         } catch {
-            // Loading failed, stay on placeholder
+            isLoading = false
+            loadFailed = true
         }
-        isLoading = false
     }
 
     private func navigateToPrevious() {

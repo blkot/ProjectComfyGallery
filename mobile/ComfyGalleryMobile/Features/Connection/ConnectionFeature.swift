@@ -4,7 +4,7 @@ import OSLog
 @MainActor
 @Observable
 final class ConnectionFeature {
-    var serverURL: String = ""
+    var serverURL: String = UserDefaults.standard.string(forKey: "lastServerURL") ?? ""
     var apiToken: String = ""
     var isConnecting = false
     var errorMessage: String?
@@ -57,6 +57,7 @@ final class ConnectionFeature {
 
         switch connectionService.connectionState {
         case .connected:
+            UserDefaults.standard.set(url, forKey: "lastServerURL")
             environment.isConnected = true
         case .error(let message):
             errorMessage = message

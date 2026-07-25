@@ -25,7 +25,8 @@ actor MediaRepository {
     }
 
     func fetchPreviewImage(mediaID: String, targetSize: CGSize) async throws -> UIImage? {
-        if let cached = imageCache.object(forKey: mediaID as NSString) {
+        let cacheKey = "\(mediaID)_\(Int(targetSize.width))x\(Int(targetSize.height))" as NSString
+        if let cached = imageCache.object(forKey: cacheKey) {
             return cached
         }
         if let existing = activeTasks[mediaID] {
@@ -42,7 +43,7 @@ actor MediaRepository {
         guard let image = ImageDecoder.downsample(data: data, to: targetSize, scale: 3.0) else {
             throw APIError.invalidResponse
         }
-        imageCache.setObject(image, forKey: mediaID as NSString)
+        imageCache.setObject(image, forKey: cacheKey)
         return image
     }
 
