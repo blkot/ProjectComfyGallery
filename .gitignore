@@ -25,6 +25,8 @@ testdata/golden/**/expected.local.json
 testdata/golden/**/notes.local.md
 !testdata/golden/.gitkeep
 
+.worktrees/
+
 *.log
 *.dump
 *.dump.sha256
