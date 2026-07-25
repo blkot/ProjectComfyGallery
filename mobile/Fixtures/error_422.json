@@ -1,0 +1,1 @@
+{"error":{"code":"VALIDATION_ERROR","message":"Score value must be between 0 and 10.","details":{},"request_id":"req-error-422"}}

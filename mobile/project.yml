@@ -1,0 +1,45 @@
+name: ComfyGalleryMobile
+options:
+  bundleIdPrefix: com.comfygallery
+  deploymentTarget:
+    iOS: "17.0"
+  xcodeVersion: "16.0"
+
+settings:
+  SWIFT_VERSION: "6.0"
+
+targets:
+  ComfyGalleryMobile:
+    type: application
+    platform: iOS
+    sources:
+      - path: ComfyGalleryMobile
+    settings:
+      base:
+        INFOPLIST_FILE: ComfyGalleryMobile/Resources/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.comfygallery.mobile
+    configFiles:
+      Debug: Config/Debug.xcconfig
+      Release: Config/Release.xcconfig
+
+  ComfyGalleryMobileTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: ComfyGalleryMobileTests
+    dependencies:
+      - target: ComfyGalleryMobile
+    configFiles:
+      Debug: Config/Debug.xcconfig
+      Release: Config/Release.xcconfig
+
+  ComfyGalleryMobileUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: ComfyGalleryMobileUITests
+    dependencies:
+      - target: ComfyGalleryMobile
+    configFiles:
+      Debug: Config/Debug.xcconfig
+      Release: Config/Release.xcconfig
