@@ -64,6 +64,10 @@ final class LocalStore {
         try modelContext.save()
     }
 
+    func saveContext() throws {
+        try modelContext.save()
+    }
+
     func clearPendingMutations(for profileUUID: String) throws {
         let mutations = try modelContext.fetch(
             FetchDescriptor<PendingMutation>(

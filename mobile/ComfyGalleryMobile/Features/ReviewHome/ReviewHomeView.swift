@@ -125,17 +125,21 @@ struct ReviewHomeView: View {
         }
     }
 
+    @ViewBuilder
     private func statusBadge(_ status: SessionStatus) -> some View {
         switch status {
         case .active:
             Text("Active").font(.caption)
                 .padding(.horizontal, 8).padding(.vertical, 2)
-                .background(.green.opacity(0.15)).foregroundStyle(.green)
+                .background(.green.opacity(0.15))
+                .foregroundStyle(.green)
                 .clipShape(Capsule())
         case .finished:
             Text("Finished").font(.caption).foregroundStyle(.secondary)
+                .padding(.horizontal, 8).padding(.vertical, 2)
         case .abandoned:
-            Text("Abandoned").font(.caption).foregroundStyle(.tertiary)
+            Text("Abandoned").font(.caption).foregroundStyle(.secondary)
+                .padding(.horizontal, 8).padding(.vertical, 2)
         }
     }
 }

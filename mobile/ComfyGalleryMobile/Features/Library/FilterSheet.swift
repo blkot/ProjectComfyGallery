@@ -11,28 +11,28 @@ struct FilterSheet: View {
             Form {
                 Section("Media Type") {
                     Button("All") { kind = nil }
-                        .foregroundStyle(kind == nil ? .tint : .primary)
+                        .foregroundStyle(kind == nil ? Color.accentColor : Color.primary)
                     Button("Images") { kind = .image }
-                        .foregroundStyle(kind == .image ? .tint : .primary)
+                        .foregroundStyle(kind == .image ? Color.accentColor : Color.primary)
                     Button("Videos") { kind = .video }
-                        .foregroundStyle(kind == .video ? .tint : .primary)
+                        .foregroundStyle(kind == .video ? Color.accentColor : Color.primary)
                 }
 
                 Section("Evaluation Status") {
                     Button("All") { evaluationState = nil }
-                        .foregroundStyle(evaluationState == nil ? .tint : .primary)
+                        .foregroundStyle(evaluationState == nil ? Color.accentColor : Color.primary)
                     Button("Not Started") { evaluationState = .notStarted }
-                        .foregroundStyle(evaluationState == .notStarted ? .tint : .primary)
+                        .foregroundStyle(evaluationState == .notStarted ? Color.accentColor : Color.primary)
                     Button("In Progress") { evaluationState = .inProgress }
-                        .foregroundStyle(evaluationState == .inProgress ? .tint : .primary)
+                        .foregroundStyle(evaluationState == .inProgress ? Color.accentColor : Color.primary)
                     Button("Complete") { evaluationState = .complete }
-                        .foregroundStyle(evaluationState == .complete ? .tint : .primary)
+                        .foregroundStyle(evaluationState == .complete ? Color.accentColor : Color.primary)
                 }
 
                 Section("Trash") {
                     ForEach(LibraryFeature.FilterTrashOption.allCases, id: \.self) { option in
                         Button(option.label) { trash = option }
-                            .foregroundStyle(trash == option ? .tint : .primary)
+                            .foregroundStyle(trash == option ? Color.accentColor : Color.primary)
                     }
                 }
             }

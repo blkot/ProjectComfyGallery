@@ -1,7 +1,8 @@
 import Foundation
 import OSLog
 
-actor ReviewCommandQueue {
+@MainActor
+final class ReviewCommandQueue {
     private let apiClient: APIClient
     private let localStore: LocalStore
     private let logger = Logger(subsystem: "com.comfygallery.mobile", category: "CommandQueue")
@@ -10,7 +11,7 @@ actor ReviewCommandQueue {
     private let baseBackoff: UInt64 = 500_000_000 // 500ms
     private var isShutdown = false
 
-    struct Lane {
+    private struct Lane {
         var commands: [PendingMutation] = []
         var isProcessing = false
     }
@@ -20,7 +21,7 @@ actor ReviewCommandQueue {
         self.localStore = localStore
     }
 
-    func enqueue(_ mutation: PendingMutation) async {
+    func enqueue(_ mutation: PendingMutation) {
         guard !isShutdown else { return }
         if lanes[mutation.evaluationUUID] == nil {
             lanes[mutation.evaluationUUID] = Lane()
@@ -28,20 +29,19 @@ actor ReviewCommandQueue {
         if let existing = lanes[mutation.evaluationUUID]?.commands.last,
            existing.commandKind == mutation.commandKind,
            existing.criterionVersionUUID == mutation.criterionVersionUUID {
-            // Coalesce unsent same-criterion changes
             existing.intendedValue = mutation.intendedValue
             existing.baseEvaluationVersion = mutation.baseEvaluationVersion
             return
         }
         lanes[mutation.evaluationUUID]?.commands.append(mutation)
-        await processLane(evaluationUUID: mutation.evaluationUUID)
+        Task { await processLane(evaluationUUID: mutation.evaluationUUID) }
     }
 
     func shutdown() {
         isShutdown = true
     }
 
-    func reconcilePending(for evaluationUUID: String) async -> Bool {
+    func reconcilePending(for evaluationUUID: String) -> Bool {
         return lanes[evaluationUUID]?.commands.isEmpty ?? true
     }
 
@@ -59,9 +59,9 @@ actor ReviewCommandQueue {
             do {
                 try await execute(command)
                 lanes[evaluationUUID]?.commands.removeFirst()
-                try? await localStore.deletePendingMutation(command)
+                try? localStore.deletePendingMutation(command)
             } catch let error as APIError {
-                await handleError(error, mutation: command)
+                handleError(error, mutation: command)
                 if !error.isRetryable { break }
                 if command.attemptCount >= maxRetries { break }
                 let backoff = baseBackoff * UInt64(pow(2.0, Double(min(command.attemptCount, 10) - 1)))
@@ -71,7 +71,7 @@ actor ReviewCommandQueue {
             } catch {
                 command.lastErrorCategory = "unknown"
                 command.attemptCount += 1
-                try? await localStore.modelContext.save()
+                try? localStore.saveContext()
                 if command.attemptCount >= maxRetries { break }
                 let backoff = baseBackoff
                 let jitter = UInt64.random(in: 0...(backoff / 4))
@@ -124,10 +124,10 @@ actor ReviewCommandQueue {
         let _: Evaluation = try await apiClient.request(endpoint)
     }
 
-    private func handleError(_ error: APIError, mutation: PendingMutation) async {
+    private func handleError(_ error: APIError, mutation: PendingMutation) {
         mutation.attemptCount += 1
         mutation.lastErrorCategory = String(describing: error)
-        try? await localStore.modelContext.save()
+        try? localStore.saveContext()
 
         if error.requiresReauthentication {
             isShutdown = true

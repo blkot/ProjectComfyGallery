@@ -30,7 +30,7 @@ actor MediaRepository {
         }
         if let existing = activeTasks[mediaID] {
             let data = try await existing.value
-            return ImageDecoder.downsample(data: data, to: targetSize)
+            return ImageDecoder.downsample(data: data, to: targetSize, scale: 3.0)
         }
         let task = Task<Data, Error> {
             return try await apiClient.requestData(.mediaPreview(id: mediaID))
@@ -39,7 +39,7 @@ actor MediaRepository {
         defer { activeTasks[mediaID] = nil }
 
         let data = try await task.value
-        guard let image = ImageDecoder.downsample(data: data, to: targetSize) else {
+        guard let image = ImageDecoder.downsample(data: data, to: targetSize, scale: 3.0) else {
             throw APIError.invalidResponse
         }
         imageCache.setObject(image, forKey: mediaID as NSString)

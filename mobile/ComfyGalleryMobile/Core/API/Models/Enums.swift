@@ -1,16 +1,16 @@
 import Foundation
 
-enum MediaKind: String, Decodable, Sendable {
+enum MediaKind: String, Codable, Sendable {
     case image, video
 }
 
-enum EvaluationState: String, Decodable, Sendable {
+enum EvaluationState: String, Codable, Sendable {
     case notStarted = "not_started"
     case inProgress = "in_progress"
     case complete
 }
 
-enum ProgressState: String, Decodable, Sendable {
+enum ProgressState: String, Codable, Sendable {
     case notStarted = "not_started"
     case inProgress = "in_progress"
     case complete

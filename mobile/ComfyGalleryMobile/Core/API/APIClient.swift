@@ -11,7 +11,7 @@ actor APIClient {
         self.credentialStore = credentialStore
         let config = URLSessionConfiguration.ephemeral
         config.waitsForConnectivity = true
-        config.timeoutIntervalForConnect = 10
+        config.timeoutIntervalForRequest = 10
         config.timeoutIntervalForResource = 60
         self.session = URLSession(configuration: config)
     }
@@ -40,7 +40,7 @@ actor APIClient {
     }
 
     func download(_ endpoint: Endpoint, to destination: URL) async throws {
-        let request = try buildRequest(for: endpoint)
+        let request = try await buildRequest(for: endpoint)
         let (tempURL, response) = try await session.download(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse

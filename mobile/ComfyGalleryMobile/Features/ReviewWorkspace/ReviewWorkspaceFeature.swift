@@ -93,7 +93,7 @@ final class ReviewWorkspaceFeature {
         )
         do {
             try localStore.insertPendingMutation(mutation)
-            await commandQueue.enqueue(mutation)
+            commandQueue.enqueue(mutation)
             try await fetchCurrentItem()
             saveState = .saved
         } catch let error as APIError {
@@ -113,7 +113,7 @@ final class ReviewWorkspaceFeature {
         )
         do {
             try localStore.insertPendingMutation(mutation)
-            await commandQueue.enqueue(mutation)
+            commandQueue.enqueue(mutation)
             try await fetchCurrentItem()
             saveState = .saved
         } catch { saveState = .savedLocally }
@@ -129,7 +129,7 @@ final class ReviewWorkspaceFeature {
         )
         do {
             try localStore.insertPendingMutation(mutation)
-            await commandQueue.enqueue(mutation)
+            commandQueue.enqueue(mutation)
             try await fetchCurrentItem()
             saveState = .saved
         } catch { saveState = .savedLocally }
@@ -145,7 +145,7 @@ final class ReviewWorkspaceFeature {
         )
         do {
             try localStore.insertPendingMutation(mutation)
-            await commandQueue.enqueue(mutation)
+            commandQueue.enqueue(mutation)
             try await fetchCurrentItem()
             saveState = .saved
         } catch { saveState = .savedLocally }

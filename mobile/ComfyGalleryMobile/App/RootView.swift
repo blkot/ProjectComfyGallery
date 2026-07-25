@@ -20,7 +20,7 @@ struct RootView: View {
                         .tag(AppEnvironment.Tab.settings)
                 }
             } else {
-                ConnectionView()
+                ConnectionView(environment: environment)
             }
         }
     }

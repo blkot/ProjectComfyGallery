@@ -82,7 +82,7 @@ final class ConnectionService {
         connectionState = .authenticating
         do {
             let session: UserSession = try await apiClient.request(.authSession)
-            await credentialStore.store(token: token, for: session.user.id)
+            credentialStore.store(token: token, for: session.user.id)
             connectionState = .connected(session)
         } catch {
             connectionState = .error("Authentication failed. Check your API token.")

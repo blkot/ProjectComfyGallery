@@ -3,7 +3,7 @@ import ImageIO
 import UIKit
 
 enum ImageDecoder {
-    static func downsample(data: Data, to size: CGSize, scale: CGFloat = UIScreen.main.scale) -> UIImage? {
+    static func downsample(data: Data, to size: CGSize, scale: CGFloat) -> UIImage? {
         let maxDimension = max(size.width, size.height) * scale
         let options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
