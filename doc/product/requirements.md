@@ -137,8 +137,9 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
 - **LIB-014:** Media Detail and Blind Review MUST use a viewport-height media stage
   beside an independently scrollable inspector. Media Detail MUST prioritize filename,
   basic file facts, checkpoint/LoRA usages, and exact prompts, while UUID and SHA-256
-  remain available as secondary technical evidence. Blind Review MUST preserve its
-  configuration-hiding invariant.
+  remain available as secondary technical evidence. Media MUST be contained inside
+  the current dynamic viewport without control overlays or edge clipping. Blind Review
+  MUST preserve its configuration-hiding invariant.
 
 ## Manual evaluation
 

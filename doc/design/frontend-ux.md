@@ -146,10 +146,13 @@ imports.
 The media record exposes:
 
 Media Detail is a fixed-height workstation on desktop. The original image/video stage
-occupies the complete left side from top to bottom; library return, deterministic
-Previous/Next traversal, position, and download controls float over that stage. The
-right inspector scrolls independently, so the media never moves out of view while
-workflow evidence is inspected.
+occupies the complete left side below a dedicated control row containing library
+return, deterministic Previous/Next traversal, position, and download. Controls never
+overlay the media. The stage uses the dynamic browser viewport and a definite
+containment box so every edge of an image or video remains visible across browser
+sizes, zoom levels, and source aspect ratios. The right inspector scrolls
+independently, so the media never moves out of view while workflow evidence is
+inspected.
 
 Inspector information is deliberately ordered by practical recall value:
 
@@ -220,7 +223,8 @@ newest-file-time view.
 
 Blind Review uses the same full-height left media stage and independently scrolling
 right control pane. It does not reuse the Media Detail evidence inspector: checkpoint,
-LoRA, and configuration evidence stay hidden under EVAL-017.
+LoRA, and configuration evidence stay hidden under EVAL-017. Session exit and progress
+controls live in the right pane rather than obscuring the review media.
 
 ## Import and jobs
 

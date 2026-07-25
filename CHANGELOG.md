@@ -18,6 +18,8 @@ All notable changes to Project Comfy Gallery are recorded here.
   Media Detail and Blind Review workspaces.
 - Reorder Media Detail around filename/file facts, checkpoint and LoRA roles, and
   exact prompt text while moving UUID/SHA and parser internals into disclosures.
+- Fit image and video viewers to the dynamic browser height with edge clearance,
+  and move viewer/review navigation out of the media surface.
 
 ## 0.1.0-rc.7 — 2026-07-25
 

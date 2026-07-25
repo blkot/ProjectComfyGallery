@@ -1408,6 +1408,7 @@ textarea {
 
 .review-workspace {
   height: 100vh;
+  height: 100dvh;
   min-height: 0;
   overflow: hidden;
   background: #0b0b09;
@@ -1418,9 +1419,9 @@ textarea {
   padding: 0 22px;
   border-bottom: 1px solid var(--line-soft);
   background: rgba(16, 16, 14, 0.98);
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 18px;
 }
 
@@ -1429,6 +1430,10 @@ textarea {
   flex-direction: column;
   align-items: flex-start;
   gap: 3px;
+}
+
+.review-topbar > span:first-of-type {
+  align-items: center;
 }
 
 .review-topbar strong {
@@ -1452,6 +1457,7 @@ textarea {
 
 .review-columns {
   height: 100vh;
+  height: 100dvh;
   display: grid;
   grid-template-columns: minmax(0, 1.65fr) minmax(390px, 0.8fr);
 }
@@ -1467,16 +1473,8 @@ textarea {
 }
 
 .review-exit-link {
-  position: absolute;
-  z-index: 2;
-  top: 16px;
-  left: 16px;
-  padding: 9px 11px;
-  border: 1px solid rgba(73, 73, 62, 0.75);
-  border-radius: 7px;
+  padding: 7px 0;
   color: var(--muted);
-  background: rgba(12, 12, 10, 0.82);
-  backdrop-filter: blur(12px);
   font-size: 9px;
   text-decoration: none;
 }
@@ -2070,6 +2068,8 @@ textarea {
 
 .media-record-workspace {
   height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
   min-height: 0;
   overflow: hidden;
   background: #0b0b09;
@@ -2078,16 +2078,20 @@ textarea {
 }
 
 .media-record-preview {
-  position: relative;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .media-record-stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
   width: 100%;
   height: 100%;
-  padding: 18px;
+  overflow: hidden;
   background:
     linear-gradient(45deg, #0b0b09 25%, transparent 25%),
     linear-gradient(-45deg, #0b0b09 25%, transparent 25%),
@@ -2099,33 +2103,25 @@ textarea {
     6px -6px,
     -6px 0;
   background-size: 12px 12px;
-  display: grid;
-  place-items: center;
 }
 
 .media-record-stage img,
 .media-record-stage video {
+  position: absolute;
+  inset: 12px;
   display: block;
-  width: 100%;
-  height: 100%;
-  max-width: 100%;
-  max-height: 100%;
+  min-width: 0;
+  min-height: 0;
+  width: calc(100% - 24px);
+  height: calc(100% - 24px);
   object-fit: contain;
 }
 
 .media-record-toolbar {
-  position: absolute;
-  z-index: 3;
-  top: 16px;
-  right: 16px;
-  left: 16px;
-  min-height: 42px;
-  padding: 5px;
-  border: 1px solid rgba(73, 73, 62, 0.75);
-  border-radius: 9px;
-  background: rgba(12, 12, 10, 0.82);
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(14px);
+  min-height: 54px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--line-soft);
+  background: #10100e;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
@@ -3611,6 +3607,8 @@ textarea {
 
   .media-record-workspace {
     height: calc(100vh - 67px);
+    height: calc(100dvh - 67px);
+    max-height: calc(100dvh - 67px);
     grid-template-columns: minmax(0, 1fr) minmax(340px, 42vw);
   }
 
@@ -3720,23 +3718,26 @@ textarea {
 
   .media-record-workspace {
     height: auto;
+    max-height: none;
     overflow: visible;
     grid-template-columns: 1fr;
   }
 
   .media-record-preview {
     height: 62vh;
+    height: 62dvh;
     min-height: 390px;
   }
 
-  .media-record-stage {
-    padding: 10px;
+  .media-record-toolbar {
+    padding-inline: 8px;
   }
 
-  .media-record-toolbar {
-    top: 10px;
-    right: 10px;
-    left: 10px;
+  .media-record-stage img,
+  .media-record-stage video {
+    inset: 8px;
+    width: calc(100% - 16px);
+    height: calc(100% - 16px);
   }
 
   .media-record-inspector {

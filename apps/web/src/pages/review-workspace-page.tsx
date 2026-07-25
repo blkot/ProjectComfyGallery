@@ -226,9 +226,6 @@ export function ReviewWorkspacePage() {
     <main className="review-workspace">
       <div className="review-columns">
         <section className="review-preview-pane" aria-label="Media preview">
-          <Link className="review-exit-link" to="/review">
-            ← Exit review
-          </Link>
           <div className="review-media-frame">
             {item.data.media.kind === "video" ? (
               <video
@@ -248,6 +245,9 @@ export function ReviewWorkspacePage() {
 
         <aside className="review-criteria-pane">
           <header className="review-topbar">
+            <Link className="review-exit-link" to="/review">
+              ← Exit
+            </Link>
             <span>
               <strong>
                 {position + 1} / {item.data.session.candidate_count}
