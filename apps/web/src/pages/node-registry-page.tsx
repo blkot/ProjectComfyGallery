@@ -373,10 +373,27 @@ function NodeDefinitionPanel({
           <label>
             Role (optional)
             <input
+              list={semanticType === "prompt" ? "prompt-role-options" : undefined}
               value={role}
-              placeholder="high_noise_model"
+              placeholder={
+                semanticType === "prompt"
+                  ? "Infer automatically, or choose positive/negative"
+                  : "high_noise_model"
+              }
               onChange={(event) => setRole(event.target.value)}
             />
+            {semanticType === "prompt" ? (
+              <>
+                <datalist id="prompt-role-options">
+                  <option value="positive" />
+                  <option value="negative" />
+                </datalist>
+                <small className="field-hint">
+                  Leave blank to infer the conditioning branch. Positive prompts are
+                  shown first; negative prompts remain available but collapsed.
+                </small>
+              </>
+            ) : null}
           </label>
         </div>
         {mapping.error ? <RegistryError error={mapping.error} fallback="Mapping failed." /> : null}

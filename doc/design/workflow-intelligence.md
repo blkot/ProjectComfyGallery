@@ -178,6 +178,31 @@ Mappings may be:
 
 Manual overrides never modify the raw workflow or delete earlier extractor runs.
 
+### Prompt roles
+
+Prompt extraction preserves every mapped prompt value and treats its role as separate,
+correctable semantics. The supported first-class roles are `positive` and `negative`;
+other role strings remain valid evidence for custom workflows.
+
+Role resolution uses this precedence:
+
+1. An explicit role on the semantic mapping.
+2. Conditioning-graph inference.
+3. The input-name heuristic or `unclassified`.
+
+Conditioning-graph inference starts at sampler inputs named `positive` or `negative`
+and walks upstream within the same API-prompt or visual-workflow graph. This identifies
+both a directly connected `CLIPTextEncode` node and upstream text-provider nodes such
+as `Text_o`. A shared ancestor that reaches both branches remains unclassified. This
+allows a user to tag an unfamiliar text value as `prompt` and leave its role blank in
+the common case; an explicit registry role remains available for unusual graphs.
+
+When registry extraction finds the same node/value already emitted by built-in
+heuristics, the registry mapping refines that observation instead of creating a
+duplicate. Manual correction state and role therefore take precedence in the current
+extraction run. Reprocessing creates a new versioned run and leaves the raw embedded
+workflow unchanged.
+
 ### Structured multi-LoRA values
 
 Some LoRA loaders expose one mapped input as a structured collection rather than one
@@ -320,10 +345,11 @@ Reprocessing:
 7. Never changes a saved analysis run.
 
 Extractor `2.1.1` recognizes the LoRA Manager `__value__` wrapper for active-only
-structured multi-LoRA expansion. After
-upgrading from an earlier extractor, an operator runs the existing bulk “reprocess
-all” action once. Reprocessing reads the preserved ground truth, replaces the current
-derived model usages, and leaves prior extraction runs available for provenance.
+structured multi-LoRA expansion. Extractor `2.2.0` adds conditioning-graph prompt-role
+inference and registry-over-built-in prompt refinement. After upgrading from an
+earlier extractor, an operator runs the existing bulk “reprocess all” action once.
+Reprocessing reads the preserved ground truth, replaces the current derived model
+usages, and leaves prior extraction runs available for provenance.
 
 ## Failure behavior
 

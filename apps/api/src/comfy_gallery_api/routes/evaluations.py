@@ -1022,7 +1022,17 @@ async def _review_prompts(
                 text=observation.value,
             )
         )
+    prompts.sort(key=lambda prompt: _prompt_role_rank(prompt.role))
     return prompts
+
+
+def _prompt_role_rank(role: str | None) -> int:
+    normalized = (role or "").strip().casefold().replace("-", "_").replace(" ", "_")
+    if normalized in {"positive", "main", "primary", "positive_prompt"}:
+        return 0
+    if normalized in {"negative", "negative_prompt"}:
+        return 2
+    return 1
 
 
 async def _set_trash(

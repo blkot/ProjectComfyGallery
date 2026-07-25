@@ -2215,7 +2215,7 @@ textarea {
 }
 
 .record-facts {
-  margin: 18px 0 26px;
+  margin: 0;
   overflow: hidden;
   border: 1px solid var(--line-soft);
   border-radius: 8px;
@@ -2227,7 +2227,7 @@ textarea {
 
 .record-facts > div {
   min-width: 0;
-  padding: 12px;
+  padding: 9px 10px;
   background: var(--surface);
 }
 
@@ -2246,8 +2246,24 @@ textarea {
 
 .record-facts dd {
   overflow-wrap: anywhere;
-  margin: 5px 0 0;
-  font-size: 11px;
+  margin: 4px 0 0;
+  font-size: 9px;
+}
+
+.media-file-details {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.media-file-details h2 {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .record-inspector-disclosure {
@@ -2503,6 +2519,12 @@ textarea {
   color: var(--muted);
   cursor: pointer;
   font-size: 9px;
+}
+
+.prompt-evidence[data-role="positive"] summary,
+.prompt-evidence[data-role="main"] summary,
+.prompt-evidence[data-role="primary"] summary {
+  color: var(--accent);
 }
 
 .prompt-evidence .workflow-prompt {
@@ -3335,6 +3357,13 @@ textarea {
 
 .registry-form-row label {
   min-width: 0;
+}
+
+.field-hint {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 400;
+  line-height: 1.45;
 }
 
 .registry-provider-link {

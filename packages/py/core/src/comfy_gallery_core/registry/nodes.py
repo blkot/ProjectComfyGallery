@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections import defaultdict
+from collections import defaultdict, deque
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
@@ -16,6 +16,7 @@ from comfy_gallery_core.db.models import (
     NodeSchemaSnapshot,
     NodeSemanticMapping,
     SemanticObservation,
+    WorkflowEdge,
     WorkflowNode,
 )
 from comfy_gallery_core.media.errors import IngestionError
@@ -294,17 +295,21 @@ async def create_registry_observations(
             .where(WorkflowNode.snapshot_id == snapshot_id)
         )
     )
+    edges = list(
+        await session.scalars(select(WorkflowEdge).where(WorkflowEdge.snapshot_id == snapshot_id))
+    )
+    inferred_prompt_roles = _infer_prompt_roles(nodes, edges)
     existing = list(
         await session.scalars(
             select(SemanticObservation).where(SemanticObservation.run_id == run_id)
         )
     )
-    existing_keys = {
+    existing_by_key = {
         (
             observation.node_id,
             observation.observation_type,
             _canonical_json(observation.value),
-        )
+        ): observation
         for observation in existing
     }
     created_count = 0
@@ -319,6 +324,11 @@ async def create_registry_observations(
             value = values_by_locator.get(mapping.locator)
             if value is None or value.value_kind == "link":
                 continue
+            role, role_evidence = _resolved_mapping_role(
+                mapping=mapping,
+                node=node,
+                inferred_prompt_roles=inferred_prompt_roles,
+            )
             for observation_value in _mapped_observation_values(
                 mapping.semantic_type,
                 value.raw_value,
@@ -328,33 +338,109 @@ async def create_registry_observations(
                     mapping.semantic_type,
                     _canonical_json(observation_value.value),
                 )
-                if key in existing_keys:
-                    continue
-                session.add(
-                    SemanticObservation(
-                        run_id=run_id,
-                        node_id=node.id,
-                        observation_type=mapping.semantic_type,
-                        role=mapping.role,
-                        value=observation_value.value,
-                        confidence=mapping.confidence,
-                        correction_state=mapping.correction_state,
-                        evidence={
-                            "representation": node.representation,
-                            "node_id": node.original_node_id,
-                            "class_type": node.class_type,
-                            "locator": mapping.locator,
-                            "mapping_id": str(mapping.id),
-                            "mapping_source": mapping.source,
-                            "method": "node_registry_mapping",
-                            **observation_value.evidence,
-                        },
+                mapping_evidence = {
+                    "mapping_id": str(mapping.id),
+                    "mapping_source": mapping.source,
+                    "mapping_method": "node_registry_mapping",
+                    **role_evidence,
+                }
+                existing_observation = existing_by_key.get(key)
+                if existing_observation is not None:
+                    existing_observation.role = role
+                    existing_observation.confidence = max(
+                        existing_observation.confidence,
+                        mapping.confidence,
                     )
+                    existing_observation.correction_state = mapping.correction_state
+                    existing_observation.evidence = {
+                        **existing_observation.evidence,
+                        **mapping_evidence,
+                        **observation_value.evidence,
+                    }
+                    continue
+                observation = SemanticObservation(
+                    run_id=run_id,
+                    node_id=node.id,
+                    observation_type=mapping.semantic_type,
+                    role=role,
+                    value=observation_value.value,
+                    confidence=mapping.confidence,
+                    correction_state=mapping.correction_state,
+                    evidence={
+                        "representation": node.representation,
+                        "node_id": node.original_node_id,
+                        "class_type": node.class_type,
+                        "locator": mapping.locator,
+                        "method": "node_registry_mapping",
+                        **mapping_evidence,
+                        **observation_value.evidence,
+                    },
                 )
-                existing_keys.add(key)
+                session.add(observation)
+                existing_by_key[key] = observation
                 created_count += 1
     await session.flush()
     return RegistryObservationOutcome(created_count=created_count)
+
+
+def _resolved_mapping_role(
+    *,
+    mapping: NodeSemanticMapping,
+    node: WorkflowNode,
+    inferred_prompt_roles: dict[UUID, str],
+) -> tuple[str | None, dict[str, object]]:
+    if mapping.semantic_type != "prompt":
+        return mapping.role, {}
+    explicit_role = (mapping.role or "").strip()
+    if explicit_role and explicit_role.casefold() != "unclassified":
+        return explicit_role, {"prompt_role_method": "semantic_mapping"}
+    inferred_role = inferred_prompt_roles.get(node.id)
+    if inferred_role is not None:
+        return inferred_role, {"prompt_role_method": "conditioning_graph"}
+    return mapping.role, {}
+
+
+def _infer_prompt_roles(
+    nodes: list[WorkflowNode],
+    edges: list[WorkflowEdge],
+) -> dict[UUID, str]:
+    node_ids = {(node.representation, node.original_node_id): node.id for node in nodes}
+    incoming: dict[tuple[str, str], set[tuple[str, str]]] = defaultdict(set)
+    pending: deque[tuple[tuple[str, str], str]] = deque()
+    for edge in edges:
+        source_key = (edge.representation, edge.source_node_id)
+        destination_key = (edge.representation, edge.destination_node_id)
+        incoming[destination_key].add(source_key)
+        input_role = _conditioning_input_role(edge.destination_input_name)
+        if input_role is not None:
+            pending.append((source_key, input_role))
+
+    roles_by_key: dict[tuple[str, str], set[str]] = defaultdict(set)
+    visited: set[tuple[tuple[str, str], str]] = set()
+    while pending:
+        node_key, role = pending.popleft()
+        visit_key = (node_key, role)
+        if visit_key in visited:
+            continue
+        visited.add(visit_key)
+        roles_by_key[node_key].add(role)
+        pending.extend((source_key, role) for source_key in incoming.get(node_key, set()))
+
+    inferred: dict[UUID, str] = {}
+    for node_key, roles in roles_by_key.items():
+        node_id = node_ids.get(node_key)
+        if node_id is not None and len(roles) == 1:
+            inferred[node_id] = next(iter(roles))
+    return inferred
+
+
+def _conditioning_input_role(input_name: str | None) -> str | None:
+    normalized = (input_name or "").strip().casefold().replace("-", "_").replace(" ", "_")
+    if normalized in {"positive", "positive_prompt"}:
+        return "positive"
+    if normalized in {"negative", "negative_prompt"}:
+        return "negative"
+    return None
 
 
 def _mapped_observation_values(

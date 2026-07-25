@@ -156,12 +156,14 @@ inspected.
 
 Inspector information is deliberately ordered by practical recall value:
 
-1. original filename, readiness, dimensions, format, size, and source file time;
-2. resolved checkpoint and LoRA usages, including pipeline slot and raw reference;
-3. exact unsanitized prompt observations;
+1. original filename and readiness;
+2. exact unsanitized prompt observations, with positive/main first and negative
+   prompts retained but collapsed by default;
+3. resolved checkpoint and LoRA usages, including pipeline slot and raw reference;
 4. generation parameters;
 5. parser diagnostics, node graph, raw evidence, sources, and derivatives;
-6. UUID and SHA-256 in a collapsed technical-identity section.
+6. UUID and SHA-256 in a collapsed technical-identity section;
+7. compact dimensions, format, duration, size, and source file time at the bottom.
 
 ### Preview
 

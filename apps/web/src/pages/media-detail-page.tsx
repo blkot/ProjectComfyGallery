@@ -214,35 +214,6 @@ export function MediaDetailPage() {
           </div>
         ) : null}
 
-        <dl className="record-facts" aria-label="Basic media metadata">
-          <div>
-            <dt>Dimensions</dt>
-            <dd>
-              {item.width && item.height
-                ? `${item.width} × ${item.height}`
-                : "Unknown"}
-            </dd>
-          </div>
-          <div>
-            <dt>Format</dt>
-            <dd>{titleCase(item.detected_format ?? item.kind)}</dd>
-          </div>
-          {item.kind === "video" ? (
-            <div>
-              <dt>Duration</dt>
-              <dd>{formatDuration(item.duration_seconds)}</dd>
-            </div>
-          ) : null}
-          <div>
-            <dt>File size</dt>
-            <dd>{formatBytes(item.byte_size)}</dd>
-          </div>
-          <div>
-            <dt>File created</dt>
-            <dd>{formatDate(item.file_created_at)}</dd>
-          </div>
-        </dl>
-
         <WorkflowInspector mediaId={item.id} />
 
         <details className="record-inspector-disclosure">
@@ -319,6 +290,38 @@ export function MediaDetailPage() {
             <code>{item.sha256}</code>
           </div>
         </details>
+
+        <section className="media-file-details" aria-labelledby="media-file-details-title">
+          <h2 id="media-file-details-title">File details</h2>
+          <dl className="record-facts" aria-label="Basic media metadata">
+            <div>
+              <dt>Dimensions</dt>
+              <dd>
+                {item.width && item.height
+                  ? `${item.width} × ${item.height}`
+                  : "Unknown"}
+              </dd>
+            </div>
+            <div>
+              <dt>Format</dt>
+              <dd>{titleCase(item.detected_format ?? item.kind)}</dd>
+            </div>
+            {item.kind === "video" ? (
+              <div>
+                <dt>Duration</dt>
+                <dd>{formatDuration(item.duration_seconds)}</dd>
+              </div>
+            ) : null}
+            <div>
+              <dt>File size</dt>
+              <dd>{formatBytes(item.byte_size)}</dd>
+            </div>
+            <div>
+              <dt>File created</dt>
+              <dd>{formatDate(item.file_created_at)}</dd>
+            </div>
+          </dl>
+        </section>
       </aside>
     </main>
   );

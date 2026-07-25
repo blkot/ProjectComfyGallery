@@ -12,6 +12,7 @@ import {
   type WorkflowRawEvidence,
 } from "../lib/api";
 import { formatDate, titleCase } from "../lib/format";
+import { orderPrompts } from "../lib/prompts";
 
 type WorkflowInspectorProps = {
   mediaId: string;
@@ -146,11 +147,11 @@ export function WorkflowInspector({ mediaId }: WorkflowInspectorProps) {
         </article>
       ) : (
         <>
+          <PromptPanel observations={data.observations} />
           <ModelUsagePanel
             usages={data.model_usages}
             observations={data.observations}
           />
-          <PromptPanel observations={data.observations} />
           <GenerationParameters observations={data.observations} />
 
           <details className="workflow-inspector-disclosure">
@@ -469,8 +470,10 @@ function PromptPanel({
 }: {
   observations: SemanticObservation[];
 }) {
-  const prompts = observations.filter(
-    (observation) => observation.observation_type === "prompt",
+  const prompts = orderPrompts(
+    observations.filter(
+      (observation) => observation.observation_type === "prompt",
+    ),
   );
   return (
     <article className="workflow-priority-card prompt-evidence-card">
@@ -484,6 +487,7 @@ function PromptPanel({
       {prompts.map((prompt, index) => (
         <details
           className="prompt-evidence"
+          data-role={prompt.role ?? "unclassified"}
           open={index === 0}
           key={prompt.id}
         >

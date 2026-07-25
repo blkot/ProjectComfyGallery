@@ -20,6 +20,11 @@ All notable changes to Project Comfy Gallery are recorded here.
   exact prompt text while moving UUID/SHA and parser internals into disclosures.
 - Fit image and video viewers to the dynamic browser height with edge clearance,
   and move viewer/review navigation out of the media surface.
+- Move compact file facts to the bottom of Media Detail and present exact prompts
+  before checkpoint/LoRA evidence.
+- Infer positive and negative prompt roles from conditioning-graph ancestry, honor
+  explicit node mappings as overrides, and order positive prompts first without
+  discarding negative or unclassified prompt evidence.
 
 ## 0.1.0-rc.7 — 2026-07-25
 

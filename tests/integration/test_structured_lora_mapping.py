@@ -10,6 +10,7 @@ from comfy_gallery_core.db.models import (
     NodeDefinition,
     NodeSemanticMapping,
     SemanticObservation,
+    WorkflowEdge,
     WorkflowNode,
     WorkflowSnapshot,
     WorkflowValue,
@@ -148,6 +149,214 @@ async def test_structured_lora_mapping_emits_only_active_adapter_references() ->
         assert len(list(await session.scalars(select(ModelUsage)))) == 2
 
     await engine.dispose()
+
+
+async def test_prompt_mapping_infers_conditioning_roles_and_overrides_builtin_role() -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
+    async with session_factory() as session:
+        media = Media(kind="image", status="ready")
+        session.add(media)
+        await session.flush()
+        snapshot = WorkflowSnapshot(
+            media_id=media.id,
+            reader_name="test",
+            reader_version="1",
+            source_carrier="test",
+            evidence_sha256="p" * 64,
+            raw_metadata={},
+            api_prompt_status="parsed",
+            visual_workflow_status="absent",
+            parse_status="parsed",
+            issue_details={},
+        )
+        definition = NodeDefinition(
+            class_type="Text_o",
+            python_module="",
+            schema_fingerprint="prompt-role-test",
+            source_kind="workflow",
+            input_schema={},
+            output_schema=[],
+            raw_definition={},
+            mapping_state="manual",
+        )
+        session.add_all([snapshot, definition])
+        await session.flush()
+        mapping = NodeSemanticMapping(
+            node_definition_id=definition.id,
+            locator="input:text",
+            input_name="text",
+            semantic_type="prompt",
+            role=None,
+            source="manual",
+            confidence=1,
+            state="active",
+            correction_state="corrected",
+            evidence={},
+        )
+        positive_source = WorkflowNode(
+            snapshot_id=snapshot.id,
+            node_definition_id=definition.id,
+            representation="api_prompt",
+            ordinal=0,
+            original_node_id="positive-text",
+            class_type="Text_o",
+            raw_properties={},
+            raw_widgets=[],
+            raw_inputs={},
+        )
+        positive_encoder = WorkflowNode(
+            snapshot_id=snapshot.id,
+            representation="api_prompt",
+            ordinal=1,
+            original_node_id="positive-encode",
+            class_type="CLIPTextEncode",
+            raw_properties={},
+            raw_widgets=[],
+            raw_inputs={},
+        )
+        negative_source = WorkflowNode(
+            snapshot_id=snapshot.id,
+            node_definition_id=definition.id,
+            representation="api_prompt",
+            ordinal=2,
+            original_node_id="negative-text",
+            class_type="Text_o",
+            raw_properties={},
+            raw_widgets=[],
+            raw_inputs={},
+        )
+        negative_encoder = WorkflowNode(
+            snapshot_id=snapshot.id,
+            representation="api_prompt",
+            ordinal=3,
+            original_node_id="negative-encode",
+            class_type="CLIPTextEncode",
+            raw_properties={},
+            raw_widgets=[],
+            raw_inputs={},
+        )
+        sampler = WorkflowNode(
+            snapshot_id=snapshot.id,
+            representation="api_prompt",
+            ordinal=4,
+            original_node_id="sampler",
+            class_type="KSampler",
+            raw_properties={},
+            raw_widgets=[],
+            raw_inputs={},
+        )
+        session.add_all(
+            [
+                mapping,
+                positive_source,
+                positive_encoder,
+                negative_source,
+                negative_encoder,
+                sampler,
+            ]
+        )
+        await session.flush()
+        session.add_all(
+            [
+                WorkflowValue(
+                    node_id=positive_source.id,
+                    locator="input:text",
+                    input_name="text",
+                    value_kind="string",
+                    raw_value="the intended scene",
+                    normalized_text="the intended scene",
+                ),
+                WorkflowValue(
+                    node_id=negative_source.id,
+                    locator="input:text",
+                    input_name="text",
+                    value_kind="string",
+                    raw_value="artifacts, blur",
+                    normalized_text="artifacts, blur",
+                ),
+                _workflow_edge(snapshot.id, 0, "positive-text", "positive-encode", "text"),
+                _workflow_edge(snapshot.id, 1, "positive-encode", "sampler", "positive"),
+                _workflow_edge(snapshot.id, 2, "negative-text", "negative-encode", "text"),
+                _workflow_edge(snapshot.id, 3, "negative-encode", "sampler", "negative"),
+            ]
+        )
+        run = ExtractionRun(
+            snapshot_id=snapshot.id,
+            extractor_name="test",
+            extractor_version="1",
+            graph_version="generic-graph-v1",
+            configuration_hash="r" * 64,
+            reason="test",
+            status="running",
+            is_current=True,
+        )
+        session.add(run)
+        await session.flush()
+        session.add(
+            SemanticObservation(
+                run_id=run.id,
+                node_id=positive_source.id,
+                observation_type="prompt",
+                role="unclassified",
+                value="the intended scene",
+                confidence=0.9,
+                evidence={"input_name": "text", "method": "named_api_input"},
+            )
+        )
+        await session.commit()
+
+        outcome = await create_registry_observations(
+            session,
+            run_id=run.id,
+            snapshot_id=snapshot.id,
+        )
+        await session.commit()
+
+        observations = list(
+            await session.scalars(
+                select(SemanticObservation)
+                .where(
+                    SemanticObservation.run_id == run.id,
+                    SemanticObservation.observation_type == "prompt",
+                )
+                .order_by(SemanticObservation.value)
+            )
+        )
+        assert outcome.created_count == 1
+        assert {str(observation.value): observation.role for observation in observations} == {
+            "artifacts, blur": "negative",
+            "the intended scene": "positive",
+        }
+        positive = next(
+            observation for observation in observations if observation.value == "the intended scene"
+        )
+        assert positive.correction_state == "corrected"
+        assert positive.evidence["prompt_role_method"] == "conditioning_graph"
+        assert positive.evidence["mapping_source"] == "manual"
+
+    await engine.dispose()
+
+
+def _workflow_edge(
+    snapshot_id: object,
+    ordinal: int,
+    source_node_id: str,
+    destination_node_id: str,
+    destination_input_name: str,
+) -> WorkflowEdge:
+    return WorkflowEdge(
+        snapshot_id=snapshot_id,
+        representation="api_prompt",
+        ordinal=ordinal,
+        source_node_id=source_node_id,
+        destination_node_id=destination_node_id,
+        destination_input_name=destination_input_name,
+        raw_link=[source_node_id, destination_node_id],
+    )
 
 
 def test_structured_lora_mapping_keeps_literal_legacy_wrapper_compatibility() -> None:

@@ -55,6 +55,9 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
 - **WF-008:** Unknown nodes and values MUST remain inspectable.
 - **WF-009:** Prompt text MUST be stored and displayed without semantic sanitization, redaction, or rewriting.
 - **WF-010:** Untrusted prompt content MUST be rendered as text and never executed as HTML.
+- **WF-011:** Prompt roles MUST be correctable independently from prompt text. Explicit
+  mappings MUST take precedence over graph inference; positive/main prompts MUST be
+  presented before unclassified and negative prompts without discarding any role.
 
 ## Offline node registry
 
@@ -136,8 +139,8 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
   usable independently of the saved desktop preference.
 - **LIB-014:** Media Detail and Blind Review MUST use a viewport-height media stage
   beside an independently scrollable inspector. Media Detail MUST prioritize filename,
-  basic file facts, checkpoint/LoRA usages, and exact prompts, while UUID and SHA-256
-  remain available as secondary technical evidence. Media MUST be contained inside
+  exact prompts, and checkpoint/LoRA usages, while basic file facts, UUID, and SHA-256
+  remain available as compact secondary evidence. Media MUST be contained inside
   the current dynamic viewport without control overlays or edge clipping. Blind Review
   MUST preserve its configuration-hiding invariant.
 
