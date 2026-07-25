@@ -80,11 +80,15 @@ final class ConnectionService {
 
     func authenticate(token: String) async {
         connectionState = .authenticating
+        // Store token BEFORE API call so APIClient can attach it as Bearer header
+        credentialStore.store(token: token, for: "default")
         do {
             let session: UserSession = try await apiClient.request(.authSession)
+            // Update with real user ID from server
             credentialStore.store(token: token, for: session.user.id)
             connectionState = .connected(session)
         } catch {
+            credentialStore.delete(for: "default")
             connectionState = .error("Authentication failed. Check your API token.")
         }
     }
