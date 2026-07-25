@@ -61,8 +61,10 @@ final class LibraryFeature {
             items = page.items
             total = page.total
             currentOffset = page.items.count
+        } catch let error as APIError {
+            errorMessage = error.errorDescription ?? "Could not load media."
         } catch {
-            errorMessage = "Could not load media."
+            errorMessage = "Could not load media: \(error.localizedDescription)"
         }
         isLoading = false
     }
