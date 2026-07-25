@@ -99,6 +99,7 @@ jobs:
           provenance: mode=max
           sbom: true
       - name: Attest published image
+        if: ${{ github.event.repository.private == false }}
         uses: actions/attest@v4
         with:
           subject-name: ${{ env.IMAGE_ROOT }}/${{ matrix.image }}

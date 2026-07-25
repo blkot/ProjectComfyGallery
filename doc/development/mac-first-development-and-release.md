@@ -128,7 +128,10 @@ Pushing the tag starts `.github/workflows/release-images.yml`. GitHub Actions:
 - targets only `linux/amd64`;
 - publishes version and commit-SHA tags;
 - uses per-image GitHub Actions build caches;
-- generates SBOM/provenance and registry attestations.
+- generates BuildKit SBOM/provenance attestations in GHCR;
+- additionally records GitHub repository attestations when the repository
+  visibility/ownership supports them. GitHub does not offer that repository
+  attestation service for user-owned private repositories.
 
 Images use:
 

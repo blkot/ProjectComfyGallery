@@ -46,6 +46,9 @@ def test_release_workflow_publishes_locked_amd64_images() -> None:
     assert "CG_PROJECT_VERSION=${{ needs.validate.outputs.version }}" in workflow
     assert "cache-from: type=gha,scope=${{ matrix.image }}" in workflow
     assert "cache-to: type=gha,mode=max,scope=${{ matrix.image }}" in workflow
+    assert "if: ${{ github.event.repository.private == false }}" in workflow
+    assert "provenance: mode=max" in workflow
+    assert "sbom: true" in workflow
     assert workflow.count("dockerfile: deploy/docker/") == 5
 
 

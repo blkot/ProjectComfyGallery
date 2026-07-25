@@ -4,6 +4,11 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.9 — 2026-07-26
+
+- Skip unsupported GitHub repository attestations for a user-owned private
+  repository while retaining BuildKit SBOM and provenance data in GHCR.
+
 ## 0.1.0-rc.8 — 2026-07-26
 
 - Add isolated one-command Mac development with native API/worker/web reload and
