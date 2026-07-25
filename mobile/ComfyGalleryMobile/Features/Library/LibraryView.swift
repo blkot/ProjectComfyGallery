@@ -7,11 +7,8 @@ struct LibraryView: View {
     @State private var selectedItem: MobileMediaSummary?
     @State private var showingViewer = false
 
-    init() {
-        _feature = State(initialValue: LibraryFeature(
-            apiClient: AppEnvironment().apiClient,
-            mediaRepository: AppEnvironment().mediaRepository
-        ))
+    init(apiClient: APIClient, mediaRepository: MediaRepository) {
+        _feature = State(initialValue: LibraryFeature(apiClient: apiClient, mediaRepository: mediaRepository))
     }
 
     var body: some View {

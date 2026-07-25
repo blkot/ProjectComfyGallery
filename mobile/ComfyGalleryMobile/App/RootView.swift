@@ -7,15 +7,21 @@ struct RootView: View {
         Group {
             if environment.isConnected {
                 TabView(selection: Bindable(environment).selectedTab) {
-                    LibraryView()
+                    LibraryView(
+                        apiClient: environment.apiClient,
+                        mediaRepository: environment.mediaRepository
+                    )
                         .tabItem { Label("Library", systemImage: "photo.on.rectangle") }
                         .tag(AppEnvironment.Tab.library)
 
-                    ReviewHomeView()
+                    ReviewHomeView(apiClient: environment.apiClient)
                         .tabItem { Label("Review", systemImage: "checklist") }
                         .tag(AppEnvironment.Tab.review)
 
-                    SettingsView()
+                    SettingsView(
+                        connectionService: environment.connectionService,
+                        mediaRepository: environment.mediaRepository
+                    )
                         .tabItem { Label("Settings", systemImage: "gear") }
                         .tag(AppEnvironment.Tab.settings)
                 }

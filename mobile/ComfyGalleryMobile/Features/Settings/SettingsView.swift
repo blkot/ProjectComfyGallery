@@ -4,10 +4,10 @@ struct SettingsView: View {
     @Environment(AppEnvironment.self) private var environment
     @State private var feature: SettingsFeature
 
-    init() {
+    init(connectionService: ConnectionService, mediaRepository: MediaRepository) {
         _feature = State(initialValue: SettingsFeature(
-            connectionService: AppEnvironment().connectionService,
-            mediaRepository: AppEnvironment().mediaRepository
+            connectionService: connectionService,
+            mediaRepository: mediaRepository
         ))
     }
 

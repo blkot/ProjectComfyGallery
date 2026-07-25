@@ -7,10 +7,8 @@ struct ReviewHomeView: View {
     @State private var selectedSession: ReviewSession?
     @State private var showingWorkspace = false
 
-    init() {
-        _feature = State(initialValue: ReviewHomeFeature(
-            apiClient: AppEnvironment().apiClient
-        ))
+    init(apiClient: APIClient) {
+        _feature = State(initialValue: ReviewHomeFeature(apiClient: apiClient))
     }
 
     var body: some View {
