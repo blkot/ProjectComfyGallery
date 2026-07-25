@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class CriterionResponse(BaseModel):
@@ -102,10 +102,23 @@ class MediaFilterRequest(BaseModel):
     evaluation_state: Literal["not_started", "in_progress", "complete"] | None = None
     trash: bool | None = None
     source_root_id: UUID | None = None
+    # Singular fields keep saved filters created before multi-reference support valid.
     checkpoint_reference_id: UUID | None = None
     lora_reference_id: UUID | None = None
+    checkpoint_reference_ids: list[UUID] = Field(default_factory=list, max_length=100)
+    checkpoint_reference_match: Literal["any", "all"] = "any"
+    lora_reference_ids: list[UUID] = Field(default_factory=list, max_length=100)
+    lora_reference_match: Literal["any", "all"] = "any"
     collection_id: UUID | None = None
     tag_id: UUID | None = None
+
+    def checkpoint_ids(self) -> list[UUID]:
+        values = [self.checkpoint_reference_id] if self.checkpoint_reference_id is not None else []
+        return list(dict.fromkeys([*values, *self.checkpoint_reference_ids]))
+
+    def lora_ids(self) -> list[UUID]:
+        values = [self.lora_reference_id] if self.lora_reference_id is not None else []
+        return list(dict.fromkeys([*values, *self.lora_reference_ids]))
 
 
 class ReviewSessionCreateRequest(BaseModel):
@@ -199,7 +212,14 @@ class CollectionResponse(BaseModel):
 
 
 class MediaMembershipRequest(BaseModel):
-    media_ids: list[UUID] = Field(min_length=1, max_length=2000)
+    media_ids: list[UUID] = Field(default_factory=list, max_length=2000)
+    filter: MediaFilterRequest | None = None
+
+    @model_validator(mode="after")
+    def require_one_scope(self) -> "MediaMembershipRequest":
+        if bool(self.media_ids) == (self.filter is not None):
+            raise ValueError("Provide either media_ids or filter.")
+        return self
 
 
 class TagRequest(BaseModel):

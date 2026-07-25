@@ -106,12 +106,13 @@ Filters include:
 
 Filter chips show active state. Complex filters use a validated expression model suitable for saving.
 
-The implemented checkpoint and LoRA selectors are backed by `model_reference`
+The implemented multi-select checkpoint and LoRA selectors are backed by `model_reference`
 identities rather than only current artifacts. Deleted, renamed, private, and
 workflow-only historical references remain filterable. Confirmed aliases collapse
 into one selector option with a combined usage count, while unconfirmed references
-remain separate. Checkpoint and LoRA filters are combined with AND semantics; a media
-item must contain both selected usages.
+remain separate. Within one model dimension, the user explicitly chooses Any (OR) or
+All (AND), with Any as the default. Different dimensions remain conjunctive: for
+example, a checkpoint condition and a LoRA condition must both match.
 
 The Model Registry includes a Duplicate aliases tab. It shows basename-derived
 candidates, their exact raw aliases and usage counts, disables conflicting candidates,
@@ -128,6 +129,14 @@ From current results or selection:
 - Save current filter.
 - Export selected metadata.
 - Retry eligible processing stages.
+
+The Library keeps explicit checkbox selection across pagination and filter changes
+while the route remains mounted. It also provides Select page, Select all matching,
+and Clear selection. Select all matching captures the current validated filter and
+resolves collection/tag membership or review candidates on the server; the browser
+does not download thousands of UUIDs. A collection is an exact membership snapshot
+at action time, whereas a saved filter remains a reusable query that can match future
+imports.
 
 ## Media record
 

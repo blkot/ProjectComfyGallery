@@ -125,6 +125,12 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
 - **LIB-010:** The gallery grid MUST default to a 2:3 portrait preview frame and use
   responsive card sizing that keeps common portrait generations comfortably
   inspectable on a laptop display.
+- **LIB-011:** Library selection MUST support the current page and the complete
+  server-filtered result set without transferring every matching media UUID to the
+  browser; filtered scopes MUST be usable for review, collections, and tags.
+- **LIB-012:** Checkpoint and LoRA filters MUST accept multiple identities with an
+  explicit Any (OR) or All (AND) mode. Any MUST be the default within each model
+  dimension, while different filter dimensions remain combined with AND.
 
 ## Manual evaluation
 

@@ -96,8 +96,11 @@ to staging, returns `202 Accepted` with a durable batch, and enqueues the ordina
 processing pipeline. The future ComfyUI node client contract is documented in
 [ComfyUI custom-node upload integration](comfyui-custom-node-upload.md).
 
-The media list accepts exact `checkpoint_reference_id` and `lora_reference_id`
-filters plus a deterministic `sort` value:
+The media list and navigation endpoints accept repeated
+`checkpoint_reference_id` and `lora_reference_id` parameters. Their corresponding
+`checkpoint_reference_match` and `lora_reference_match` parameters accept `any`
+(the default OR semantics) or `all` (AND semantics). Checkpoint and LoRA dimensions
+are combined with AND. They also accept a deterministic `sort` value:
 
 ```text
 file_created_desc | file_created_asc
@@ -168,8 +171,10 @@ DELETE /api/v1/saved-filters/:id
 
 Filter expressions are server-validated AST/JSON, not raw SQL.
 
-These Phase 4 endpoints are implemented. Creation names are unique, media membership
-is exact-UUID based and idempotent, and all browser mutations require CSRF.
+These Phase 4 endpoints are implemented. Creation names are unique and membership
+is idempotent. Collection/tag membership commands accept either a bounded exact
+`media_ids` list or one validated filter expression resolved entirely on the server;
+the two scope forms are mutually exclusive. All browser mutations require CSRF.
 Collection/tag rename, per-member removal, and saved-filter edits can be added when
 the management UI needs them; delete-and-recreate is the current small-MVP path.
 

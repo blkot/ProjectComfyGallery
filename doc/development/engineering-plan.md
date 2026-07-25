@@ -238,6 +238,8 @@ Deliverables:
 - Configuration-blind prompt-aware review UI.
 - Nullable sliders, keyboard controls, autosave, undo.
 - Collections/tags/saved filters sufficient to create review scopes.
+- Server-resolved page/all-matching library selection and explicit Any/All
+  multi-checkpoint/multi-LoRA filtering.
 
 Exit criteria:
 

@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Query
@@ -42,6 +42,7 @@ MediaSort = Literal[
     "size_desc",
     "size_asc",
 ]
+ReferenceMatch = Literal["any", "all"]
 
 
 @router.get("", response_model=MediaPageResponse)
@@ -54,8 +55,10 @@ async def list_media(
     evaluation_state: str | None = None,
     trash: bool | None = None,
     source_root_id: UUID | None = None,
-    checkpoint_reference_id: UUID | None = None,
-    lora_reference_id: UUID | None = None,
+    checkpoint_reference_id: Annotated[list[UUID] | None, Query()] = None,
+    checkpoint_reference_match: ReferenceMatch = "any",
+    lora_reference_id: Annotated[list[UUID] | None, Query()] = None,
+    lora_reference_match: ReferenceMatch = "any",
     sort: MediaSort = "file_created_desc",
     limit: int = Query(default=48, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
@@ -67,8 +70,10 @@ async def list_media(
         evaluation_state=evaluation_state,
         trash=trash,
         source_root_id=source_root_id,
-        checkpoint_reference_id=checkpoint_reference_id,
-        lora_reference_id=lora_reference_id,
+        checkpoint_reference_ids=checkpoint_reference_id or [],
+        checkpoint_reference_match=checkpoint_reference_match,
+        lora_reference_ids=lora_reference_id or [],
+        lora_reference_match=lora_reference_match,
     )
     total = int(await session.scalar(select(func.count()).select_from(id_query.subquery())) or 0)
     order = _media_order(sort)
@@ -129,8 +134,10 @@ async def get_media_navigation(
     evaluation_state: str | None = None,
     trash: bool | None = None,
     source_root_id: UUID | None = None,
-    checkpoint_reference_id: UUID | None = None,
-    lora_reference_id: UUID | None = None,
+    checkpoint_reference_id: Annotated[list[UUID] | None, Query()] = None,
+    checkpoint_reference_match: ReferenceMatch = "any",
+    lora_reference_id: Annotated[list[UUID] | None, Query()] = None,
+    lora_reference_match: ReferenceMatch = "any",
     sort: MediaSort = "file_created_desc",
 ) -> MediaNavigationResponse:
     id_query = _media_id_query(
@@ -140,8 +147,10 @@ async def get_media_navigation(
         evaluation_state=evaluation_state,
         trash=trash,
         source_root_id=source_root_id,
-        checkpoint_reference_id=checkpoint_reference_id,
-        lora_reference_id=lora_reference_id,
+        checkpoint_reference_ids=checkpoint_reference_id or [],
+        checkpoint_reference_match=checkpoint_reference_match,
+        lora_reference_ids=lora_reference_id or [],
+        lora_reference_match=lora_reference_match,
     )
     order = _media_order(sort)
     ranked = id_query.add_columns(
@@ -359,8 +368,10 @@ def _media_id_query(
     evaluation_state: str | None,
     trash: bool | None,
     source_root_id: UUID | None,
-    checkpoint_reference_id: UUID | None,
-    lora_reference_id: UUID | None,
+    checkpoint_reference_ids: list[UUID],
+    checkpoint_reference_match: ReferenceMatch,
+    lora_reference_ids: list[UUID],
+    lora_reference_match: ReferenceMatch,
 ) -> Select[tuple[UUID]]:
     filters: list[ColumnElement[bool]] = []
     if kind:
@@ -422,21 +433,40 @@ def _media_id_query(
             )
             .exists()
         )
-    if checkpoint_reference_id is not None:
-        filters.append(
-            _model_usage_exists(
-                checkpoint_reference_id,
-                observation_type="checkpoint_reference",
-            )
-        )
-    if lora_reference_id is not None:
-        filters.append(
-            _model_usage_exists(
-                lora_reference_id,
-                observation_type="lora_reference",
-            )
-        )
+    checkpoint_filter = _model_usage_filter(
+        checkpoint_reference_ids,
+        match=checkpoint_reference_match,
+        observation_type="checkpoint_reference",
+    )
+    if checkpoint_filter is not None:
+        filters.append(checkpoint_filter)
+    lora_filter = _model_usage_filter(
+        lora_reference_ids,
+        match=lora_reference_match,
+        observation_type="lora_reference",
+    )
+    if lora_filter is not None:
+        filters.append(lora_filter)
     return select(Media.id).join(MediaAsset, MediaAsset.media_id == Media.id).where(*filters)
+
+
+def _model_usage_filter(
+    reference_ids: list[UUID],
+    *,
+    match: ReferenceMatch,
+    observation_type: str,
+) -> ColumnElement[bool] | None:
+    unique_ids = list(dict.fromkeys(reference_ids))
+    if not unique_ids:
+        return None
+    clauses = [
+        _model_usage_exists(
+            reference_id,
+            observation_type=observation_type,
+        )
+        for reference_id in unique_ids
+    ]
+    return and_(*clauses) if match == "all" else or_(*clauses)
 
 
 def _model_usage_exists(

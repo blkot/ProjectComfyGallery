@@ -14,17 +14,31 @@ import {
 import { formatBytes, formatDate, formatDuration, titleCase } from "../lib/format";
 import {
   defaultMediaSort,
+  libraryFilterExpression,
   mediaDetailHref,
   mediaListQuery,
   mediaPageSize,
   parseOffset,
+  type LibraryFilterExpression,
+  type ReferenceMatch,
 } from "../lib/media-view";
+
+type FilteredSelection = {
+  count: number;
+  filter: LibraryFilterExpression;
+};
+
+type MembershipPayload =
+  | { media_ids: string[] }
+  | { filter: LibraryFilterExpression };
 
 export function LibraryPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [filteredSelection, setFilteredSelection] =
+    useState<FilteredSelection | null>(null);
   const [collectionName, setCollectionName] = useState("");
   const [collectionId, setCollectionId] = useState("");
   const [tagName, setTagName] = useState("");
@@ -35,12 +49,18 @@ export function LibraryPage() {
   const workflowStatus = searchParams.get("workflow_status") ?? "";
   const evaluationState = searchParams.get("evaluation_state") ?? "";
   const trash = searchParams.get("trash") ?? "";
-  const checkpointReferenceId =
-    searchParams.get("checkpoint_reference_id") ?? "";
-  const loraReferenceId = searchParams.get("lora_reference_id") ?? "";
+  const checkpointReferenceIds = searchParams.getAll(
+    "checkpoint_reference_id",
+  );
+  const checkpointReferenceMatch: ReferenceMatch =
+    searchParams.get("checkpoint_reference_match") === "all" ? "all" : "any";
+  const loraReferenceIds = searchParams.getAll("lora_reference_id");
+  const loraReferenceMatch: ReferenceMatch =
+    searchParams.get("lora_reference_match") === "all" ? "all" : "any";
   const sort = searchParams.get("sort") || defaultMediaSort;
   const offset = parseOffset(searchParams.get("offset"));
   const requestSearch = mediaListQuery(searchParams).toString();
+  const selectionCount = filteredSelection?.count ?? selected.size;
 
   const media = useQuery({
     queryKey: ["media", requestSearch],
@@ -75,9 +95,10 @@ export function LibraryPage() {
       apiRequest<ReviewSession>("/api/v1/review-sessions", {
         method: "POST",
         body: JSON.stringify({
-          source_kind: "selection",
-          media_ids: [...selected],
-          random_limit: selected.size,
+          source_kind: filteredSelection ? "filter" : "selection",
+          media_ids: filteredSelection ? [] : [...selected],
+          filter: filteredSelection?.filter ?? null,
+          random_limit: Math.min(selectionCount, 2000),
           ordering_mode: "stable",
           optional_modules: [],
         }),
@@ -90,10 +111,10 @@ export function LibraryPage() {
         method: "POST",
         body: JSON.stringify({ name: collectionName, description: null }),
       });
-      if (selected.size) {
+      if (selectionCount) {
         await apiRequest<Collection>(`/api/v1/collections/${collection.id}/items`, {
           method: "POST",
-          body: JSON.stringify({ media_ids: [...selected] }),
+          body: JSON.stringify(selectionPayload()),
         });
       }
       return collection;
@@ -109,10 +130,10 @@ export function LibraryPage() {
         method: "POST",
         body: JSON.stringify({ name: tagName, color: null }),
       });
-      if (selected.size) {
+      if (selectionCount) {
         await apiRequest<MediaTag>(`/api/v1/tags/${tag.id}/media`, {
           method: "POST",
-          body: JSON.stringify({ media_ids: [...selected] }),
+          body: JSON.stringify(selectionPayload()),
         });
       }
       return tag;
@@ -126,7 +147,7 @@ export function LibraryPage() {
     mutationFn: () =>
       apiRequest<Collection>(`/api/v1/collections/${collectionId}/items`, {
         method: "POST",
-        body: JSON.stringify({ media_ids: [...selected] }),
+        body: JSON.stringify(selectionPayload()),
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["collections"] });
@@ -136,7 +157,7 @@ export function LibraryPage() {
     mutationFn: () =>
       apiRequest<MediaTag>(`/api/v1/tags/${tagId}/media`, {
         method: "POST",
-        body: JSON.stringify({ media_ids: [...selected] }),
+        body: JSON.stringify(selectionPayload()),
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["tags"] });
@@ -148,15 +169,7 @@ export function LibraryPage() {
         method: "POST",
         body: JSON.stringify({
           name: savedFilterName,
-          expression: {
-            kind: kind || null,
-            status: status || null,
-            workflow_status: workflowStatus || null,
-            evaluation_state: evaluationState || null,
-            trash: trash ? trash === "true" : null,
-            checkpoint_reference_id: checkpointReferenceId || null,
-            lora_reference_id: loraReferenceId || null,
-          },
+          expression: libraryFilterExpression(searchParams),
         }),
       }),
     onSuccess: async () => {
@@ -166,10 +179,22 @@ export function LibraryPage() {
   });
 
   function changeLibraryParameter(name: string, value: string) {
+    if (name !== "sort") setFilteredSelection(null);
     setSearchParams((current) => {
       const next = new URLSearchParams(current);
       if (value) next.set(name, value);
       else next.delete(name);
+      next.delete("offset");
+      return next;
+    });
+  }
+
+  function changeMultiLibraryParameter(name: string, values: string[]) {
+    setFilteredSelection(null);
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete(name);
+      for (const value of values) next.append(name, value);
       next.delete("offset");
       return next;
     });
@@ -192,6 +217,45 @@ export function LibraryPage() {
       return next;
     });
   }
+
+  function toggleCurrentPage() {
+    const pageIds = media.data?.items.map((item) => item.id) ?? [];
+    if (!pageIds.length || filteredSelection) return;
+    setSelected((current) => {
+      const next = new Set(current);
+      const pageIsSelected = pageIds.every((id) => next.has(id));
+      for (const id of pageIds) {
+        if (pageIsSelected) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function selectAllMatching() {
+    const count = media.data?.total ?? 0;
+    if (!count) return;
+    setSelected(new Set());
+    setFilteredSelection({
+      count,
+      filter: libraryFilterExpression(searchParams),
+    });
+  }
+
+  function clearSelection() {
+    setSelected(new Set());
+    setFilteredSelection(null);
+  }
+
+  function selectionPayload(): MembershipPayload {
+    return filteredSelection
+      ? { filter: filteredSelection.filter }
+      : { media_ids: [...selected] };
+  }
+
+  const currentPageIds = media.data?.items.map((item) => item.id) ?? [];
+  const currentPageSelected =
+    currentPageIds.length > 0 && currentPageIds.every((id) => selected.has(id));
 
   return (
     <main className="page library-page">
@@ -282,43 +346,32 @@ export function LibraryPage() {
             <option value="unprocessed">Unprocessed</option>
           </select>
         </label>
-        <label>
-          Checkpoint
-          <select
-            value={checkpointReferenceId}
-            onChange={(event) =>
-              changeLibraryParameter(
-                "checkpoint_reference_id",
-                event.target.value,
-              )
-            }
-          >
-            <option value="">All checkpoints</option>
-            {checkpointReferences.data?.map((reference) => (
-              <option value={reference.reference_id} key={reference.reference_id}>
-                {reference.display_name} ({reference.occurrence_count})
-                {reference.alias_count > 1 ? ` · ${reference.alias_count} aliases` : ""}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          LoRA
-          <select
-            value={loraReferenceId}
-            onChange={(event) =>
-              changeLibraryParameter("lora_reference_id", event.target.value)
-            }
-          >
-            <option value="">All LoRAs</option>
-            {loraReferences.data?.map((reference) => (
-              <option value={reference.reference_id} key={reference.reference_id}>
-                {reference.display_name} ({reference.occurrence_count})
-                {reference.alias_count > 1 ? ` · ${reference.alias_count} aliases` : ""}
-              </option>
-            ))}
-          </select>
-        </label>
+        <ReferenceMultiFilter
+          label="Checkpoint"
+          emptyLabel="All checkpoints"
+          options={checkpointReferences.data ?? []}
+          selectedIds={checkpointReferenceIds}
+          match={checkpointReferenceMatch}
+          onSelectionChange={(values) =>
+            changeMultiLibraryParameter("checkpoint_reference_id", values)
+          }
+          onMatchChange={(value) =>
+            changeLibraryParameter("checkpoint_reference_match", value)
+          }
+        />
+        <ReferenceMultiFilter
+          label="LoRA"
+          emptyLabel="All LoRAs"
+          options={loraReferences.data ?? []}
+          selectedIds={loraReferenceIds}
+          match={loraReferenceMatch}
+          onSelectionChange={(values) =>
+            changeMultiLibraryParameter("lora_reference_id", values)
+          }
+          onMatchChange={(value) =>
+            changeLibraryParameter("lora_reference_match", value)
+          }
+        />
         <label>
           Sort
           <select
@@ -343,17 +396,52 @@ export function LibraryPage() {
       </section>
 
       <section className="panel library-scope-panel">
-        <div>
+        <div className="selection-summary">
           <p className="kicker">Review scope</p>
-          <strong>{selected.size} selected</strong>
+          <strong>
+            {filteredSelection
+              ? `All ${filteredSelection.count} matching selected`
+              : `${selected.size} selected`}
+          </strong>
+          <small>
+            {filteredSelection
+              ? "Filter-backed · resolved on the server"
+              : "Selection is retained across library pages"}
+          </small>
+        </div>
+        <div className="selection-actions">
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={!currentPageIds.length || Boolean(filteredSelection)}
+            onClick={toggleCurrentPage}
+          >
+            {currentPageSelected ? "Clear page" : "Select page"}
+          </button>
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={!media.data?.total || Boolean(filteredSelection)}
+            onClick={selectAllMatching}
+          >
+            Select all {media.data?.total ?? 0} matching
+          </button>
+          <button
+            className="text-button"
+            type="button"
+            disabled={selectionCount === 0}
+            onClick={clearSelection}
+          >
+            Clear selection
+          </button>
         </div>
         <button
           className="primary-button"
           type="button"
-          disabled={selected.size === 0 || startReview.isPending}
+          disabled={selectionCount === 0 || startReview.isPending}
           onClick={() => startReview.mutate()}
         >
-          Review selection
+          {filteredSelection ? "Review filtered results" : "Review selection"}
         </button>
         <form
           onSubmit={(event) => {
@@ -397,10 +485,10 @@ export function LibraryPage() {
             className="secondary-button"
             type="submit"
             disabled={
-              selected.size === 0 || !collectionId || addToCollection.isPending
+              selectionCount === 0 || !collectionId || addToCollection.isPending
             }
           >
-            Add selected
+            Add scope
           </button>
         </form>
         <form
@@ -444,9 +532,9 @@ export function LibraryPage() {
           <button
             className="secondary-button"
             type="submit"
-            disabled={selected.size === 0 || !tagId || applyTag.isPending}
+            disabled={selectionCount === 0 || !tagId || applyTag.isPending}
           >
-            Apply selected
+            Apply scope
           </button>
         </form>
         <form
@@ -469,8 +557,11 @@ export function LibraryPage() {
             Save current filter
           </button>
         </form>
-        <small className="muted">
+        <small className="muted scope-footnote">
           {collections.data?.length ?? 0} collections · {tags.data?.length ?? 0} tags
+          {filteredSelection && filteredSelection.count > 2000
+            ? " · review sessions use the first 2,000 matching media"
+            : ""}
         </small>
       </section>
 
@@ -507,16 +598,21 @@ export function LibraryPage() {
         {media.data?.items.map((item) => (
           <article
             className="media-card"
-            data-selected={selected.has(item.id)}
+            data-selected={Boolean(filteredSelection) || selected.has(item.id)}
             key={item.id}
           >
             <label className="media-select">
               <input
                 type="checkbox"
-                checked={selected.has(item.id)}
+                checked={Boolean(filteredSelection) || selected.has(item.id)}
+                disabled={Boolean(filteredSelection)}
                 onChange={() => toggleSelected(item.id)}
               />
-              <span className="sr-only">Select media</span>
+              <span className="sr-only">
+                {filteredSelection
+                  ? "Included by the filtered selection"
+                  : "Select media"}
+              </span>
             </label>
             <Link
               to={mediaDetailHref(item.id, searchParams)}
@@ -604,5 +700,93 @@ export function LibraryPage() {
         </nav>
       ) : null}
     </main>
+  );
+}
+
+function ReferenceMultiFilter({
+  label,
+  emptyLabel,
+  options,
+  selectedIds,
+  match,
+  onSelectionChange,
+  onMatchChange,
+}: {
+  label: string;
+  emptyLabel: string;
+  options: ModelReferenceFilterOption[];
+  selectedIds: string[];
+  match: ReferenceMatch;
+  onSelectionChange: (values: string[]) => void;
+  onMatchChange: (value: ReferenceMatch) => void;
+}) {
+  const selectedSet = new Set(selectedIds);
+  const selectedOptions = options.filter((option) =>
+    selectedSet.has(option.reference_id),
+  );
+  const summary =
+    selectedOptions.length === 0
+      ? emptyLabel
+      : selectedOptions.length === 1
+        ? selectedOptions[0].display_name
+        : `${selectedOptions.length} selected · ${match === "all" ? "All" : "Any"}`;
+
+  return (
+    <div className="reference-filter">
+      <span className="reference-filter-label">{label}</span>
+      <details>
+        <summary title={summary}>{summary}</summary>
+        <div className="reference-filter-menu">
+          <div className="reference-filter-heading">
+            <strong>{label} matching</strong>
+            <button
+              className="text-button"
+              type="button"
+              disabled={selectedIds.length === 0}
+              onClick={() => onSelectionChange([])}
+            >
+              Clear
+            </button>
+          </div>
+          <label>
+            Match selected values
+            <select
+              value={match}
+              onChange={(event) =>
+                onMatchChange(event.target.value as ReferenceMatch)
+              }
+            >
+              <option value="any">Any selected value (OR)</option>
+              <option value="all">Every selected value (AND)</option>
+            </select>
+          </label>
+          <div className="reference-filter-options">
+            {options.map((option) => (
+              <label key={option.reference_id}>
+                <input
+                  type="checkbox"
+                  checked={selectedSet.has(option.reference_id)}
+                  onChange={() => {
+                    const next = selectedSet.has(option.reference_id)
+                      ? selectedIds.filter((id) => id !== option.reference_id)
+                      : [...selectedIds, option.reference_id];
+                    onSelectionChange(next);
+                  }}
+                />
+                <span>
+                  <strong>{option.display_name}</strong>
+                  <small>
+                    {option.occurrence_count} workflow uses
+                    {option.alias_count > 1
+                      ? ` · ${option.alias_count} aliases`
+                      : ""}
+                  </small>
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      </details>
+    </div>
   );
 }

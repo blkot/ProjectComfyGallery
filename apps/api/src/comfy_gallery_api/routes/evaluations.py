@@ -565,7 +565,7 @@ async def add_collection_items(
     session: DbSessionDep,
 ) -> CollectionResponse:
     collection = await _collection_or_404(session, collection_id)
-    media_ids = await _validate_media_ids(session, request.media_ids)
+    media_ids = await _resolve_membership_media_ids(session, request)
     existing = set(
         await session.scalars(
             select(CollectionItem.media_id).where(
@@ -632,7 +632,7 @@ async def add_tag_media(
     session: DbSessionDep,
 ) -> TagResponse:
     tag = await _tag_or_404(session, tag_id)
-    media_ids = await _validate_media_ids(session, request.media_ids)
+    media_ids = await _resolve_membership_media_ids(session, request)
     existing = set(
         await session.scalars(
             select(MediaTag.media_id).where(
@@ -772,13 +772,21 @@ async def _resolve_scope(
     return media_ids, snapshot
 
 
-def _media_scope_query(media_filter: MediaFilterRequest) -> Select[tuple[UUID]]:
-    query = select(Media.id).where(Media.status.in_(REVIEWABLE_MEDIA_STATUSES))
+def _media_scope_query(
+    media_filter: MediaFilterRequest,
+    *,
+    reviewable_only: bool = True,
+) -> Select[tuple[UUID]]:
+    query = select(Media.id)
+    if reviewable_only:
+        query = query.where(Media.status.in_(REVIEWABLE_MEDIA_STATUSES))
     if media_filter.kind:
         query = query.where(Media.kind == media_filter.kind)
     if media_filter.status:
         query = query.where(Media.status == media_filter.status)
-    if media_filter.workflow_status:
+    if media_filter.workflow_status == "unprocessed":
+        query = query.where(~Media.workflow_snapshot.has())
+    elif media_filter.workflow_status:
         query = query.where(Media.workflow_snapshot.has(parse_status=media_filter.workflow_status))
     if media_filter.source_root_id:
         query = query.where(
@@ -797,20 +805,20 @@ def _media_scope_query(media_filter: MediaFilterRequest) -> Select[tuple[UUID]]:
         )
     if media_filter.tag_id:
         query = query.where(Media.tag_memberships.any(MediaTag.tag_id == media_filter.tag_id))
-    if media_filter.checkpoint_reference_id:
-        query = query.where(
-            _media_uses_model_reference(
-                media_filter.checkpoint_reference_id,
-                observation_type="checkpoint_reference",
-            )
-        )
-    if media_filter.lora_reference_id:
-        query = query.where(
-            _media_uses_model_reference(
-                media_filter.lora_reference_id,
-                observation_type="lora_reference",
-            )
-        )
+    checkpoint_filter = _model_reference_filter(
+        media_filter.checkpoint_ids(),
+        match=media_filter.checkpoint_reference_match,
+        observation_type="checkpoint_reference",
+    )
+    if checkpoint_filter is not None:
+        query = query.where(checkpoint_filter)
+    lora_filter = _model_reference_filter(
+        media_filter.lora_ids(),
+        match=media_filter.lora_reference_match,
+        observation_type="lora_reference",
+    )
+    if lora_filter is not None:
+        query = query.where(lora_filter)
     if media_filter.evaluation_state == "not_started":
         query = query.where(
             or_(
@@ -832,16 +840,43 @@ def _media_scope_query(media_filter: MediaFilterRequest) -> Select[tuple[UUID]]:
                 )
             )
         )
-    if media_filter.trash is not None:
+    if media_filter.trash is True:
         query = query.where(
             Media.evaluations.any(
                 and_(
                     Evaluation.evaluation_kind == "base",
-                    Evaluation.is_trash.is_(media_filter.trash),
+                    Evaluation.is_trash.is_(True),
+                )
+            )
+        )
+    elif media_filter.trash is False:
+        query = query.where(
+            ~Media.evaluations.any(
+                and_(
+                    Evaluation.evaluation_kind == "base",
+                    Evaluation.is_trash.is_(True),
                 )
             )
         )
     return query
+
+
+def _model_reference_filter(
+    reference_ids: list[UUID],
+    *,
+    match: str,
+    observation_type: str,
+) -> ColumnElement[bool] | None:
+    if not reference_ids:
+        return None
+    clauses = [
+        _media_uses_model_reference(
+            reference_id,
+            observation_type=observation_type,
+        )
+        for reference_id in reference_ids
+    ]
+    return and_(*clauses) if match == "all" else or_(*clauses)
 
 
 def _media_uses_model_reference(
@@ -1096,6 +1131,19 @@ async def _validate_reviewable_media_ids(
             message="One or more selected media records are not ready for review.",
         )
     return unique_ids
+
+
+async def _resolve_membership_media_ids(
+    session: AsyncSession,
+    request: MediaMembershipRequest,
+) -> list[UUID]:
+    if request.filter is None:
+        return await _validate_media_ids(session, request.media_ids)
+    return list(
+        await session.scalars(
+            _media_scope_query(request.filter, reviewable_only=False).order_by(Media.id)
+        )
+    )
 
 
 async def _collection_response(

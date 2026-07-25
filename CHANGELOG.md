@@ -10,6 +10,10 @@ All notable changes to Project Comfy Gallery are recorded here.
   attested `linux/amd64` images to private GHCR.
 - Add guarded pull-only Xanta NAS deployment with backup, migration/drift
   preflight, version verification, and service health checks.
+- Add page-wide and server-resolved all-matching Library scopes for review,
+  collections, and tags.
+- Add multi-checkpoint and multi-LoRA filters with explicit Any (OR) and All
+  (AND) matching.
 
 ## 0.1.0-rc.7 — 2026-07-25
 

@@ -6,7 +6,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from comfy_gallery_api.evaluation_schemas import MediaFilterRequest
 from comfy_gallery_api.media_schemas import MediaPageResponse
 from comfy_gallery_api.routes.evaluations import _media_scope_query
-from comfy_gallery_api.routes.media import MediaSort, get_media_navigation, list_media
+from comfy_gallery_api.routes.media import (
+    MediaSort,
+    ReferenceMatch,
+    get_media_navigation,
+    list_media,
+)
 from comfy_gallery_core.db.base import Base
 from comfy_gallery_core.db.models import (
     Media,
@@ -103,6 +108,14 @@ async def test_media_library_sorts_by_source_time_and_filters_model_usages() -> 
             resolution_state="resolved",
             occurrence_count=1,
         )
+        second_lora = ModelReference(
+            reference_type="lora",
+            raw_value="lighting_style.safetensors",
+            normalized_value="lighting_style.safetensors",
+            availability="present",
+            resolution_state="resolved",
+            occurrence_count=2,
+        )
         identity_group = ModelReferenceGroup(
             reference_type="lora",
             canonical_key="character_000003500",
@@ -111,7 +124,7 @@ async def test_media_library_sorts_by_source_time_and_filters_model_usages() -> 
             confidence=1,
             status="confirmed",
         )
-        session.add_all([checkpoint, lora, lora_alias, identity_group])
+        session.add_all([checkpoint, lora, lora_alias, second_lora, identity_group])
         await session.flush()
         lora.identity_group_id = identity_group.id
         lora_alias.identity_group_id = identity_group.id
@@ -133,8 +146,24 @@ async def test_media_library_sorts_by_source_time_and_filters_model_usages() -> 
             [
                 _usage(snapshot.id, checkpoint.id, "checkpoint_reference", 0),
                 _usage(snapshot.id, lora_alias.id, "lora_reference", 1),
+                _usage(snapshot.id, second_lora.id, "lora_reference", 2),
             ]
         )
+        newest_snapshot = WorkflowSnapshot(
+            media_id=newest.id,
+            reader_name="test",
+            reader_version="1",
+            source_carrier="test",
+            evidence_sha256="e" * 64,
+            raw_metadata={},
+            api_prompt_status="parsed",
+            visual_workflow_status="absent",
+            parse_status="parsed",
+            issue_details={},
+        )
+        session.add(newest_snapshot)
+        await session.flush()
+        session.add(_usage(newest_snapshot.id, second_lora.id, "lora_reference", 0))
         await session.commit()
 
         page = await _library_page(session, sort="file_created_desc")
@@ -172,17 +201,34 @@ async def test_media_library_sorts_by_source_time_and_filters_model_usages() -> 
         filtered = await _library_page(
             session,
             sort="file_created_desc",
-            checkpoint_reference_id=checkpoint.id,
-            lora_reference_id=lora.id,
+            checkpoint_reference_ids=[checkpoint.id],
+            lora_reference_ids=[lora.id],
         )
         assert [item.id for item in filtered.items] == [middle.id]
+
+        any_lora = await _library_page(
+            session,
+            sort="file_created_desc",
+            lora_reference_ids=[lora.id, second_lora.id],
+            lora_reference_match="any",
+        )
+        assert [item.id for item in any_lora.items] == [newest.id, middle.id]
+
+        all_loras = await _library_page(
+            session,
+            sort="file_created_desc",
+            lora_reference_ids=[lora.id, second_lora.id],
+            lora_reference_match="all",
+        )
+        assert [item.id for item in all_loras.items] == [middle.id]
 
         saved_scope_ids = list(
             await session.scalars(
                 _media_scope_query(
                     MediaFilterRequest(
-                        checkpoint_reference_id=checkpoint.id,
-                        lora_reference_id=lora.id,
+                        checkpoint_reference_ids=[checkpoint.id],
+                        lora_reference_ids=[lora.id, second_lora.id],
+                        lora_reference_match="all",
                     )
                 )
             )
@@ -200,7 +246,9 @@ async def test_media_library_sorts_by_source_time_and_filters_model_usages() -> 
             trash=None,
             source_root_id=None,
             checkpoint_reference_id=None,
+            checkpoint_reference_match="any",
             lora_reference_id=None,
+            lora_reference_match="any",
             sort="file_created_desc",
         )
         assert navigation.position == 3
@@ -261,8 +309,10 @@ async def _library_page(
     session: AsyncSession,
     *,
     sort: MediaSort,
-    checkpoint_reference_id: UUID | None = None,
-    lora_reference_id: UUID | None = None,
+    checkpoint_reference_ids: list[UUID] | None = None,
+    checkpoint_reference_match: ReferenceMatch = "any",
+    lora_reference_ids: list[UUID] | None = None,
+    lora_reference_match: ReferenceMatch = "any",
 ) -> MediaPageResponse:
     return await list_media(
         _principal=None,  # type: ignore[arg-type]
@@ -273,8 +323,10 @@ async def _library_page(
         evaluation_state=None,
         trash=None,
         source_root_id=None,
-        checkpoint_reference_id=checkpoint_reference_id,
-        lora_reference_id=lora_reference_id,
+        checkpoint_reference_id=checkpoint_reference_ids,
+        checkpoint_reference_match=checkpoint_reference_match,
+        lora_reference_id=lora_reference_ids,
+        lora_reference_match=lora_reference_match,
         sort=sort,
         limit=48,
         offset=0,

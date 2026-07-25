@@ -7,10 +7,12 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from comfy_gallery_api.dependencies import Principal
 from comfy_gallery_api.evaluation_schemas import (
     MediaFilterRequest,
+    MediaMembershipRequest,
     ReviewSessionUpdateRequest,
 )
 from comfy_gallery_api.routes.evaluations import (
     _media_scope_query,
+    _resolve_membership_media_ids,
     review_summary,
     update_review_session,
 )
@@ -32,6 +34,33 @@ from comfy_gallery_core.evaluation.service import (
     update_trash,
 )
 from comfy_gallery_core.media.errors import IngestionError
+
+
+async def test_filter_membership_resolves_all_matching_media_not_only_reviewable() -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
+    async with session_factory() as session:
+        ready_image = Media(kind="image", status="ready")
+        failed_image = Media(kind="image", status="failed")
+        ready_video = Media(kind="video", status="ready")
+        session.add_all([ready_image, failed_image, ready_video])
+        await session.flush()
+
+        membership_ids = await _resolve_membership_media_ids(
+            session,
+            MediaMembershipRequest(filter=MediaFilterRequest(kind="image")),
+        )
+        review_ids = list(
+            await session.scalars(_media_scope_query(MediaFilterRequest(kind="image")))
+        )
+
+        assert set(membership_ids) == {ready_image.id, failed_image.id}
+        assert review_ids == [ready_image.id]
+
+    await engine.dispose()
 
 
 async def test_v1_catalog_and_evaluation_state_machine_preserve_zero_na_and_revisions() -> None:
