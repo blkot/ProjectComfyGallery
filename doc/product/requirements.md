@@ -178,3 +178,10 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
 - **OPS-009:** Evaluations, criteria, registry, and analysis data MUST support portable export.
 - **OPS-010:** Schema changes MUST use Alembic migrations.
 - **OPS-011:** Heavy background concurrency MUST be bounded for the J4125 CPU.
+- **OPS-012:** Ordinary development MUST run against isolated Mac-local database,
+  broker, managed storage, and credentials rather than NAS production state.
+- **OPS-013:** Production milestone images MUST be built for `linux/amd64` by CI,
+  tagged immutably by locked version, and pulled by the NAS without compilation.
+- **OPS-014:** The milestone deployment command MUST require a fresh backup,
+  migration/drift preflight, explicit version confirmation, and post-start health
+  verification.

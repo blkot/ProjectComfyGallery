@@ -54,6 +54,7 @@ This structure borrows the audience separation of the Diátaxis documentation mo
 ### Development
 
 - [Engineering plan](development/engineering-plan.md)
+- [Mac-first development and milestone releases](development/mac-first-development-and-release.md)
 - [Phase 0 foundation and verification](development/phase-0-foundation.md)
 - [Phase 1 media ingestion and verification](development/phase-1-media-ingestion.md)
 - [Phase 2 workflow evidence and verification](development/phase-2-workflow-evidence.md)

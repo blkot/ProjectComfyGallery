@@ -81,11 +81,18 @@ The accepted foundation toolchain is:
 ## Branch and review discipline
 
 - Small, requirement-scoped changes.
+- `main` is continuously tested source; production deploys only explicit annotated
+  milestone tags.
 - Every PR/commit references requirement IDs in description where practical.
 - Schema changes include migrations and migration tests.
 - Parser changes include golden/synthetic fixture updates.
 - Evaluation changes include state-transition and migration tests.
 - Architectural changes update an ADR.
+
+Daily implementation runs on the Mac against the isolated development Compose
+infrastructure. GitHub Actions builds immutable `linux/amd64` milestone images;
+the NAS pulls and verifies them without compiling. See
+[Mac-first development and milestone releases](mac-first-development-and-release.md).
 
 ## Phase 0: repository foundation
 

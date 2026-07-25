@@ -2,6 +2,15 @@
 
 All notable changes to Project Comfy Gallery are recorded here.
 
+## Unreleased
+
+- Add isolated one-command Mac development with native API/worker/web reload and
+  separate PostgreSQL, Redis, credentials, ports, and media paths.
+- Add annotated milestone validation and GitHub Actions publication of cached,
+  attested `linux/amd64` images to private GHCR.
+- Add guarded pull-only Xanta NAS deployment with backup, migration/drift
+  preflight, version verification, and service health checks.
+
 ## 0.1.0-rc.7 — 2026-07-25
 
 - Use larger three-column gallery cards with a 2:3 portrait preview frame.

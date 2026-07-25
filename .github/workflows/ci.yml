@@ -77,3 +77,4 @@ jobs:
       - uses: actions/checkout@v5
       - run: cp .env.example .env
       - run: docker compose config --quiet
+      - run: docker compose -f compose.development.yaml config --quiet

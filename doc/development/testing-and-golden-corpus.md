@@ -2,10 +2,11 @@
 
 **Status:** Accepted
 
-Phase 5 verification currently passes 41 Python tests and 10 frontend tests. The
-analytics slice also has clean PostgreSQL migration/drift, live Docker/API/ComfyUI,
-browser interaction, private image/video corpus, and `linux/amd64` image-build
-evidence recorded in
+The project maintains Python, frontend, compose, migration, and operational
+workflow checks in CI; the exact test count grows with each slice. The analytics
+slice also has clean PostgreSQL migration/drift, live Docker/API/ComfyUI, browser
+interaction, private image/video corpus, and `linux/amd64` image-build evidence
+recorded in
 [Phase 5 model-focused analytics](phase-5-model-analytics.md).
 
 ## Quality strategy

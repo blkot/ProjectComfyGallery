@@ -4,9 +4,11 @@
 
 ## Target environment
 
-The current release is locked as `0.1.0-rc.7`. Compose-produced images use that
-exact tag and OCI version label. Every upstream runtime/build base is pinned by
-immutable SHA-256 digest; changing a base digest is an explicit upgrade operation.
+The current production release is locked as `0.1.0-rc.7`. Future milestone images
+use the exact locked version as their registry tag and OCI version label, plus
+source-commit and repository labels. Every upstream runtime/build base is pinned
+by immutable SHA-256 digest; changing a base digest is an explicit upgrade
+operation.
 
 - x86-64 NAS.
 - Intel J4125 CPU.
@@ -40,9 +42,9 @@ Phase 6 implements all six services, including scheduled backup.
 - Worker has no inbound public port.
 - Outbound access is required only for configured ComfyUI/LoRA Manager synchronization and optional provider metadata.
 
-The base Compose file publishes PostgreSQL and Redis on `127.0.0.1` for host-based
-development. `compose.production.yaml` resets both port lists, so production exposes
-only the Nginx web port to the LAN. The API has no host port; Nginx proxies the
+`compose.development.yaml` runs a distinct Mac-only PostgreSQL/Redis project on
+`127.0.0.1:55432` and `127.0.0.1:56379`. Production Compose exposes only the Nginx
+web port to the LAN. The API has no production host port; Nginx proxies the
 browser's same-origin `/api` and `/health` requests.
 
 ## Persistent volumes
@@ -98,6 +100,17 @@ official CDN and is applied consistently to all runtime-image hardening steps. A
 operator may select a geographically closer compatible mirror when the official CDN
 is slow; the NAS deployment currently uses `https://mirrors.aliyun.com/alpine` after
 an in-container download check.
+
+`CG_IMAGE_NAMESPACE` and `CG_IMAGE_TAG` select the complete immutable image set.
+Local source builds default to `project-comfy-gallery` and the locked source
+version. Milestone deployment sets the namespace to
+`ghcr.io/blkot/project-comfy-gallery` and uses the exact `VERSION` value. API and
+worker deliberately share one backend image.
+
+GitHub Actions authenticates to GHCR with repository-scoped `GITHUB_TOKEN` package
+write access. The NAS uses a separately supplied classic personal access token
+limited to `read:packages`; the token belongs to Docker credential storage and
+MUST NOT enter application `.env` or Git.
 
 ## Resource profile
 
@@ -165,7 +178,7 @@ require a device mount or hardware-specific ffmpeg recipe.
 Upgrade sequence:
 
 1. Confirm a recent backup exists.
-2. Pull/build the intended application version.
+2. Pull the intended immutable application version.
 3. Run migration preflight.
 4. Apply Alembic migrations once.
 5. Start API/worker compatible with the migrated schema.

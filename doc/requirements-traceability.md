@@ -33,6 +33,7 @@ This matrix connects product requirements to design, delivery phase, and expecte
 | OPS-005 | Mounted filesystem storage for originals/derivatives | [Deployment](operations/deployment-and-security.md), [Ingestion](design/media-ingestion.md) | 1 | Compose mounts and real derivative/original verification | Locked in 0.1.0-rc.6 |
 | OPS-007–009 | Backup/restore and portable export | [Recovery](operations/backup-recovery-observability.md), [Phase 6 verification](development/phase-6-nas-release.md) | 6 | `deploy/operations`, `operations.exports`, `routes.exports`, export/status tests, local and NAS restore rehearsals | Locked in 0.1.0-rc.6 |
 | OPS-011 | Bounded J4125 background concurrency | [Deployment](operations/deployment-and-security.md), [Phase 6 verification](development/phase-6-nas-release.md) | 0, 1, 6 | One-process/one-thread worker, Compose limits, 1,036-path real J4125 scan with responsive review/status API | Locked in 0.1.0-rc.6 |
+| OPS-012–014 | Isolated Mac development and pull-only milestone deployment | [Mac-first workflow](development/mac-first-development-and-release.md), [Deployment](operations/deployment-and-security.md), [Upgrade runbook](operations/upgrade-runbook.md) | post-rc.7 | `compose.development.yaml`, development/release scripts, `release-images.yml`, `test_operational_workflows.py`, local smoke test, first milestone rehearsal | Implemented; next release lock pending |
 
 ## Critical invariant traceability
 
