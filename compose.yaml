@@ -42,7 +42,7 @@ x-backend-build: &backend-build
   context: .
   dockerfile: deploy/docker/backend.Dockerfile
   args:
-    CG_PROJECT_VERSION: ${CG_IMAGE_TAG:-0.1.0-rc.7}
+    CG_PROJECT_VERSION: ${CG_IMAGE_TAG:-0.1.0-rc.8}
     ALPINE_MIRROR: ${ALPINE_MIRROR:-https://dl-cdn.alpinelinux.org/alpine}
 
 x-service-logging: &service-logging
@@ -53,12 +53,12 @@ x-service-logging: &service-logging
 
 services:
   postgres:
-    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/postgres:${CG_IMAGE_TAG:-0.1.0-rc.7}
+    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/postgres:${CG_IMAGE_TAG:-0.1.0-rc.8}
     build:
       context: .
       dockerfile: deploy/docker/database.Dockerfile
       args:
-        CG_PROJECT_VERSION: ${CG_IMAGE_TAG:-0.1.0-rc.7}
+        CG_PROJECT_VERSION: ${CG_IMAGE_TAG:-0.1.0-rc.8}
         ALPINE_MIRROR: ${ALPINE_MIRROR:-https://dl-cdn.alpinelinux.org/alpine}
     restart: unless-stopped
     environment:
@@ -88,12 +88,12 @@ services:
           memory: ${POSTGRES_MEMORY_LIMIT:-1G}
 
   redis:
-    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/redis:${CG_IMAGE_TAG:-0.1.0-rc.7}
+    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/redis:${CG_IMAGE_TAG:-0.1.0-rc.8}
     build:
       context: .
       dockerfile: deploy/docker/redis.Dockerfile
       args:
-        CG_PROJECT_VERSION: ${CG_IMAGE_TAG:-0.1.0-rc.7}
+        CG_PROJECT_VERSION: ${CG_IMAGE_TAG:-0.1.0-rc.8}
         ALPINE_MIRROR: ${ALPINE_MIRROR:-https://dl-cdn.alpinelinux.org/alpine}
     restart: unless-stopped
     command:
@@ -123,7 +123,7 @@ services:
           memory: ${REDIS_MEMORY_LIMIT:-256M}
 
   api:
-    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/backend:${CG_IMAGE_TAG:-0.1.0-rc.7}
+    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/backend:${CG_IMAGE_TAG:-0.1.0-rc.8}
     build: *backend-build
     restart: unless-stopped
     environment: *backend-environment
@@ -161,7 +161,7 @@ services:
           memory: ${API_MEMORY_LIMIT:-768M}
 
   worker:
-    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/backend:${CG_IMAGE_TAG:-0.1.0-rc.7}
+    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/backend:${CG_IMAGE_TAG:-0.1.0-rc.8}
     build: *backend-build
     restart: unless-stopped
     environment: *backend-environment
@@ -196,12 +196,12 @@ services:
           memory: ${WORKER_MEMORY_LIMIT:-2G}
 
   backup:
-    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/backup:${CG_IMAGE_TAG:-0.1.0-rc.7}
+    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/backup:${CG_IMAGE_TAG:-0.1.0-rc.8}
     build:
       context: .
       dockerfile: deploy/docker/backup.Dockerfile
       args:
-        CG_PROJECT_VERSION: ${CG_IMAGE_TAG:-0.1.0-rc.7}
+        CG_PROJECT_VERSION: ${CG_IMAGE_TAG:-0.1.0-rc.8}
         ALPINE_MIRROR: ${ALPINE_MIRROR:-https://dl-cdn.alpinelinux.org/alpine}
     restart: unless-stopped
     environment:
@@ -240,12 +240,12 @@ services:
           memory: ${BACKUP_MEMORY_LIMIT:-256M}
 
   web:
-    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/web:${CG_IMAGE_TAG:-0.1.0-rc.7}
+    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/web:${CG_IMAGE_TAG:-0.1.0-rc.8}
     build:
       context: .
       dockerfile: deploy/docker/web.Dockerfile
       args:
-        CG_PROJECT_VERSION: ${CG_IMAGE_TAG:-0.1.0-rc.7}
+        CG_PROJECT_VERSION: ${CG_IMAGE_TAG:-0.1.0-rc.8}
         ALPINE_MIRROR: ${ALPINE_MIRROR:-https://dl-cdn.alpinelinux.org/alpine}
     restart: unless-stopped
     ports:

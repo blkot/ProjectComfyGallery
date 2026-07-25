@@ -2,7 +2,7 @@
 
 **Status:** MVP phases 0–6 implemented and verified
 
-**Locked release candidate:** `0.1.0-rc.7`
+**Locked release candidate:** `0.1.0-rc.8`
 
 ## Delivery strategy
 
@@ -172,7 +172,7 @@ schema or algorithm blocker for Phase 1.
 
 ## Phase 2: workflow evidence and parser foundation
 
-**Implementation status:** Complete and verified in the locked `0.1.0-rc.7` tree.
+**Implementation status:** Complete and verified in the locked `0.1.0-rc.8` tree.
 
 Deliverables:
 

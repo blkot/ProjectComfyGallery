@@ -12,7 +12,7 @@ async def test_liveness_does_not_require_external_services() -> None:
     assert response.json() == {
         "status": "ok",
         "service": "comfy-gallery-api",
-        "version": "0.1.0-rc.7",
+        "version": "0.1.0-rc.8",
         "checks": {},
     }
     assert response.headers["X-Request-ID"]

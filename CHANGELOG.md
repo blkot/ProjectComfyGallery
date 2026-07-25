@@ -4,6 +4,8 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.8 — 2026-07-26
+
 - Add isolated one-command Mac development with native API/worker/web reload and
   separate PostgreSQL, Redis, credentials, ports, and media paths.
 - Add annotated milestone validation and GitHub Actions publication of cached,

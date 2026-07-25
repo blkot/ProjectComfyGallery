@@ -39,7 +39,7 @@ COPY --chown=comfy:comfy deploy/docker/container-entrypoint.sh deploy/docker/con
 RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
     uv sync --frozen --no-dev --all-packages
 
-ARG CG_PROJECT_VERSION=0.1.0-rc.7
+ARG CG_PROJECT_VERSION=0.1.0-rc.8
 ARG CG_SOURCE_URL=https://github.com/blkot/ProjectComfyGallery
 ARG CG_REVISION=unknown
 
