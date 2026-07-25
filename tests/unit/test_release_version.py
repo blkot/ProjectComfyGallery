@@ -35,11 +35,11 @@ def test_release_version_is_consistent() -> None:
         assert json.loads(path.read_text(encoding="utf-8"))["version"] == release_version
 
     compose = (ROOT / "compose.yaml").read_text(encoding="utf-8")
-    assert f"project-comfy-gallery/backend:{release_version}" in compose
-    assert f"project-comfy-gallery/web:{release_version}" in compose
-    assert f"project-comfy-gallery/backup:{release_version}" in compose
-    assert f"project-comfy-gallery/postgres:{release_version}" in compose
-    assert f"project-comfy-gallery/redis:{release_version}" in compose
+    for image in ("backend", "web", "backup", "postgres", "redis"):
+        assert (
+            "${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/"
+            f"{image}:${{CG_IMAGE_TAG:-{release_version}}}"
+        ) in compose
 
 
 def test_runtime_base_images_are_digest_pinned() -> None:
@@ -53,6 +53,8 @@ def test_runtime_base_images_are_digest_pinned() -> None:
         assert all(digest_pattern.fullmatch(line) for line in from_lines)
         assert f"ARG CG_PROJECT_VERSION={release_version()}" in contents
         assert 'org.opencontainers.image.version="$CG_PROJECT_VERSION"' in contents
+        assert 'org.opencontainers.image.source="$CG_SOURCE_URL"' in contents
+        assert 'org.opencontainers.image.revision="$CG_REVISION"' in contents
 
 
 def release_version() -> str:

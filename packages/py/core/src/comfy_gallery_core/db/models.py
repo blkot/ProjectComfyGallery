@@ -166,6 +166,10 @@ class Media(TimestampMixin, Base):
         back_populates="media",
         cascade="all, delete-orphan",
     )
+    evaluation_modules: Mapped[list[MediaEvaluationModule]] = relationship(
+        back_populates="media",
+        cascade="all, delete-orphan",
+    )
     collection_memberships: Mapped[list[CollectionItem]] = relationship(
         back_populates="media",
         cascade="all, delete-orphan",
@@ -1560,6 +1564,25 @@ class Evaluation(TimestampMixin, Base):
         cascade="all, delete-orphan",
     )
     analysis_memberships: Mapped[list[AnalysisMember]] = relationship(back_populates="evaluation")
+
+
+class MediaEvaluationModule(TimestampMixin, Base):
+    __tablename__ = "media_evaluation_module"
+    __table_args__ = (Index("ix_media_evaluation_module_enabled", "module", "enabled"),)
+
+    media_id: Mapped[UUID] = mapped_column(
+        ForeignKey("media.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    module: Mapped[str] = mapped_column(String(64), primary_key=True)
+    enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+    )
+
+    media: Mapped[Media] = relationship(back_populates="evaluation_modules")
 
 
 class EvaluationScore(TimestampMixin, Base):

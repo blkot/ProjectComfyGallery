@@ -160,50 +160,21 @@ Database dumps protect PostgreSQL/manual work. Include `MEDIA_DATA_ROOT` and
 
 ## Local development
 
-Create local configuration if you did not already do so:
+Mac development uses isolated local data, a separate PostgreSQL/Redis Compose
+project, native FastAPI/worker processes, and Vite hot reload:
 
 ```bash
-cp .env.example .env
+make dev
 ```
 
-Replace the password placeholders. Compose reads this file when starting the
-development database and broker.
+Open <http://127.0.0.1:5173>. The first run creates the ignored
+`.env.development`, installs dependencies, starts local infrastructure, applies
+migrations, and creates the local administrator. It never uses the NAS database or
+managed media.
 
-Install dependencies:
-
-```bash
-make bootstrap
-```
-
-Start PostgreSQL and Redis:
-
-```bash
-docker compose up -d postgres redis
-```
-
-Use host-facing connection URLs when running API/worker outside Compose:
-
-```bash
-export CG_DATABASE_URL=postgresql+asyncpg://comfygallery:change-database-password@localhost:5432/comfygallery
-export CG_REDIS_URL=redis://localhost:6379/0
-export CG_ADMIN_USERNAME=admin
-export CG_ADMIN_PASSWORD=replace-with-a-long-random-password
-```
-
-Apply migrations and bootstrap the single administrator:
-
-```bash
-make migrate
-uv run --package comfy-gallery-core python -m comfy_gallery_core.cli create-admin --if-missing
-```
-
-Run services in separate terminals:
-
-```bash
-uv run --package comfy-gallery-api uvicorn comfy_gallery_api.main:app --reload
-uv run --package comfy-gallery-worker dramatiq comfy_gallery_worker.tasks
-pnpm dev
-```
+See [Mac-first development and milestone releases](doc/development/mac-first-development-and-release.md)
+for commands, data isolation, GitHub-built AMD64 milestone images, and pull-only
+NAS deployments.
 
 ## Checks
 

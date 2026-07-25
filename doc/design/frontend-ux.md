@@ -55,6 +55,9 @@ visualizations, and media drill-down.
 ## Global shell
 
 - Persistent primary navigation.
+- Desktop navigation can collapse to an icon rail and remembers the preference in
+  browser storage. Every icon retains an accessible route name and hover title.
+  Compact layouts use the horizontal navigation independently of that preference.
 - Global search.
 - Current background-job indicator.
 - User/session menu.
@@ -106,12 +109,13 @@ Filters include:
 
 Filter chips show active state. Complex filters use a validated expression model suitable for saving.
 
-The implemented checkpoint and LoRA selectors are backed by `model_reference`
+The implemented multi-select checkpoint and LoRA selectors are backed by `model_reference`
 identities rather than only current artifacts. Deleted, renamed, private, and
 workflow-only historical references remain filterable. Confirmed aliases collapse
 into one selector option with a combined usage count, while unconfirmed references
-remain separate. Checkpoint and LoRA filters are combined with AND semantics; a media
-item must contain both selected usages.
+remain separate. Within one model dimension, the user explicitly chooses Any (OR) or
+All (AND), with Any as the default. Different dimensions remain conjunctive: for
+example, a checkpoint condition and a LoRA condition must both match.
 
 The Model Registry includes a Duplicate aliases tab. It shows basename-derived
 candidates, their exact raw aliases and usage counts, disables conflicting candidates,
@@ -129,9 +133,48 @@ From current results or selection:
 - Export selected metadata.
 - Retry eligible processing stages.
 
+The Library keeps explicit checkbox selection across pagination and filter changes
+while the route remains mounted. It also provides Select page, Select all matching,
+and Clear selection. Select all matching captures the current validated filter and
+resolves collection/tag membership or review candidates on the server; the browser
+does not download thousands of UUIDs. A collection is an exact membership snapshot
+at action time, whereas a saved filter remains a reusable query that can match future
+imports.
+
 ## Media record
 
 The media record exposes:
+
+Media Detail is a fixed-height workstation on desktop. The original image/video stage
+occupies the complete left side below a dedicated control row containing library
+return, deterministic Previous/Next traversal, position, and download. Controls never
+overlay the media. The stage uses the dynamic browser viewport and a definite
+containment box so every edge of an image or video remains visible across browser
+sizes, zoom levels, and source aspect ratios. The right inspector scrolls
+independently, so the media never moves out of view while workflow evidence is
+inspected.
+
+Inspector information is deliberately ordered by practical recall value:
+
+1. original filename and readiness;
+2. exact unsanitized prompt observations, with positive/main first and negative
+   prompts retained but collapsed by default;
+3. resolved checkpoint and LoRA usages, including pipeline slot and raw reference;
+4. generation parameters;
+5. parser diagnostics, node graph, raw evidence, sources, and derivatives;
+6. UUID and SHA-256 in a collapsed technical-identity section;
+7. compact dimensions, format, duration, size, and source file time at the bottom.
+
+The right side has two mutually exclusive panels selected beside the filename:
+
+- **Info** contains the evidence inspector described above.
+- **Evaluate** contains the current media's core criteria, per-media optional-module
+  switches, exact prompts, save state, Trash/restore, and Undo.
+
+The selection is represented by `panel=evaluation` in the Media Detail URL. It is
+preserved across Previous/Next traversal and refresh, but removed when returning to
+the Library or requesting the server-side navigation population. The right pane
+remains independently scrollable in either mode.
 
 ### Preview
 
@@ -189,7 +232,16 @@ newest-file-time view.
 - State and Trash disposition.
 - Current scores and template.
 - Revision history.
-- Open in review/editor.
+- Info/Evaluate switch beside the filename.
+- Shared score controls and autosave behavior with Blind Review.
+- Core module always active; optional Character module enabled per media.
+- Disabling an optional module hides it without deleting scores or revisions.
+- Open in blind Review when configuration-hidden scoring is preferred.
+
+Blind Review uses the same full-height left media stage and independently scrolling
+right control pane. It does not reuse the Media Detail evidence inspector: checkpoint,
+LoRA, and configuration evidence stay hidden under EVAL-017. Session exit and progress
+controls live in the right pane rather than obscuring the review media.
 
 ## Import and jobs
 

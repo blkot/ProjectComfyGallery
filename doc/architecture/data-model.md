@@ -336,6 +336,19 @@ The concrete current-score table is named `evaluation_score`; Trash is stored on
 - Created/updated/completed timestamps.
 - A media may have a base evaluation plus supplemental module evaluations.
 
+### `media_evaluation_module`
+
+- Composite identity: media and optional module key.
+- Stores whether the module is currently enabled for context-visible Media Detail
+  evaluation.
+- Enabling a module lazily ensures its supplemental evaluation exists.
+- Disabling changes applicability only; the related evaluation, scores, and
+  revisions remain intact.
+- Core is implicit and always enabled, so it has no selection row.
+
+Alembic revision `0009_media_evaluation_modules` introduces this table and backfills
+enabled selections for media that already have supplemental evaluations.
+
 ### `score`
 
 - Evaluation and criterion membership.

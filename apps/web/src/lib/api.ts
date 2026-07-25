@@ -601,6 +601,7 @@ export type Evaluation = {
   template_id: string;
   template_name: string;
   template_version: number;
+  module: string;
   evaluation_kind: "base" | "supplemental";
   progress_state: "not_started" | "in_progress" | "complete";
   is_trash: boolean;
@@ -633,6 +634,25 @@ export type ReviewPrompt = {
   role: string | null;
   label: string;
   text: string;
+};
+
+export type MediaEvaluationModule = {
+  module: string;
+  label: string;
+  required: boolean;
+  enabled: boolean;
+  has_saved_scores: boolean;
+  progress_state: "not_started" | "in_progress" | "complete" | null;
+};
+
+export type MediaEvaluationContext = {
+  media_id: string;
+  progress_state: "not_started" | "in_progress" | "complete";
+  is_trash: boolean;
+  enabled_modules: string[];
+  available_modules: MediaEvaluationModule[];
+  prompts: ReviewPrompt[];
+  evaluations: Evaluation[];
 };
 
 export type ReviewItem = {

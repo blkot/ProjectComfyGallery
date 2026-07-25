@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.7
+
 FROM ghcr.io/astral-sh/uv:python3.13-alpine@sha256:48fb7780491d06b7a8705341808536c2c20356c85d7a100858998038a11703f3
 
 ARG ALPINE_MIRROR=https://dl-cdn.alpinelinux.org/alpine
@@ -25,7 +27,8 @@ COPY --chown=comfy:comfy apps/api/pyproject.toml apps/api/pyproject.toml
 COPY --chown=comfy:comfy apps/worker/pyproject.toml apps/worker/pyproject.toml
 COPY --chown=comfy:comfy packages/py/core/pyproject.toml packages/py/core/pyproject.toml
 
-RUN uv sync --frozen --no-dev --all-packages --no-install-workspace
+RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
+    uv sync --frozen --no-dev --all-packages --no-install-workspace
 
 COPY --chown=comfy:comfy apps/api apps/api
 COPY --chown=comfy:comfy apps/worker apps/worker
@@ -33,12 +36,17 @@ COPY --chown=comfy:comfy packages/py/core packages/py/core
 COPY --chown=comfy:comfy deploy/docker/api-entrypoint.sh deploy/docker/api-entrypoint.sh
 COPY --chown=comfy:comfy deploy/docker/container-entrypoint.sh deploy/docker/container-entrypoint.sh
 
-RUN uv sync --frozen --no-dev --all-packages
+RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
+    uv sync --frozen --no-dev --all-packages
 
 ARG CG_PROJECT_VERSION=0.1.0-rc.7
+ARG CG_SOURCE_URL=https://github.com/blkot/ProjectComfyGallery
+ARG CG_REVISION=unknown
 
 LABEL org.opencontainers.image.title="Project Comfy Gallery backend" \
-    org.opencontainers.image.version="$CG_PROJECT_VERSION"
+    org.opencontainers.image.version="$CG_PROJECT_VERSION" \
+    org.opencontainers.image.source="$CG_SOURCE_URL" \
+    org.opencontainers.image.revision="$CG_REVISION"
 
 EXPOSE 8000
 

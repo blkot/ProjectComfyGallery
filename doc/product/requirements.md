@@ -55,6 +55,9 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
 - **WF-008:** Unknown nodes and values MUST remain inspectable.
 - **WF-009:** Prompt text MUST be stored and displayed without semantic sanitization, redaction, or rewriting.
 - **WF-010:** Untrusted prompt content MUST be rendered as text and never executed as HTML.
+- **WF-011:** Prompt roles MUST be correctable independently from prompt text. Explicit
+  mappings MUST take precedence over graph inference; positive/main prompts MUST be
+  presented before unclassified and negative prompts without discarding any role.
 
 ## Offline node registry
 
@@ -125,13 +128,29 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
 - **LIB-010:** The gallery grid MUST default to a 2:3 portrait preview frame and use
   responsive card sizing that keeps common portrait generations comfortably
   inspectable on a laptop display.
+- **LIB-011:** Library selection MUST support the current page and the complete
+  server-filtered result set without transferring every matching media UUID to the
+  browser; filtered scopes MUST be usable for review, collections, and tags.
+- **LIB-012:** Checkpoint and LoRA filters MUST accept multiple identities with an
+  explicit Any (OR) or All (AND) mode. Any MUST be the default within each model
+  dimension, while different filter dimensions remain combined with AND.
+- **LIB-013:** Desktop navigation MUST collapse into a persistent icon rail without
+  removing route labels from accessible names; compact-screen navigation MUST remain
+  usable independently of the saved desktop preference.
+- **LIB-014:** Media Detail and Blind Review MUST use a viewport-height media stage
+  beside an independently scrollable inspector. Media Detail MUST prioritize filename,
+  exact prompts, and checkpoint/LoRA usages, while basic file facts, UUID, and SHA-256
+  remain available as compact secondary evidence. Media MUST be contained inside
+  the current dynamic viewport without control overlays or edge clipping. Blind Review
+  MUST preserve its configuration-hiding invariant.
 
 ## Manual evaluation
 
 - **EVAL-001:** Evaluation MUST be manual in the MVP.
 - **EVAL-002:** Applicable criteria MUST come from a versioned template snapshot.
 - **EVAL-003:** Image/video core selection MUST follow media type.
-- **EVAL-004:** Optional modules MUST be explicitly assigned to a review session or supplemental evaluation.
+- **EVAL-004:** Optional modules MUST be explicitly assigned to a review session or
+  enabled for an individual media record.
 - **EVAL-005:** Later criteria additions MUST NOT reopen or invalidate completed historical evaluations.
 - **EVAL-006:** Every criterion value MUST be either unset, N/A, or an integer from 0 through 10.
 - **EVAL-007:** Zero MUST remain a real score distinct from unset and N/A.
@@ -147,6 +166,14 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
 - **EVAL-017:** Review MUST hide checkpoint, LoRA, workflow configuration, and other experiment-revealing metadata.
 - **EVAL-018:** Review MUST show exact extracted prompt fields.
 - **EVAL-019:** A review session MUST be resumable but MUST NOT impose completion, deadlines, or streak behavior.
+- **EVAL-020:** Media Detail MUST expose an Info/Evaluate panel switch beside the
+  filename and preserve the selected panel while navigating Previous/Next.
+- **EVAL-021:** Media Detail evaluation MUST use the same templates, scores,
+  autosave, revision history, and Trash disposition as Blind Review while keeping
+  workflow and model evidence visible.
+- **EVAL-022:** Optional evaluation-module selection MUST be stored per media.
+  Disabling a module MUST hide it from the active evaluation and completion state
+  without deleting any scores; re-enabling it MUST restore the saved evaluation.
 
 ## Analytics
 
@@ -178,3 +205,10 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
 - **OPS-009:** Evaluations, criteria, registry, and analysis data MUST support portable export.
 - **OPS-010:** Schema changes MUST use Alembic migrations.
 - **OPS-011:** Heavy background concurrency MUST be bounded for the J4125 CPU.
+- **OPS-012:** Ordinary development MUST run against isolated Mac-local database,
+  broker, managed storage, and credentials rather than NAS production state.
+- **OPS-013:** Production milestone images MUST be built for `linux/amd64` by CI,
+  tagged immutably by locked version, and pulled by the NAS without compilation.
+- **OPS-014:** The milestone deployment command MUST require a fresh backup,
+  migration/drift preflight, explicit version confirmation, and post-start health
+  verification.

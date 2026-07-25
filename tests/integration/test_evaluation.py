@@ -6,12 +6,17 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from comfy_gallery_api.dependencies import Principal
 from comfy_gallery_api.evaluation_schemas import (
+    MediaEvaluationModuleUpdateRequest,
     MediaFilterRequest,
+    MediaMembershipRequest,
     ReviewSessionUpdateRequest,
 )
 from comfy_gallery_api.routes.evaluations import (
     _media_scope_query,
+    _resolve_membership_media_ids,
+    ensure_media_evaluation_context,
     review_summary,
+    update_media_evaluation_module,
     update_review_session,
 )
 from comfy_gallery_core.db.base import Base
@@ -19,6 +24,7 @@ from comfy_gallery_core.db.models import (
     EvaluationDispositionRevision,
     EvaluationTemplate,
     Media,
+    MediaEvaluationModule,
     ReviewSession,
     ReviewSessionItem,
     ScoreRevision,
@@ -32,6 +38,33 @@ from comfy_gallery_core.evaluation.service import (
     update_trash,
 )
 from comfy_gallery_core.media.errors import IngestionError
+
+
+async def test_filter_membership_resolves_all_matching_media_not_only_reviewable() -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
+    async with session_factory() as session:
+        ready_image = Media(kind="image", status="ready")
+        failed_image = Media(kind="image", status="failed")
+        ready_video = Media(kind="video", status="ready")
+        session.add_all([ready_image, failed_image, ready_video])
+        await session.flush()
+
+        membership_ids = await _resolve_membership_media_ids(
+            session,
+            MediaMembershipRequest(filter=MediaFilterRequest(kind="image")),
+        )
+        review_ids = list(
+            await session.scalars(_media_scope_query(MediaFilterRequest(kind="image")))
+        )
+
+        assert set(membership_ids) == {ready_image.id, failed_image.id}
+        assert review_ids == [ready_image.id]
+
+    await engine.dispose()
 
 
 async def test_v1_catalog_and_evaluation_state_machine_preserve_zero_na_and_revisions() -> None:
@@ -253,6 +286,94 @@ async def test_adding_character_module_keeps_completed_core_snapshot_complete() 
         assert len(character.template.items) == 2
         assert await session.scalar(select(func.count(EvaluationTemplate.id))) == 4
         assert (await get_template(session, media_kind="image", module="core")).version == 1
+
+    await engine.dispose()
+
+
+async def test_single_media_context_toggles_modules_without_deleting_scores() -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
+    async with session_factory() as session:
+        user = User(
+            username="reviewer",
+            username_normalized="reviewer",
+            password_hash="test",
+        )
+        media = Media(kind="image", status="ready")
+        session.add_all([user, media])
+        await session.commit()
+        principal = Principal(user=user, auth_kind="api_token")
+
+        context = await ensure_media_evaluation_context(
+            media_id=media.id,
+            principal=principal,
+            session=session,
+        )
+        assert context.progress_state == "not_started"
+        assert [evaluation.module for evaluation in context.evaluations] == ["core"]
+        assert context.available_modules[0].module == "character"
+        assert context.available_modules[0].enabled is False
+
+        context = await update_media_evaluation_module(
+            media_id=media.id,
+            module="character",
+            request=MediaEvaluationModuleUpdateRequest(enabled=True),
+            principal=principal,
+            session=session,
+        )
+        assert context.enabled_modules == ["character"]
+        assert [evaluation.module for evaluation in context.evaluations] == [
+            "core",
+            "character",
+        ]
+        character = next(
+            evaluation for evaluation in context.evaluations if evaluation.module == "character"
+        )
+        character_model = await load_evaluation(session, character.id)
+        first_criterion = character_model.template.items[0].criterion_version_id
+        await update_score(
+            session,
+            evaluation=character_model,
+            criterion_version_id=first_criterion,
+            expected_version=character_model.version,
+            state="scored",
+            value=8,
+            na_reason=None,
+            user_id=user.id,
+        )
+
+        context = await update_media_evaluation_module(
+            media_id=media.id,
+            module="character",
+            request=MediaEvaluationModuleUpdateRequest(enabled=False),
+            principal=principal,
+            session=session,
+        )
+        assert context.enabled_modules == []
+        assert [evaluation.module for evaluation in context.evaluations] == ["core"]
+        assert context.available_modules[0].has_saved_scores is True
+        selection = await session.get(
+            MediaEvaluationModule,
+            {"media_id": media.id, "module": "character"},
+        )
+        assert selection is not None
+        assert selection.enabled is False
+
+        context = await update_media_evaluation_module(
+            media_id=media.id,
+            module="character",
+            request=MediaEvaluationModuleUpdateRequest(enabled=True),
+            principal=principal,
+            session=session,
+        )
+        restored = next(
+            evaluation for evaluation in context.evaluations if evaluation.module == "character"
+        )
+        assert restored.id == character.id
+        assert restored.scores[0].value == 8
 
     await engine.dispose()
 

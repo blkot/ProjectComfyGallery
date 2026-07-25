@@ -20,9 +20,13 @@ RUN chmod 0555 \
     /usr/local/bin/comfy-gallery-restore
 
 ARG CG_PROJECT_VERSION=0.1.0-rc.7
+ARG CG_SOURCE_URL=https://github.com/blkot/ProjectComfyGallery
+ARG CG_REVISION=unknown
 
 LABEL org.opencontainers.image.title="Project Comfy Gallery backup" \
-    org.opencontainers.image.version="$CG_PROJECT_VERSION"
+    org.opencontainers.image.version="$CG_PROJECT_VERSION" \
+    org.opencontainers.image.source="$CG_SOURCE_URL" \
+    org.opencontainers.image.revision="$CG_REVISION"
 
 ENTRYPOINT ["/usr/local/bin/backup-entrypoint"]
 CMD ["schedule"]

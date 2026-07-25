@@ -96,8 +96,11 @@ to staging, returns `202 Accepted` with a durable batch, and enqueues the ordina
 processing pipeline. The future ComfyUI node client contract is documented in
 [ComfyUI custom-node upload integration](comfyui-custom-node-upload.md).
 
-The media list accepts exact `checkpoint_reference_id` and `lora_reference_id`
-filters plus a deterministic `sort` value:
+The media list and navigation endpoints accept repeated
+`checkpoint_reference_id` and `lora_reference_id` parameters. Their corresponding
+`checkpoint_reference_match` and `lora_reference_match` parameters accept `any`
+(the default OR semantics) or `all` (AND semantics). Checkpoint and LoRA dimensions
+are combined with AND. They also accept a deterministic `sort` value:
 
 ```text
 file_created_desc | file_created_asc
@@ -168,8 +171,10 @@ DELETE /api/v1/saved-filters/:id
 
 Filter expressions are server-validated AST/JSON, not raw SQL.
 
-These Phase 4 endpoints are implemented. Creation names are unique, media membership
-is exact-UUID based and idempotent, and all browser mutations require CSRF.
+These Phase 4 endpoints are implemented. Creation names are unique and membership
+is idempotent. Collection/tag membership commands accept either a bounded exact
+`media_ids` list or one validated filter expression resolved entirely on the server;
+the two scope forms are mutually exclusive. All browser mutations require CSRF.
 Collection/tag rename, per-member removal, and saved-filter edits can be added when
 the management UI needs them; delete-and-recreate is the current small-MVP path.
 
@@ -225,6 +230,8 @@ usages, media processing, and evaluations remain untouched.
 GET    /api/v1/evaluation-templates
 GET    /api/v1/review/summary
 GET    /api/v1/evaluations
+POST   /api/v1/media/:id/evaluation-context
+PUT    /api/v1/media/:id/evaluation-modules/:module
 PUT    /api/v1/evaluations/:id/scores/:criterionId
 DELETE /api/v1/evaluations/:id/scores/:criterionId
 POST   /api/v1/evaluations/:id/trash
@@ -242,6 +249,16 @@ GET    /api/v1/review-sessions/:id/items/:position
 These paths are implemented in Phase 4. Score commands support scored/N/A states,
 Clear by deletion, and optimistic concurrency. A stale `expected_version` returns
 `409 EVALUATION_VERSION_CONFLICT` with the current version.
+
+`POST /media/:id/evaluation-context` is an idempotent ensure-and-read operation for
+the context-visible Media Detail panel. It ensures the applicable core evaluation
+exists and returns prompts, core plus currently enabled optional evaluations,
+available optional modules, and combined active progress.
+
+`PUT /media/:id/evaluation-modules/:module` accepts `{ "enabled": true|false }`.
+Only available optional modules may be changed. Enabling lazily creates the
+supplemental evaluation; disabling excludes it from the returned active context
+without deleting scores or revisions.
 
 Review-session creation accepts a snapshotted selection, random pool, global
 In-progress pool, filter, saved filter, collection, or source root. The item response

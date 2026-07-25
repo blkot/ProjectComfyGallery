@@ -19,7 +19,65 @@
 
 Database backup is required for patch, minor, and major upgrades.
 
-## Upgrade
+## Standard milestone upgrade
+
+Normal releases are built once by GitHub Actions as immutable `linux/amd64`
+images. The NAS pulls those images; it does not rebuild application source.
+
+### One-time private registry login
+
+From the development Mac:
+
+```bash
+make nas-registry-login
+```
+
+Enter a GitHub classic personal access token with `read:packages`. The token is
+sent directly to `docker login` on the NAS and is not written to this
+repository or its environment files.
+
+### Create and deploy a milestone
+
+After the release version and changelog are finalized on `main`:
+
+```bash
+make milestone RELEASE_VERSION=0.1.0
+```
+
+This verifies the release, creates and pushes the matching annotated Git tag,
+and starts the GitHub Actions image build. After the `Release container images`
+workflow succeeds:
+
+```bash
+make nas-deploy RELEASE_VERSION=0.1.0
+```
+
+The deployment wrapper confirms the successful workflow run, asks for explicit
+confirmation, checks out the exact tag on the NAS, creates a database backup,
+pulls the tagged images, runs migrations, starts services with `--no-build`,
+and waits for health and version checks.
+
+The current NAS release remains active if image pulling or the migration
+preflight fails. A failed post-start health check is reported and must be
+investigated before another deployment.
+
+## Manual NAS recovery path
+
+Use this only when the Mac wrapper is unavailable. On the NAS, from the
+repository checkout for the exact release tag:
+
+```bash
+export CG_IMAGE_NAMESPACE=ghcr.io/blkot/project-comfy-gallery
+export CG_IMAGE_TAG=0.1.0
+./deploy/operations/deploy-release.sh 0.1.0
+```
+
+The NAS must already be authenticated to GHCR.
+
+## Emergency source-build fallback
+
+Building application images from source on the J4125 NAS is retained only as
+an emergency fallback. Run from the repository root:
 
 ```bash
 docker compose -f compose.yaml -f compose.production.yaml pull
@@ -27,18 +85,16 @@ docker compose -f compose.yaml -f compose.production.yaml build
 docker compose -f compose.yaml -f compose.production.yaml \
   run --rm --no-deps api \
   alembic -c packages/py/core/alembic.ini upgrade head
-docker compose -f compose.yaml -f compose.production.yaml up -d --no-build
+docker compose -f compose.yaml -f compose.production.yaml \
+  up -d --no-build
 ```
 
-The normal API entrypoint also runs `upgrade head`; the explicit preflight makes a
-migration failure visible before services are replaced. Omit `pull` for a source-only
-deployment without published images.
+The normal API entrypoint also runs `upgrade head`; the explicit preflight makes
+a migration failure visible before services are replaced.
 
-### Targeted source deployments
-
-When a change is isolated to one service and contains no migration or shared
-runtime-contract change, rebuild and replace only that service. For a
-frontend-only change:
+When an emergency change is isolated to one service and contains no migration
+or shared runtime-contract change, only that service may be rebuilt and
+replaced. For a frontend-only change:
 
 ```bash
 docker compose -f compose.yaml -f compose.production.yaml build web
@@ -46,22 +102,9 @@ docker compose -f compose.yaml -f compose.production.yaml \
   up -d --no-deps --no-build web
 ```
 
-This preserves API, worker, database, Redis, and backup containers. Docker can also
-reuse the web dependency-install layer when `package.json` and `pnpm-lock.yaml` are
-unchanged.
-
-Do not use a targeted deployment when a database migration, shared API contract,
-runtime dependency, environment contract, or cross-service version change is
-involved. Use the full upgrade procedure in those cases.
-
-On the J4125 NAS, avoid treating `docker compose build` as the default for every
-source change: it evaluates and may rebuild all application services. Dependency
-manifest/version changes invalidate expensive `uv sync` or `pnpm install` layers;
-uncached base-image downloads and Alpine package upgrades add network-dependent
-latency. The preferred long-term production path is CI-built, immutable
-architecture-compatible images in a private registry, with the NAS limited to
-`pull`, migration preflight, and `up`. A registry-backed BuildKit cache can also
-retain dependency layers across release tags and NAS cache cleanup.
+Do not use a targeted deployment when a database migration, shared API
+contract, runtime dependency, environment contract, or cross-service version
+change is involved.
 
 Measured on the target J4125 NAS on 2026-07-25, a CSS-only web build took 84
 seconds: roughly 61 seconds resolving the already pinned Node/Nginx image metadata,

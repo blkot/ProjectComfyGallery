@@ -2,6 +2,35 @@
 
 All notable changes to Project Comfy Gallery are recorded here.
 
+## Unreleased
+
+- Add isolated one-command Mac development with native API/worker/web reload and
+  separate PostgreSQL, Redis, credentials, ports, and media paths.
+- Add annotated milestone validation and GitHub Actions publication of cached,
+  attested `linux/amd64` images to private GHCR.
+- Add guarded pull-only Xanta NAS deployment with backup, migration/drift
+  preflight, version verification, and service health checks.
+- Add page-wide and server-resolved all-matching Library scopes for review,
+  collections, and tags.
+- Add multi-checkpoint and multi-LoRA filters with explicit Any (OR) and All
+  (AND) matching.
+- Add a persistent collapsible icon navigation rail and preview-first, full-height
+  Media Detail and Blind Review workspaces.
+- Reorder Media Detail around filename/file facts, checkpoint and LoRA roles, and
+  exact prompt text while moving UUID/SHA and parser internals into disclosures.
+- Fit image and video viewers to the dynamic browser height with edge clearance,
+  and move viewer/review navigation out of the media surface.
+- Move compact file facts to the bottom of Media Detail and present exact prompts
+  before checkpoint/LoRA evidence.
+- Infer positive and negative prompt roles from conditioning-graph ancestry, honor
+  explicit node mappings as overrides, and order positive prompts first without
+  discarding negative or unclassified prompt evidence.
+- Add a context-visible Evaluate panel to Media Detail with shared score controls,
+  persistent Previous/Next panel state, and the same evaluation history as Blind
+  Review.
+- Add durable per-media optional evaluation modules; disabling a module hides it
+  from active progress without deleting its scores or revisions.
+
 ## 0.1.0-rc.7 — 2026-07-25
 
 - Use larger three-column gallery cards with a 2:3 portrait preview frame.

@@ -1,0 +1,50 @@
+name: comfy-gallery-development
+
+services:
+  postgres:
+    image: postgres:17-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+    environment:
+      POSTGRES_DB: ${DEV_POSTGRES_DB:-comfygallery_dev}
+      POSTGRES_USER: ${DEV_POSTGRES_USER:-comfygallery}
+      POSTGRES_PASSWORD: ${DEV_POSTGRES_PASSWORD:-comfygallery-local-dev}
+    ports:
+      - "127.0.0.1:${DEV_POSTGRES_PORT:-55432}:5432"
+    volumes:
+      - development-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DEV_POSTGRES_USER:-comfygallery} -d ${DEV_POSTGRES_DB:-comfygallery_dev}",
+        ]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:8-alpine@sha256:9d317178eceac8454a2284a9e6df2466b93c745529947f0cd42a0fa9609d7005
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--maxmemory",
+        "192mb",
+        "--maxmemory-policy",
+        "noeviction",
+      ]
+    ports:
+      - "127.0.0.1:${DEV_REDIS_PORT:-56379}:6379"
+    volumes:
+      - development-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  development-postgres:
+  development-redis:

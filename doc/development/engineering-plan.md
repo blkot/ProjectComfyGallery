@@ -77,15 +77,24 @@ The accepted foundation toolchain is:
 - pnpm 11 manages the frontend workspace.
 - The Phase 0 shell uses plain CSS and no component-library dependency.
 - Route pages are lazy-loaded and TanStack Query owns server state.
+- The desktop shell supports a persistent icon rail; media record and review routes
+  use viewport-height preview/inspector workspaces with independent inspector scrolling.
 
 ## Branch and review discipline
 
 - Small, requirement-scoped changes.
+- `main` is continuously tested source; production deploys only explicit annotated
+  milestone tags.
 - Every PR/commit references requirement IDs in description where practical.
 - Schema changes include migrations and migration tests.
 - Parser changes include golden/synthetic fixture updates.
 - Evaluation changes include state-transition and migration tests.
 - Architectural changes update an ADR.
+
+Daily implementation runs on the Mac against the isolated development Compose
+infrastructure. GitHub Actions builds immutable `linux/amd64` milestone images;
+the NAS pulls and verifies them without compiling. See
+[Mac-first development and milestone releases](mac-first-development-and-release.md).
 
 ## Phase 0: repository foundation
 
@@ -231,6 +240,8 @@ Deliverables:
 - Configuration-blind prompt-aware review UI.
 - Nullable sliders, keyboard controls, autosave, undo.
 - Collections/tags/saved filters sufficient to create review scopes.
+- Server-resolved page/all-matching library selection and explicit Any/All
+  multi-checkpoint/multi-LoRA filtering.
 
 Exit criteria:
 
