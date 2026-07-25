@@ -55,6 +55,9 @@ visualizations, and media drill-down.
 ## Global shell
 
 - Persistent primary navigation.
+- Desktop navigation can collapse to an icon rail and remembers the preference in
+  browser storage. Every icon retains an accessible route name and hover title.
+  Compact layouts use the horizontal navigation independently of that preference.
 - Global search.
 - Current background-job indicator.
 - User/session menu.
@@ -142,6 +145,21 @@ imports.
 
 The media record exposes:
 
+Media Detail is a fixed-height workstation on desktop. The original image/video stage
+occupies the complete left side from top to bottom; library return, deterministic
+Previous/Next traversal, position, and download controls float over that stage. The
+right inspector scrolls independently, so the media never moves out of view while
+workflow evidence is inspected.
+
+Inspector information is deliberately ordered by practical recall value:
+
+1. original filename, readiness, dimensions, format, size, and source file time;
+2. resolved checkpoint and LoRA usages, including pipeline slot and raw reference;
+3. exact unsanitized prompt observations;
+4. generation parameters;
+5. parser diagnostics, node graph, raw evidence, sources, and derivatives;
+6. UUID and SHA-256 in a collapsed technical-identity section.
+
 ### Preview
 
 - Original image or video player.
@@ -199,6 +217,10 @@ newest-file-time view.
 - Current scores and template.
 - Revision history.
 - Open in review/editor.
+
+Blind Review uses the same full-height left media stage and independently scrolling
+right control pane. It does not reuse the Media Detail evidence inspector: checkpoint,
+LoRA, and configuration evidence stay hidden under EVAL-017.
 
 ## Import and jobs
 

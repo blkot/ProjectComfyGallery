@@ -131,6 +131,14 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
 - **LIB-012:** Checkpoint and LoRA filters MUST accept multiple identities with an
   explicit Any (OR) or All (AND) mode. Any MUST be the default within each model
   dimension, while different filter dimensions remain combined with AND.
+- **LIB-013:** Desktop navigation MUST collapse into a persistent icon rail without
+  removing route labels from accessible names; compact-screen navigation MUST remain
+  usable independently of the saved desktop preference.
+- **LIB-014:** Media Detail and Blind Review MUST use a viewport-height media stage
+  beside an independently scrollable inspector. Media Detail MUST prioritize filename,
+  basic file facts, checkpoint/LoRA usages, and exact prompts, while UUID and SHA-256
+  remain available as secondary technical evidence. Blind Review MUST preserve its
+  configuration-hiding invariant.
 
 ## Manual evaluation
 

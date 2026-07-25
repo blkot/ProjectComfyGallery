@@ -224,26 +224,11 @@ export function ReviewWorkspacePage() {
 
   return (
     <main className="review-workspace">
-      <header className="review-topbar">
-        <Link className="text-button" to="/review">
-          Exit review
-        </Link>
-        <span>
-          <strong>
-            {position + 1} / {item.data.session.candidate_count}
-          </strong>
-          <small>
-            {item.data.session.progress_counts.complete ?? 0} complete ·{" "}
-            {item.data.session.progress_counts.in_progress ?? 0} in progress
-          </small>
-        </span>
-        <span className="review-save-state" data-state={saving ? "wait" : "ok"}>
-          {saving ? "Saving…" : "All changes saved"}
-        </span>
-      </header>
-
       <div className="review-columns">
         <section className="review-preview-pane" aria-label="Media preview">
+          <Link className="review-exit-link" to="/review">
+            ← Exit review
+          </Link>
           <div className="review-media-frame">
             {item.data.media.kind === "video" ? (
               <video
@@ -262,87 +247,113 @@ export function ReviewWorkspacePage() {
         </section>
 
         <aside className="review-criteria-pane">
-          <section className="review-prompts">
-            <div className="section-heading">
-              <div>
-                <p className="kicker">Exact embedded text</p>
-                <h2>Prompt</h2>
+          <header className="review-topbar">
+            <span>
+              <strong>
+                {position + 1} / {item.data.session.candidate_count}
+              </strong>
+              <small>
+                {item.data.session.progress_counts.complete ?? 0} complete ·{" "}
+                {item.data.session.progress_counts.in_progress ?? 0} in progress
+              </small>
+            </span>
+            <span
+              className="review-save-state"
+              data-state={saving ? "wait" : "ok"}
+            >
+              {saving ? "Saving…" : "All changes saved"}
+            </span>
+          </header>
+
+          <div className="review-criteria-scroll">
+            <section className="review-prompts">
+              <div className="section-heading">
+                <div>
+                  <p className="kicker">Exact embedded text</p>
+                  <h2>Prompt</h2>
+                </div>
+                <span className="blind-badge">Config hidden</span>
               </div>
-              <span className="blind-badge">Config hidden</span>
-            </div>
-            {item.data.prompts.map((prompt, index) => (
-              <details key={`${prompt.label}-${index}`} open={index === 0}>
-                <summary>{titleCase(prompt.label)}</summary>
-                <p>{prompt.text}</p>
-              </details>
-            ))}
-            {item.data.prompts.length === 0 ? (
-              <p className="muted">No prompt was extracted for this media.</p>
-            ) : null}
-          </section>
+              {item.data.prompts.map((prompt, index) => (
+                <details key={`${prompt.label}-${index}`} open={index === 0}>
+                  <summary>{titleCase(prompt.label)}</summary>
+                  <p>{prompt.text}</p>
+                </details>
+              ))}
+              {item.data.prompts.length === 0 ? (
+                <p className="muted">No prompt was extracted for this media.</p>
+              ) : null}
+            </section>
 
-          {item.data.evaluations.map((evaluation) => (
-            <EvaluationSection
-              evaluation={evaluation}
-              disabled={saving}
-              commit={commitScore}
-              key={evaluation.id}
-            />
-          ))}
-
-          {saveScore.error || trash.error || move.error ? (
-            <p className="notice error-notice" role="alert">
-              {saveScore.error?.message || trash.error?.message || move.error?.message}
-            </p>
-          ) : null}
-
-          <section className="review-actions">
-            <button
-              className="secondary-button"
-              type="button"
-              disabled={!undoEntry || saving}
-              onClick={undo}
-            >
-              Undo last score
-            </button>
-            {baseEvaluation ? (
-              <button
-                className={baseEvaluation.is_trash ? "secondary-button" : "danger-button"}
-                type="button"
+            {item.data.evaluations.map((evaluation) => (
+              <EvaluationSection
+                evaluation={evaluation}
                 disabled={saving}
-                onClick={() =>
-                  trash.mutate({
-                    evaluation: baseEvaluation,
-                    restore: baseEvaluation.is_trash,
-                  })
-                }
-              >
-                {baseEvaluation.is_trash ? "Restore from Trash" : "Mark as Trash"}
-              </button>
-            ) : null}
-          </section>
+                commit={commitScore}
+                key={evaluation.id}
+              />
+            ))}
 
-          <nav className="review-navigation" aria-label="Review navigation">
-            <button
-              className="secondary-button"
-              type="button"
-              disabled={saving || position === 0}
-              onClick={() => navigateTo(position - 1)}
-            >
-              Previous
-            </button>
-            <span>Alt + ← / →</span>
-            <button
-              className="primary-button"
-              type="button"
-              disabled={
-                saving || position + 1 >= item.data.session.candidate_count
-              }
-              onClick={() => navigateTo(position + 1)}
-            >
-              Next
-            </button>
-          </nav>
+            {saveScore.error || trash.error || move.error ? (
+              <p className="notice error-notice" role="alert">
+                {saveScore.error?.message ||
+                  trash.error?.message ||
+                  move.error?.message}
+              </p>
+            ) : null}
+
+            <section className="review-actions">
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={!undoEntry || saving}
+                onClick={undo}
+              >
+                Undo last score
+              </button>
+              {baseEvaluation ? (
+                <button
+                  className={
+                    baseEvaluation.is_trash ? "secondary-button" : "danger-button"
+                  }
+                  type="button"
+                  disabled={saving}
+                  onClick={() =>
+                    trash.mutate({
+                      evaluation: baseEvaluation,
+                      restore: baseEvaluation.is_trash,
+                    })
+                  }
+                >
+                  {baseEvaluation.is_trash
+                    ? "Restore from Trash"
+                    : "Mark as Trash"}
+                </button>
+              ) : null}
+            </section>
+
+            <nav className="review-navigation" aria-label="Review navigation">
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={saving || position === 0}
+                onClick={() => navigateTo(position - 1)}
+              >
+                Previous
+              </button>
+              <span>Alt + ← / →</span>
+              <button
+                className="primary-button"
+                type="button"
+                disabled={
+                  saving || position + 1 >= item.data.session.candidate_count
+                }
+                onClick={() => navigateTo(position + 1)}
+              >
+                Next
+              </button>
+            </nav>
+          </div>
         </aside>
       </div>
     </main>

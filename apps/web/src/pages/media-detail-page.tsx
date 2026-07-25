@@ -56,6 +56,17 @@ export function MediaDetailPage() {
     : null;
 
   useEffect(() => {
+    if (!mediaId) return;
+    void queryClient.prefetchQuery({
+      queryKey: ["media-workflow", mediaId],
+      queryFn: () =>
+        apiRequest(
+          `/api/v1/media/${mediaId}/workflow?node_limit=1000&edge_limit=3000`,
+        ),
+    });
+  }, [mediaId, queryClient]);
+
+  useEffect(() => {
     function handleKeyboardNavigation(event: KeyboardEvent) {
       const target = event.target;
       if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
@@ -110,162 +121,205 @@ export function MediaDetailPage() {
 
   const item = media.data;
   return (
-    <main className="page media-detail-page">
-      <header className="detail-nav">
-        <Link to={libraryHref}>← Media library</Link>
-        <nav className="media-view-navigation" aria-label="Media viewer navigation">
-          <button
-            className="secondary-button"
-            type="button"
-            disabled={!previousHref}
-            aria-keyshortcuts="ArrowLeft"
-            onClick={() => {
-              if (previousHref) navigate(previousHref);
-            }}
-            onFocus={() =>
-              prefetchMedia(navigation.data?.previous_id ?? null)
-            }
-            onMouseEnter={() =>
-              prefetchMedia(navigation.data?.previous_id ?? null)
-            }
+    <main className="media-record-workspace">
+      <section className="media-record-preview" aria-label="Media preview">
+        <header className="media-record-toolbar">
+          <Link className="media-record-back" to={libraryHref}>
+            ← Library
+          </Link>
+          <nav
+            className="media-view-navigation"
+            aria-label="Media viewer navigation"
           >
-            ← Previous
-          </button>
-          <span aria-live="polite">
-            {navigation.data
-              ? `${navigation.data.position} of ${navigation.data.total}`
-              : navigation.isError
-                ? "Outside this view"
-              : "Locating…"}
-          </span>
-          <button
-            className="secondary-button"
-            type="button"
-            disabled={!nextHref}
-            aria-keyshortcuts="ArrowRight"
-            onClick={() => {
-              if (nextHref) navigate(nextHref);
-            }}
-            onFocus={() => prefetchMedia(navigation.data?.next_id ?? null)}
-            onMouseEnter={() =>
-              prefetchMedia(navigation.data?.next_id ?? null)
-            }
+            <button
+              type="button"
+              disabled={!previousHref}
+              aria-label="Previous media"
+              aria-keyshortcuts="ArrowLeft"
+              onClick={() => {
+                if (previousHref) navigate(previousHref);
+              }}
+              onFocus={() =>
+                prefetchMedia(navigation.data?.previous_id ?? null)
+              }
+              onMouseEnter={() =>
+                prefetchMedia(navigation.data?.previous_id ?? null)
+              }
+            >
+              ←
+            </button>
+            <span aria-live="polite">
+              {navigation.data
+                ? `${navigation.data.position} / ${navigation.data.total}`
+                : navigation.isError
+                  ? "Outside view"
+                  : "Locating…"}
+            </span>
+            <button
+              type="button"
+              disabled={!nextHref}
+              aria-label="Next media"
+              aria-keyshortcuts="ArrowRight"
+              onClick={() => {
+                if (nextHref) navigate(nextHref);
+              }}
+              onFocus={() => prefetchMedia(navigation.data?.next_id ?? null)}
+              onMouseEnter={() =>
+                prefetchMedia(navigation.data?.next_id ?? null)
+              }
+            >
+              →
+            </button>
+          </nav>
+          <a
+            className="media-record-download"
+            href={`${item.original_url}?download=true`}
           >
-            Next →
-          </button>
-        </nav>
-        <a
-          className="secondary-button link-button"
-          href={`${item.original_url}?download=true`}
-        >
-          Download original
-        </a>
-      </header>
-
-      <section className="media-detail-layout">
-        <div className="detail-viewer">
+            Download
+          </a>
+        </header>
+        <div className="media-record-stage">
           {item.kind === "video" ? (
-            <video src={item.playback_url} controls preload="metadata" poster={item.preview_url} />
+            <video
+              src={item.playback_url}
+              controls
+              playsInline
+              preload="metadata"
+              poster={item.preview_url}
+            />
           ) : (
             <img src={item.original_url} alt={item.original_filename} />
           )}
         </div>
-        <aside className="detail-sidebar">
+      </section>
+
+      <aside className="media-record-inspector">
+        <header className="media-record-heading">
           <p className="kicker">{item.kind}</p>
           <h1>{item.original_filename}</h1>
-          <span className="status-chip" data-status={item.status}>
-            {titleCase(item.status)}
-          </span>
-          {item.last_error_code ? (
-            <div className="notice error-notice">
-              <strong>{item.last_error_code}</strong>
-              <p>{item.last_error_message}</p>
+          <div className="media-record-statuses">
+            <span className="status-chip" data-status={item.status}>
+              {titleCase(item.status)}
+            </span>
+            <span className="status-chip" data-status={item.workflow_status}>
+              Workflow {titleCase(item.workflow_status)}
+            </span>
+          </div>
+        </header>
+
+        {item.last_error_code ? (
+          <div className="notice error-notice">
+            <strong>{item.last_error_code}</strong>
+            <p>{item.last_error_message}</p>
+          </div>
+        ) : null}
+
+        <dl className="record-facts" aria-label="Basic media metadata">
+          <div>
+            <dt>Dimensions</dt>
+            <dd>
+              {item.width && item.height
+                ? `${item.width} × ${item.height}`
+                : "Unknown"}
+            </dd>
+          </div>
+          <div>
+            <dt>Format</dt>
+            <dd>{titleCase(item.detected_format ?? item.kind)}</dd>
+          </div>
+          {item.kind === "video" ? (
+            <div>
+              <dt>Duration</dt>
+              <dd>{formatDuration(item.duration_seconds)}</dd>
             </div>
           ) : null}
+          <div>
+            <dt>File size</dt>
+            <dd>{formatBytes(item.byte_size)}</dd>
+          </div>
+          <div>
+            <dt>File created</dt>
+            <dd>{formatDate(item.file_created_at)}</dd>
+          </div>
+        </dl>
 
+        <WorkflowInspector mediaId={item.id} />
+
+        <details className="record-inspector-disclosure">
+          <summary>
+            <span>
+              <strong>Storage &amp; derivatives</strong>
+              <small>Source paths and generated previews</small>
+            </span>
+            <span>
+              {item.sources.length} paths · {item.derivatives.length} assets
+            </span>
+          </summary>
+          <div className="record-inspector-disclosure-body">
+            <section>
+              <h3>Source history</h3>
+              <div className="history-list">
+                {item.sources.map((source) => (
+                  <div className="history-row source-history-row" key={source.id}>
+                    <span>
+                      <strong>{source.relative_path}</strong>
+                      <small>
+                        {titleCase(source.status)} · {formatDate(source.created_at)}
+                      </small>
+                    </span>
+                  </div>
+                ))}
+                {item.sources.length === 0 ? (
+                  <p className="muted">
+                    Imported through the browser; no source path recorded.
+                  </p>
+                ) : null}
+              </div>
+            </section>
+            <section>
+              <h3>Derived assets</h3>
+              <div className="history-list">
+                {item.derivatives.map((derivative) => (
+                  <div className="history-row" key={derivative.id}>
+                    <span>
+                      <strong>{titleCase(derivative.kind)}</strong>
+                      <small>{derivative.recipe_version}</small>
+                    </span>
+                    <span className="history-counts">
+                      {formatBytes(derivative.byte_size)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        </details>
+
+        <details className="record-inspector-disclosure technical-identity">
+          <summary>
+            <span>
+              <strong>Technical identity</strong>
+              <small>IDs for troubleshooting and exact deduplication</small>
+            </span>
+          </summary>
           <dl className="metadata-list">
             <div>
-              <dt>Dimensions</dt>
-              <dd>
-                {item.width && item.height ? `${item.width} × ${item.height}` : "Unknown"}
-              </dd>
-            </div>
-            <div>
-              <dt>Format</dt>
-              <dd>{titleCase(item.detected_format ?? item.kind)}</dd>
-            </div>
-            {item.kind === "video" ? (
-              <>
-                <div>
-                  <dt>Duration</dt>
-                  <dd>{formatDuration(item.duration_seconds)}</dd>
-                </div>
-                <div>
-                  <dt>Video codec</dt>
-                  <dd>{item.video_codec ?? "Unknown"}</dd>
-                </div>
-              </>
-            ) : null}
-            <div>
-              <dt>Original size</dt>
-              <dd>{formatBytes(item.byte_size)}</dd>
-            </div>
-            <div>
-              <dt>Imported</dt>
+              <dt>Imported into gallery</dt>
               <dd>{formatDate(item.created_at)}</dd>
             </div>
             <div>
-              <dt>Workflow evidence</dt>
-              <dd>{titleCase(item.workflow_status)}</dd>
+              <dt>Video codec</dt>
+              <dd>{item.video_codec ?? "Not applicable"}</dd>
             </div>
           </dl>
-
           <div className="identity-block">
             <span>Media UUID</span>
             <code>{item.id}</code>
             <span>SHA-256 content identity</span>
             <code>{item.sha256}</code>
           </div>
-        </aside>
-      </section>
-
-      <section className="history-grid section-block">
-        <article className="panel">
-          <p className="kicker">Derived assets</p>
-          <h2>Preview artifacts</h2>
-          <div className="history-list">
-            {item.derivatives.map((derivative) => (
-              <div className="history-row" key={derivative.id}>
-                <span>
-                  <strong>{titleCase(derivative.kind)}</strong>
-                  <small>{derivative.recipe_version}</small>
-                </span>
-                <span className="history-counts">{formatBytes(derivative.byte_size)}</span>
-              </div>
-            ))}
-          </div>
-        </article>
-        <article className="panel">
-          <p className="kicker">Observed paths</p>
-          <h2>Source history</h2>
-          <div className="history-list">
-            {item.sources.map((source) => (
-              <div className="history-row source-history-row" key={source.id}>
-                <span>
-                  <strong>{source.relative_path}</strong>
-                  <small>
-                    {titleCase(source.status)} · {formatDate(source.created_at)}
-                  </small>
-                </span>
-              </div>
-            ))}
-            {item.sources.length === 0 ? (
-              <p className="muted">Imported through the browser; no source path recorded.</p>
-            ) : null}
-          </div>
-        </article>
-      </section>
-      <WorkflowInspector mediaId={item.id} />
+        </details>
+      </aside>
     </main>
   );
 }

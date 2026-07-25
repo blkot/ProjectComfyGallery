@@ -191,6 +191,7 @@ class MediaDetailResponse(BaseModel):
     byte_size: int
     original_filename: str
     original_extension: str | None
+    file_created_at: datetime
     created_at: datetime
     updated_at: datetime
     preview_url: str

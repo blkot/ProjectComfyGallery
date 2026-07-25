@@ -197,6 +197,10 @@ async def get_media(
 ) -> MediaDetailResponse:
     media = await _load_media(session, media_id)
     asset = media.asset
+    source_mtime_ns = max(
+        (source.mtime_ns for source in media.source_occurrences if source.superseded_at is None),
+        default=None,
+    )
     return MediaDetailResponse(
         id=media.id,
         kind=media.kind,
@@ -218,6 +222,7 @@ async def get_media(
         byte_size=asset.byte_size,
         original_filename=asset.original_filename,
         original_extension=asset.original_extension,
+        file_created_at=_file_created_at(source_mtime_ns, media.created_at),
         created_at=media.created_at,
         updated_at=media.updated_at,
         preview_url=f"/api/v1/media/{media.id}/preview",

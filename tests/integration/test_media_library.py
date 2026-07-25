@@ -9,6 +9,7 @@ from comfy_gallery_api.routes.evaluations import _media_scope_query
 from comfy_gallery_api.routes.media import (
     MediaSort,
     ReferenceMatch,
+    get_media,
     get_media_navigation,
     list_media,
 )
@@ -173,6 +174,8 @@ async def test_media_library_sorts_by_source_time_and_filters_model_usages() -> 
             middle.id,
             oldest.id,
         ]
+        detail = await get_media(middle.id, None, session)
+        assert detail.file_created_at == datetime.fromtimestamp(200, tz=UTC)
         assert [item.file_created_at for item in page.items] == [
             datetime.fromtimestamp(300, tz=UTC),
             datetime.fromtimestamp(250, tz=UTC),

@@ -23,6 +23,7 @@ export function WorkflowInspector({ mediaId }: WorkflowInspectorProps) {
   const queryClient = useQueryClient();
   const [representation, setRepresentation] = useState("");
   const [nodeSearch, setNodeSearch] = useState("");
+  const [showGraph, setShowGraph] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
 
@@ -85,14 +86,14 @@ export function WorkflowInspector({ mediaId }: WorkflowInspectorProps) {
 
   if (workflow.isPending) {
     return (
-      <section className="panel workflow-panel section-block">
+      <section className="panel workflow-panel">
         <p className="muted">Reading workflow evidence…</p>
       </section>
     );
   }
   if (workflow.isError || !workflow.data) {
     return (
-      <section className="panel workflow-panel section-block">
+      <section className="panel workflow-panel">
         <p className="notice error-notice">Workflow evidence could not be loaded.</p>
       </section>
     );
@@ -104,15 +105,11 @@ export function WorkflowInspector({ mediaId }: WorkflowInspectorProps) {
   const mutationError = reprocess.error;
 
   return (
-    <section className="workflow-section section-block">
+    <section className="workflow-section workflow-inspector">
       <header className="workflow-heading">
         <div>
           <p className="kicker">Embedded ground truth</p>
           <h2>ComfyUI workflow</h2>
-          <p className="muted">
-            Raw evidence is immutable. The graph and semantic observations can be
-            regenerated without rewriting it.
-          </p>
         </div>
         <div className="workflow-actions">
           <span className="status-chip" data-status={data.status}>
@@ -149,70 +146,99 @@ export function WorkflowInspector({ mediaId }: WorkflowInspectorProps) {
         </article>
       ) : (
         <>
-          <EvidenceSummary data={data} />
-          <ObservationPanel observations={data.observations} />
-          <ModelUsagePanel usages={data.model_usages} />
+          <ModelUsagePanel
+            usages={data.model_usages}
+            observations={data.observations}
+          />
+          <PromptPanel observations={data.observations} />
+          <GenerationParameters observations={data.observations} />
 
-          <article className="panel workflow-graph-panel">
-            <div className="section-heading">
-              <div>
-                <p className="kicker">Layer 2</p>
-                <h2>Generic graph</h2>
-              </div>
-              <span className="document-count">
-                {filteredNodes.length} shown · {snapshot.edge_count} edges
+          <details className="workflow-inspector-disclosure">
+            <summary>
+              <span>
+                <strong>Workflow diagnostics</strong>
+                <small>
+                  Parser, evidence carrier, and supplemental observations
+                </small>
               </span>
+              <span>{data.observations.length} observations</span>
+            </summary>
+            <div className="workflow-inspector-disclosure-body">
+              <EvidenceSummary data={data} />
+              <ObservationPanel observations={data.observations} />
             </div>
-            <div className="workflow-toolbar">
-              <label>
-                Representation
-                <select
-                  value={representation}
-                  onChange={(event) => setRepresentation(event.target.value)}
-                >
-                  <option value="">Both graphs</option>
-                  <option value="api_prompt">API prompt</option>
-                  <option value="visual_workflow">Visual workflow</option>
-                </select>
-              </label>
-              <label>
-                Find node
-                <input
-                  type="search"
-                  value={nodeSearch}
-                  placeholder="Class, title, or node ID"
-                  onChange={(event) => setNodeSearch(event.target.value)}
+          </details>
+
+          <details
+            className="workflow-inspector-disclosure"
+            onToggle={(event) => setShowGraph(event.currentTarget.open)}
+          >
+            <summary>
+              <span>
+                <strong>Node graph</strong>
+                <small>Inspect normalized nodes and connections</small>
+              </span>
+              <span>
+                {snapshot.api_node_count + snapshot.visual_node_count} nodes
+              </span>
+            </summary>
+            {showGraph ? (
+              <article className="workflow-graph-panel">
+                <div className="workflow-toolbar">
+                  <label>
+                    Representation
+                    <select
+                      value={representation}
+                      onChange={(event) => setRepresentation(event.target.value)}
+                    >
+                      <option value="">Both graphs</option>
+                      <option value="api_prompt">API prompt</option>
+                      <option value="visual_workflow">Visual workflow</option>
+                    </select>
+                  </label>
+                  <label>
+                    Find node
+                    <input
+                      type="search"
+                      value={nodeSearch}
+                      placeholder="Class, title, or node ID"
+                      onChange={(event) => setNodeSearch(event.target.value)}
+                    />
+                  </label>
+                </div>
+
+                {data.nodes_truncated ? (
+                  <p className="notice">
+                    This graph exceeds the current inspection page. The database
+                    retains all nodes.
+                  </p>
+                ) : null}
+                <div className="workflow-node-list">
+                  {filteredNodes.map((node) => (
+                    <WorkflowNodeRow node={node} key={node.id} />
+                  ))}
+                  {filteredNodes.length === 0 ? (
+                    <p className="muted">No graph nodes match this filter.</p>
+                  ) : null}
+                </div>
+                <EdgeList
+                  edges={data.edges}
+                  representation={representation}
+                  truncated={data.edges_truncated}
                 />
-              </label>
-            </div>
-
-            {data.nodes_truncated ? (
-              <p className="notice">
-                This graph exceeds the current inspection page. The database retains all
-                nodes.
-              </p>
+              </article>
             ) : null}
-            <div className="workflow-node-list">
-              {filteredNodes.map((node) => (
-                <WorkflowNodeRow node={node} key={node.id} />
-              ))}
-              {filteredNodes.length === 0 ? (
-                <p className="muted">No graph nodes match this filter.</p>
-              ) : null}
-            </div>
-            <EdgeList
-              edges={data.edges}
-              representation={representation}
-              truncated={data.edges_truncated}
-            />
-          </article>
+          </details>
 
-          <article className="panel workflow-raw-panel">
-            <div className="section-heading">
-              <div>
-                <p className="kicker">Layer 1</p>
-                <h2>Raw evidence</h2>
-              </div>
+          <details className="workflow-inspector-disclosure">
+            <summary>
+              <span>
+                <strong>Raw embedded evidence</strong>
+                <small>Immutable decoded workflow and prompt payloads</small>
+              </span>
+              <span>Load on demand</span>
+            </summary>
+            <article className="workflow-raw-panel">
               <button
                 className="secondary-button"
                 type="button"
@@ -220,25 +246,29 @@ export function WorkflowInspector({ mediaId }: WorkflowInspectorProps) {
               >
                 {showRaw ? "Hide raw evidence" : "Load raw evidence"}
               </button>
-            </div>
-            <p className="muted">
-              Loaded only on demand because workflow payloads can be large.
-            </p>
-            {showRaw && rawEvidence.isPending ? (
-              <p className="muted">Loading preserved payloads…</p>
-            ) : null}
-            {showRaw && rawEvidence.isError ? (
-              <p className="notice error-notice">Raw evidence could not be loaded.</p>
-            ) : null}
-            {showRaw && rawEvidence.data ? (
-              <RawEvidence evidence={rawEvidence.data} />
-            ) : null}
-          </article>
+              {showRaw && rawEvidence.isPending ? (
+                <p className="muted">Loading preserved payloads…</p>
+              ) : null}
+              {showRaw && rawEvidence.isError ? (
+                <p className="notice error-notice">
+                  Raw evidence could not be loaded.
+                </p>
+              ) : null}
+              {showRaw && rawEvidence.data ? (
+                <RawEvidence evidence={rawEvidence.data} />
+              ) : null}
+            </article>
+          </details>
 
-          <article className="panel workflow-runs-panel">
-            <p className="kicker">Version history</p>
-            <h2>Extraction runs</h2>
-            <div className="history-list">
+          <details className="workflow-inspector-disclosure">
+            <summary>
+              <span>
+                <strong>Extraction history</strong>
+                <small>Versioned parser runs</small>
+              </span>
+              <span>{data.runs.length} runs</span>
+            </summary>
+            <div className="history-list workflow-run-list">
               {data.runs.map((run) => (
                 <div className="history-row" key={run.id}>
                   <span>
@@ -257,7 +287,7 @@ export function WorkflowInspector({ mediaId }: WorkflowInspectorProps) {
                 </div>
               ))}
             </div>
-          </article>
+          </details>
         </>
       )}
     </section>
@@ -298,102 +328,203 @@ function ObservationPanel({
 }: {
   observations: SemanticObservation[];
 }) {
-  const important = observations.filter((observation) =>
-    ["checkpoint_reference", "lora_reference", "prompt"].includes(
-      observation.observation_type,
-    ),
+  const supplemental = observations.filter(
+    (observation) =>
+      ![
+        "checkpoint_reference",
+        "generation_parameter",
+        "lora_reference",
+        "prompt",
+      ].includes(observation.observation_type),
   );
-  const parameters = observations.filter(
-    (observation) => observation.observation_type === "generation_parameter",
-  );
+  if (!supplemental.length) return null;
   return (
-    <article className="panel workflow-observation-panel">
+    <article className="workflow-observation-panel">
       <div className="section-heading">
         <div>
-          <p className="kicker">Layer 3 · built-in first pass</p>
-          <h2>Semantic observations</h2>
+          <p className="kicker">Additional evidence</p>
+          <h3>Supplemental observations</h3>
         </div>
-        <span className="document-count">{observations.length} current</span>
+        <span className="document-count">{supplemental.length}</span>
       </div>
-      {important.length === 0 ? (
-        <p className="muted">
-          No built-in checkpoint, LoRA, or prompt mapping matched. Every raw node is
-          still preserved below.
-        </p>
-      ) : (
-        <div className="observation-list">
-          {important.map((observation) => (
-            <div
-              className="observation-row"
-              data-type={observation.observation_type}
-              key={observation.id}
-            >
-              <span>
-                <strong>{titleCase(observation.observation_type)}</strong>
-                <small>
-                  {titleCase(observation.role ?? "unclassified")} ·{" "}
-                  {Math.round(observation.confidence * 100)}% confidence ·{" "}
-                  {titleCase(observation.correction_state)}
-                </small>
-              </span>
-              {observation.observation_type === "prompt" ? (
-                <pre className="workflow-prompt">{displayValue(observation.value)}</pre>
-              ) : (
-                <code>{displayValue(observation.value)}</code>
-              )}
-            </div>
-          ))}
+      <div className="observation-list">
+        {supplemental.map((observation) => (
+          <div
+            className="observation-row"
+            data-type={observation.observation_type}
+            key={observation.id}
+          >
+            <span>
+              <strong>{titleCase(observation.observation_type)}</strong>
+              <small>
+                {titleCase(observation.role ?? "unclassified")} ·{" "}
+                {Math.round(observation.confidence * 100)}% confidence ·{" "}
+                {titleCase(observation.correction_state)}
+              </small>
+            </span>
+            <code>{displayValue(observation.value)}</code>
+          </div>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function ModelUsagePanel({
+  usages,
+  observations,
+}: {
+  usages: WorkflowModelUsage[];
+  observations: SemanticObservation[];
+}) {
+  const checkpointUsages = usages.filter(
+    (usage) => usage.observation_type === "checkpoint_reference",
+  );
+  const loraUsages = usages.filter(
+    (usage) => usage.observation_type === "lora_reference",
+  );
+  const checkpointFallback = observations.filter(
+    (observation) => observation.observation_type === "checkpoint_reference",
+  );
+  const loraFallback = observations.filter(
+    (observation) => observation.observation_type === "lora_reference",
+  );
+  return (
+    <article className="workflow-priority-card model-evidence-card">
+      <div className="section-heading">
+        <div>
+          <p className="kicker">Primary recipe</p>
+          <h2>Checkpoints &amp; LoRAs</h2>
         </div>
-      )}
-      {parameters.length ? (
-        <details className="workflow-disclosure">
-          <summary>{parameters.length} generation parameters</summary>
-          <dl className="parameter-grid">
-            {parameters.map((parameter) => (
-              <div key={parameter.id}>
-                <dt>{titleCase(parameter.role ?? "parameter")}</dt>
-                <dd>{displayValue(parameter.value)}</dd>
-              </div>
-            ))}
-          </dl>
+        <span className="document-count">
+          {usages.length || checkpointFallback.length + loraFallback.length} uses
+        </span>
+      </div>
+      <ModelUsageGroup
+        title="Checkpoints"
+        emptyMessage="No checkpoint reference was extracted."
+        usages={checkpointUsages}
+        fallback={checkpointFallback}
+      />
+      <ModelUsageGroup
+        title="LoRAs"
+        emptyMessage="No LoRA reference was extracted."
+        usages={loraUsages}
+        fallback={loraFallback}
+      />
+    </article>
+  );
+}
+
+function ModelUsageGroup({
+  title,
+  emptyMessage,
+  usages,
+  fallback,
+}: {
+  title: string;
+  emptyMessage: string;
+  usages: WorkflowModelUsage[];
+  fallback: SemanticObservation[];
+}) {
+  return (
+    <section className="model-evidence-group">
+      <header>
+        <h3>{title}</h3>
+        <span>{usages.length || fallback.length}</span>
+      </header>
+      {usages.map((usage) => (
+        <div className="model-evidence-row" key={usage.id}>
+          <strong>{usage.artifact_display_name || usage.raw_reference}</strong>
+          <small>
+            {titleCase(usage.slot)} · {titleCase(usage.pipeline_pattern)}
+          </small>
+          <span>
+            {usage.architecture_family || "Architecture unknown"}
+            {usage.lineage ? ` · ${usage.lineage}` : ""}
+          </span>
+          {usage.artifact_display_name ? <code>{usage.raw_reference}</code> : null}
+        </div>
+      ))}
+      {usages.length === 0
+        ? fallback.map((observation) => (
+            <div className="model-evidence-row" key={observation.id}>
+              <strong>{displayValue(observation.value)}</strong>
+              <small>
+                {titleCase(observation.role ?? "unclassified")} · unresolved registry
+                usage
+              </small>
+            </div>
+          ))
+        : null}
+      {usages.length === 0 && fallback.length === 0 ? (
+        <p className="muted">{emptyMessage}</p>
+      ) : null}
+    </section>
+  );
+}
+
+function PromptPanel({
+  observations,
+}: {
+  observations: SemanticObservation[];
+}) {
+  const prompts = observations.filter(
+    (observation) => observation.observation_type === "prompt",
+  );
+  return (
+    <article className="workflow-priority-card prompt-evidence-card">
+      <div className="section-heading">
+        <div>
+          <p className="kicker">Exact embedded text</p>
+          <h2>Prompt</h2>
+        </div>
+        <span className="document-count">{prompts.length}</span>
+      </div>
+      {prompts.map((prompt, index) => (
+        <details
+          className="prompt-evidence"
+          open={index === 0}
+          key={prompt.id}
+        >
+          <summary>{titleCase(prompt.role ?? `Prompt ${index + 1}`)}</summary>
+          <pre className="workflow-prompt">{displayValue(prompt.value)}</pre>
         </details>
+      ))}
+      {prompts.length === 0 ? (
+        <p className="muted">No prompt was extracted for this media.</p>
       ) : null}
     </article>
   );
 }
 
-function ModelUsagePanel({ usages }: { usages: WorkflowModelUsage[] }) {
-  if (!usages.length) return null;
+function GenerationParameters({
+  observations,
+}: {
+  observations: SemanticObservation[];
+}) {
+  const parameters = observations.filter(
+    (observation) => observation.observation_type === "generation_parameter",
+  );
+  if (!parameters.length) return null;
   return (
-    <article className="panel workflow-observation-panel">
-      <div className="section-heading">
-        <div>
-          <p className="kicker">Layer 4 · registry resolution</p>
-          <h2>Model roles in this workflow</h2>
-        </div>
-        <span className="document-count">{usages.length} resolved usages</span>
-      </div>
-      <div className="observation-list model-usage-list">
-        {usages.map((usage) => (
-          <div className="observation-row" key={usage.id}>
-            <span>
-              <strong>
-                {titleCase(usage.slot)} · {titleCase(usage.pipeline_pattern)}
-              </strong>
-              <small>
-                {usage.architecture_family || "Architecture unknown"} ·{" "}
-                {usage.lineage || "Lineage unknown"} ·{" "}
-                {Math.round(usage.confidence * 100)}% confidence
-              </small>
-            </span>
-            <span>
-              <strong>{usage.artifact_display_name || usage.raw_reference}</strong>
-              {usage.artifact_display_name ? <code>{usage.raw_reference}</code> : null}
-            </span>
+    <details className="workflow-inspector-disclosure parameter-disclosure">
+      <summary>
+        <span>
+          <strong>Generation parameters</strong>
+          <small>Sampler and recipe values</small>
+        </span>
+        <span>{parameters.length}</span>
+      </summary>
+      <dl className="parameter-grid">
+        {parameters.map((parameter) => (
+          <div key={parameter.id}>
+            <dt>{titleCase(parameter.role ?? "parameter")}</dt>
+            <dd>{displayValue(parameter.value)}</dd>
           </div>
         ))}
-      </div>
-    </article>
+      </dl>
+    </details>
   );
 }
 

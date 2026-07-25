@@ -77,6 +77,8 @@ The accepted foundation toolchain is:
 - pnpm 11 manages the frontend workspace.
 - The Phase 0 shell uses plain CSS and no component-library dependency.
 - Route pages are lazy-loaded and TanStack Query owns server state.
+- The desktop shell supports a persistent icon rail; media record and review routes
+  use viewport-height preview/inspector workspaces with independent inspector scrolling.
 
 ## Branch and review discipline
 

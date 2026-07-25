@@ -14,6 +14,10 @@ All notable changes to Project Comfy Gallery are recorded here.
   collections, and tags.
 - Add multi-checkpoint and multi-LoRA filters with explicit Any (OR) and All
   (AND) matching.
+- Add a persistent collapsible icon navigation rail and preview-first, full-height
+  Media Detail and Blind Review workspaces.
+- Reorder Media Detail around filename/file facts, checkpoint and LoRA roles, and
+  exact prompt text while moving UUID/SHA and parser internals into disclosures.
 
 ## 0.1.0-rc.7 — 2026-07-25
 
