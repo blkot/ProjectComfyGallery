@@ -76,8 +76,14 @@ An optional short N/A reason may be stored. Example: no usable prompt for prompt
 
 ### Optional modules
 
-- Character module is enabled manually for a selected review-session scope.
-- Module choice is snapshotted when evaluation begins.
+- Character module can be enabled for a selected review-session scope or an
+  individual media record.
+- Review-session module choice is snapshotted when the session begins.
+- Per-media module choice is durable and may be changed from Media Detail.
+- Enabling a per-media module lazily creates its supplemental evaluation.
+- Disabling a per-media module removes it from the active completion calculation
+  but never deletes its evaluation, scores, or revisions. Re-enabling restores the
+  saved work.
 - A later-added module does not reopen an existing completed evaluation.
 - Additional criteria/modules can be collected later as a supplemental evaluation.
 
@@ -143,6 +149,23 @@ Hidden during scoring:
 Filenames have no product significance and are not needed for review.
 
 The normal library and media-record pages expose all metadata.
+
+## Context-visible Media Detail evaluation
+
+Media Detail provides a second evaluation surface for deliberate, non-blind edits:
+
+- The Info/Evaluate switch is placed beside the filename.
+- Evaluate replaces the right inspector body; the media stage remains fixed.
+- The selected panel travels with Previous/Next navigation.
+- Core criteria are always active; compatible optional modules are selected per
+  media.
+- It writes the same evaluation, score, revision, and Trash records as Blind
+  Review. Audit history does not distinguish which interface produced an edit.
+- It does not create a review session, auto-advance, or hide prompts, model names,
+  workflow evidence, or other context.
+
+This is intentionally a different information boundary from Blind Review, not a
+second scoring system.
 
 ## Slider interaction contract
 

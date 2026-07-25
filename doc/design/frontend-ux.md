@@ -165,6 +165,17 @@ Inspector information is deliberately ordered by practical recall value:
 6. UUID and SHA-256 in a collapsed technical-identity section;
 7. compact dimensions, format, duration, size, and source file time at the bottom.
 
+The right side has two mutually exclusive panels selected beside the filename:
+
+- **Info** contains the evidence inspector described above.
+- **Evaluate** contains the current media's core criteria, per-media optional-module
+  switches, exact prompts, save state, Trash/restore, and Undo.
+
+The selection is represented by `panel=evaluation` in the Media Detail URL. It is
+preserved across Previous/Next traversal and refresh, but removed when returning to
+the Library or requesting the server-side navigation population. The right pane
+remains independently scrollable in either mode.
+
 ### Preview
 
 - Original image or video player.
@@ -221,7 +232,11 @@ newest-file-time view.
 - State and Trash disposition.
 - Current scores and template.
 - Revision history.
-- Open in review/editor.
+- Info/Evaluate switch beside the filename.
+- Shared score controls and autosave behavior with Blind Review.
+- Core module always active; optional Character module enabled per media.
+- Disabling an optional module hides it without deleting scores or revisions.
+- Open in blind Review when configuration-hidden scoring is preferred.
 
 Blind Review uses the same full-height left media stage and independently scrolling
 right control pane. It does not reuse the Media Detail evidence inspector: checkpoint,

@@ -25,6 +25,11 @@ All notable changes to Project Comfy Gallery are recorded here.
 - Infer positive and negative prompt roles from conditioning-graph ancestry, honor
   explicit node mappings as overrides, and order positive prompts first without
   discarding negative or unclassified prompt evidence.
+- Add a context-visible Evaluate panel to Media Detail with shared score controls,
+  persistent Previous/Next panel state, and the same evaluation history as Blind
+  Review.
+- Add durable per-media optional evaluation modules; disabling a module hides it
+  from active progress without deleting its scores or revisions.
 
 ## 0.1.0-rc.7 — 2026-07-25
 

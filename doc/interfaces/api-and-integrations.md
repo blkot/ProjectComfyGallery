@@ -230,6 +230,8 @@ usages, media processing, and evaluations remain untouched.
 GET    /api/v1/evaluation-templates
 GET    /api/v1/review/summary
 GET    /api/v1/evaluations
+POST   /api/v1/media/:id/evaluation-context
+PUT    /api/v1/media/:id/evaluation-modules/:module
 PUT    /api/v1/evaluations/:id/scores/:criterionId
 DELETE /api/v1/evaluations/:id/scores/:criterionId
 POST   /api/v1/evaluations/:id/trash
@@ -247,6 +249,16 @@ GET    /api/v1/review-sessions/:id/items/:position
 These paths are implemented in Phase 4. Score commands support scored/N/A states,
 Clear by deletion, and optimistic concurrency. A stale `expected_version` returns
 `409 EVALUATION_VERSION_CONFLICT` with the current version.
+
+`POST /media/:id/evaluation-context` is an idempotent ensure-and-read operation for
+the context-visible Media Detail panel. It ensures the applicable core evaluation
+exists and returns prompts, core plus currently enabled optional evaluations,
+available optional modules, and combined active progress.
+
+`PUT /media/:id/evaluation-modules/:module` accepts `{ "enabled": true|false }`.
+Only available optional modules may be changed. Enabling lazily creates the
+supplemental evaluation; disabling excludes it from the returned active context
+without deleting scores or revisions.
 
 Review-session creation accepts a snapshotted selection, random pool, global
 In-progress pool, filter, saved filter, collection, or source root. The item response

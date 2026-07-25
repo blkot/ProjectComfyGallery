@@ -149,7 +149,8 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
 - **EVAL-001:** Evaluation MUST be manual in the MVP.
 - **EVAL-002:** Applicable criteria MUST come from a versioned template snapshot.
 - **EVAL-003:** Image/video core selection MUST follow media type.
-- **EVAL-004:** Optional modules MUST be explicitly assigned to a review session or supplemental evaluation.
+- **EVAL-004:** Optional modules MUST be explicitly assigned to a review session or
+  enabled for an individual media record.
 - **EVAL-005:** Later criteria additions MUST NOT reopen or invalidate completed historical evaluations.
 - **EVAL-006:** Every criterion value MUST be either unset, N/A, or an integer from 0 through 10.
 - **EVAL-007:** Zero MUST remain a real score distinct from unset and N/A.
@@ -165,6 +166,14 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
 - **EVAL-017:** Review MUST hide checkpoint, LoRA, workflow configuration, and other experiment-revealing metadata.
 - **EVAL-018:** Review MUST show exact extracted prompt fields.
 - **EVAL-019:** A review session MUST be resumable but MUST NOT impose completion, deadlines, or streak behavior.
+- **EVAL-020:** Media Detail MUST expose an Info/Evaluate panel switch beside the
+  filename and preserve the selected panel while navigating Previous/Next.
+- **EVAL-021:** Media Detail evaluation MUST use the same templates, scores,
+  autosave, revision history, and Trash disposition as Blind Review while keeping
+  workflow and model evidence visible.
+- **EVAL-022:** Optional evaluation-module selection MUST be stored per media.
+  Disabling a module MUST hide it from the active evaluation and completion state
+  without deleting any scores; re-enabling it MUST restore the saved evaluation.
 
 ## Analytics
 

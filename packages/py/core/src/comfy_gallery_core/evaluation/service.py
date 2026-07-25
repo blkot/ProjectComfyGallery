@@ -15,6 +15,7 @@ from comfy_gallery_core.db.models import (
     EvaluationTemplate,
     EvaluationTemplateItem,
     Media,
+    MediaEvaluationModule,
     ScoreRevision,
 )
 from comfy_gallery_core.evaluation.catalog import get_template
@@ -28,9 +29,7 @@ async def ensure_media_evaluations(
     reviewer_user_id: UUID,
     optional_modules: set[str],
 ) -> list[Evaluation]:
-    modules = ["core"]
-    if "character" in optional_modules:
-        modules.append("character")
+    modules = ["core", *sorted(optional_modules)]
     templates = [
         await get_template(session, media_kind=media.kind, module=module) for module in modules
     ]
@@ -56,6 +55,40 @@ async def ensure_media_evaluations(
         by_template[template.id] = evaluation
     await session.flush()
     return [by_template[template.id] for template in templates]
+
+
+async def set_media_evaluation_module(
+    session: AsyncSession,
+    *,
+    media: Media,
+    module: str,
+    enabled: bool,
+    reviewer_user_id: UUID,
+) -> MediaEvaluationModule:
+    selection = await session.scalar(
+        select(MediaEvaluationModule).where(
+            MediaEvaluationModule.media_id == media.id,
+            MediaEvaluationModule.module == module,
+        )
+    )
+    if selection is None:
+        selection = MediaEvaluationModule(
+            media_id=media.id,
+            module=module,
+            enabled=enabled,
+        )
+        session.add(selection)
+    else:
+        selection.enabled = enabled
+    if enabled:
+        await ensure_media_evaluations(
+            session,
+            media=media,
+            reviewer_user_id=reviewer_user_id,
+            optional_modules={module},
+        )
+    await session.flush()
+    return selection
 
 
 async def update_score(

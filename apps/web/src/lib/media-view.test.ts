@@ -35,7 +35,9 @@ describe("media view context", () => {
   });
 
   it("uses filters and sort for navigation while omitting page boundaries", () => {
-    const context = new URLSearchParams("kind=video&sort=size_desc&offset=96&limit=48");
+    const context = new URLSearchParams(
+      "kind=video&sort=size_desc&offset=96&limit=48&panel=evaluation",
+    );
     const navigation = mediaNavigationQuery(context);
     const library = new URL(mediaLibraryHref(context), "http://example.test");
 
@@ -43,6 +45,17 @@ describe("media view context", () => {
     expect(library.pathname).toBe("/library");
     expect(library.searchParams.get("offset")).toBe("96");
     expect(library.searchParams.has("limit")).toBe(false);
+    expect(library.searchParams.has("panel")).toBe(false);
+  });
+
+  it("preserves the active detail panel across previous and next media", () => {
+    const href = mediaDetailHref(
+      "next-media",
+      new URLSearchParams("sort=file_created_desc&panel=evaluation"),
+    );
+    const parsed = new URL(href, "http://example.test");
+
+    expect(parsed.searchParams.get("panel")).toBe("evaluation");
   });
 
   it("builds a reusable filter with multi-reference match semantics", () => {

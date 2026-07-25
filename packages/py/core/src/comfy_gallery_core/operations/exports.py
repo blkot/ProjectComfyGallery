@@ -55,6 +55,7 @@ EXPORT_TABLE_NAMES = (
     "evaluation_template",
     "evaluation_template_item",
     "evaluation",
+    "media_evaluation_module",
     "evaluation_score",
     "score_revision",
     "evaluation_disposition_revision",

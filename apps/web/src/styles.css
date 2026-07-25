@@ -2193,17 +2193,58 @@ textarea {
 
 .media-record-heading h1 {
   overflow-wrap: anywhere;
-  margin-bottom: 13px;
+  margin: 0;
   font-family: inherit;
   font-size: 25px;
   font-weight: 650;
   letter-spacing: -0.025em;
 }
 
+.media-record-title-row {
+  margin-bottom: 13px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 14px;
+}
+
+.media-record-panel-switcher {
+  padding: 3px;
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+  background: #0c0c0a;
+  display: flex;
+  gap: 2px;
+}
+
+.media-record-panel-switcher button {
+  min-height: 27px;
+  padding: 5px 9px;
+  border: 0;
+  border-radius: 4px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 8px;
+}
+
+.media-record-panel-switcher button:hover {
+  color: var(--text);
+}
+
+.media-record-panel-switcher button[aria-selected="true"] {
+  color: var(--accent);
+  background: var(--surface-raised);
+}
+
 .media-record-statuses {
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
+}
+
+.media-record-panel {
+  min-width: 0;
 }
 
 .media-record-inspector .notice {
@@ -2264,6 +2305,159 @@ textarea {
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+.media-evaluation-panel {
+  padding-top: 20px;
+}
+
+.media-evaluation-loading {
+  min-height: 220px;
+  color: var(--muted);
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  font-size: 9px;
+}
+
+.media-evaluation-summary {
+  padding: 0 0 18px;
+  border-bottom: 1px solid var(--line-soft);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.media-evaluation-summary > span {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.media-evaluation-summary strong {
+  font-size: 11px;
+}
+
+.media-evaluation-summary-state {
+  align-items: flex-end;
+}
+
+.media-evaluation-summary .review-save-state {
+  font-size: 8px;
+}
+
+.media-evaluation-modules {
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.media-evaluation-modules .section-heading,
+.media-evaluation-prompts .section-heading {
+  margin-bottom: 12px;
+}
+
+.media-evaluation-modules h2,
+.media-evaluation-prompts h2 {
+  margin: 0;
+  font-family: inherit;
+  font-size: 15px;
+}
+
+.media-evaluation-module-list {
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+}
+
+.media-evaluation-module-row {
+  min-height: 55px;
+  padding: 10px 12px;
+  margin: 0;
+  border-bottom: 1px solid var(--line-soft);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.media-evaluation-module-row:last-child {
+  border-bottom: 0;
+}
+
+.media-evaluation-module-row > span:first-child {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.media-evaluation-module-row strong {
+  font-size: 10px;
+}
+
+.media-evaluation-module-row small {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.media-evaluation-module-row input[role="switch"] {
+  width: 30px;
+  height: 16px;
+  flex: 0 0 auto;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.module-required-badge {
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--surface-raised);
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+.media-evaluation-prompts {
+  padding: 20px 0 4px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.media-evaluation-prompts details {
+  border-top: 1px solid var(--line-soft);
+}
+
+.media-evaluation-prompts summary {
+  padding: 10px 0;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 9px;
+}
+
+.media-evaluation-prompts details[data-role="positive"] summary,
+.media-evaluation-prompts details[data-role="main"] summary,
+.media-evaluation-prompts details[data-role="primary"] summary {
+  color: var(--accent);
+}
+
+.media-evaluation-prompts p {
+  max-height: 220px;
+  overflow: auto;
+  margin: 0 0 13px;
+  color: #cfcdc3;
+  font: 9px/1.65 "SFMono-Regular", Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.media-evaluation-actions {
+  padding: 20px 0 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .record-inspector-disclosure {
@@ -3774,6 +3968,14 @@ textarea {
     padding: 25px 20px 42px;
     border-top: 1px solid var(--line-soft);
     border-left: 0;
+  }
+
+  .media-record-title-row {
+    grid-template-columns: 1fr;
+  }
+
+  .media-record-panel-switcher {
+    justify-self: start;
   }
 
   .record-facts {

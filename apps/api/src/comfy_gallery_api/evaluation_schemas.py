@@ -33,6 +33,7 @@ class EvaluationResponse(BaseModel):
     template_id: UUID
     template_name: str
     template_version: int
+    module: str
     evaluation_kind: str
     progress_state: str
     is_trash: bool
@@ -169,6 +170,29 @@ class ReviewPromptResponse(BaseModel):
     role: str | None
     label: str
     text: str
+
+
+class MediaEvaluationModuleUpdateRequest(BaseModel):
+    enabled: bool
+
+
+class MediaEvaluationModuleResponse(BaseModel):
+    module: str
+    label: str
+    required: bool
+    enabled: bool
+    has_saved_scores: bool
+    progress_state: Literal["not_started", "in_progress", "complete"] | None
+
+
+class MediaEvaluationContextResponse(BaseModel):
+    media_id: UUID
+    progress_state: Literal["not_started", "in_progress", "complete"]
+    is_trash: bool
+    enabled_modules: list[str]
+    available_modules: list[MediaEvaluationModuleResponse]
+    prompts: list[ReviewPromptResponse]
+    evaluations: list[EvaluationResponse]
 
 
 class ReviewMediaResponse(BaseModel):

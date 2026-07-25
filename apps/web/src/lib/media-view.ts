@@ -49,6 +49,7 @@ export function mediaNavigationQuery(search: URLSearchParams): URLSearchParams {
   const result = mediaListQuery(search);
   result.delete("limit");
   result.delete("offset");
+  result.delete("panel");
   return result;
 }
 
@@ -68,6 +69,7 @@ export function mediaDetailHref(
 export function mediaLibraryHref(search: URLSearchParams): string {
   const result = mediaListQuery(search);
   result.delete("limit");
+  result.delete("panel");
   return `/library?${result.toString()}`;
 }
 

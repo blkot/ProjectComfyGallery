@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import random
 from datetime import UTC, datetime
+from typing import Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Query, Response, status
@@ -20,6 +21,9 @@ from comfy_gallery_api.evaluation_schemas import (
     EvaluationResponse,
     EvaluationRevisionsResponse,
     EvaluationTemplateResponse,
+    MediaEvaluationContextResponse,
+    MediaEvaluationModuleResponse,
+    MediaEvaluationModuleUpdateRequest,
     MediaFilterRequest,
     MediaMembershipRequest,
     NamedRecordRequest,
@@ -50,6 +54,7 @@ from comfy_gallery_core.db.models import (
     ExtractionRun,
     Media,
     MediaCollection,
+    MediaEvaluationModule,
     MediaTag,
     ModelUsage,
     ReviewSession,
@@ -66,6 +71,7 @@ from comfy_gallery_core.evaluation.catalog import ensure_evaluation_catalog
 from comfy_gallery_core.evaluation.service import (
     ensure_media_evaluations,
     load_evaluation,
+    set_media_evaluation_module,
     update_score,
     update_trash,
 )
@@ -74,6 +80,7 @@ from comfy_gallery_core.registry.aliases import reference_identity_ids
 
 router = APIRouter(prefix="/api/v1", tags=["evaluation"])
 REVIEWABLE_MEDIA_STATUSES = ("ready", "ready_with_warnings")
+EvaluationProgressState = Literal["not_started", "in_progress", "complete"]
 
 
 @router.get("/evaluation-templates", response_model=list[EvaluationTemplateResponse])
@@ -114,6 +121,58 @@ async def list_evaluation_templates(
         )
         for template in templates
     ]
+
+
+@router.post(
+    "/media/{media_id}/evaluation-context",
+    response_model=MediaEvaluationContextResponse,
+)
+async def ensure_media_evaluation_context(
+    media_id: UUID,
+    principal: CsrfPrincipalDep,
+    session: DbSessionDep,
+) -> MediaEvaluationContextResponse:
+    media = await _reviewable_media_or_404(session, media_id)
+    await ensure_evaluation_catalog(session)
+    await ensure_media_evaluations(
+        session,
+        media=media,
+        reviewer_user_id=principal.user.id,
+        optional_modules=set(),
+    )
+    await session.commit()
+    return await _media_evaluation_context(session, media)
+
+
+@router.put(
+    "/media/{media_id}/evaluation-modules/{module}",
+    response_model=MediaEvaluationContextResponse,
+)
+async def update_media_evaluation_module(
+    media_id: UUID,
+    module: str,
+    request: MediaEvaluationModuleUpdateRequest,
+    principal: CsrfPrincipalDep,
+    session: DbSessionDep,
+) -> MediaEvaluationContextResponse:
+    media = await _reviewable_media_or_404(session, media_id)
+    await ensure_evaluation_catalog(session)
+    available_templates = await _available_optional_templates(session, media.kind)
+    if module not in available_templates:
+        raise ApiError(
+            status_code=422,
+            code="EVALUATION_MODULE_INVALID",
+            message="This evaluation module is not available for the media type.",
+        )
+    await set_media_evaluation_module(
+        session,
+        media=media,
+        module=module,
+        enabled=request.enabled,
+        reviewer_user_id=principal.user.id,
+    )
+    await session.commit()
+    return await _media_evaluation_context(session, media)
 
 
 @router.get("/review/summary", response_model=ReviewSummaryResponse)
@@ -972,6 +1031,7 @@ def _evaluation_response(evaluation: Evaluation) -> EvaluationResponse:
         template_id=evaluation.template_id,
         template_name=evaluation.template.name,
         template_version=evaluation.template.version,
+        module=evaluation.template.module,
         evaluation_kind=evaluation.evaluation_kind,
         progress_state=evaluation.progress_state,
         is_trash=evaluation.is_trash,
@@ -1026,6 +1086,97 @@ async def _review_prompts(
     return prompts
 
 
+async def _media_evaluation_context(
+    session: AsyncSession,
+    media: Media,
+) -> MediaEvaluationContextResponse:
+    selections = list(
+        await session.scalars(
+            select(MediaEvaluationModule).where(MediaEvaluationModule.media_id == media.id)
+        )
+    )
+    enabled_modules = {selection.module for selection in selections if selection.enabled}
+    rows = list(
+        await session.scalars(
+            select(Evaluation)
+            .join(EvaluationTemplate)
+            .where(Evaluation.media_id == media.id)
+            .order_by(
+                EvaluationTemplate.module,
+                EvaluationTemplate.version.desc(),
+            )
+        )
+    )
+    loaded = [await load_evaluation(session, evaluation.id) for evaluation in rows]
+    by_module: dict[str, Evaluation] = {}
+    for evaluation in loaded:
+        by_module.setdefault(evaluation.template.module, evaluation)
+
+    active_modules = {"core", *enabled_modules}
+    active_evaluations = [
+        by_module[module]
+        for module in sorted(active_modules, key=lambda value: (value != "core", value))
+        if module in by_module
+    ]
+    progress_states = {evaluation.progress_state for evaluation in active_evaluations}
+    progress_state: EvaluationProgressState
+    if progress_states == {"complete"}:
+        progress_state = "complete"
+    elif progress_states <= {"not_started"}:
+        progress_state = "not_started"
+    else:
+        progress_state = "in_progress"
+    base_evaluation = by_module["core"]
+    available_templates = await _available_optional_templates(session, media.kind)
+    return MediaEvaluationContextResponse(
+        media_id=media.id,
+        progress_state=progress_state,
+        is_trash=base_evaluation.is_trash,
+        enabled_modules=sorted(enabled_modules),
+        available_modules=[
+            MediaEvaluationModuleResponse(
+                module=module,
+                label=module.replace("_", " ").title(),
+                required=False,
+                enabled=module in enabled_modules,
+                has_saved_scores=bool(by_module.get(module) and by_module[module].scores),
+                progress_state=(
+                    cast(EvaluationProgressState, by_module[module].progress_state)
+                    if module in by_module
+                    else None
+                ),
+            )
+            for module in available_templates
+        ],
+        prompts=await _review_prompts(session, media.id),
+        evaluations=[_evaluation_response(evaluation) for evaluation in active_evaluations],
+    )
+
+
+async def _available_optional_templates(
+    session: AsyncSession,
+    media_kind: str,
+) -> dict[str, EvaluationTemplate]:
+    templates = list(
+        await session.scalars(
+            select(EvaluationTemplate)
+            .where(
+                EvaluationTemplate.media_kind == media_kind,
+                EvaluationTemplate.module != "core",
+                EvaluationTemplate.locked.is_(True),
+            )
+            .order_by(
+                EvaluationTemplate.module,
+                EvaluationTemplate.version.desc(),
+            )
+        )
+    )
+    result: dict[str, EvaluationTemplate] = {}
+    for template in templates:
+        result.setdefault(template.module, template)
+    return result
+
+
 def _prompt_role_rank(role: str | None) -> int:
     normalized = (role or "").strip().casefold().replace("-", "_").replace(" ", "_")
     if normalized in {"positive", "main", "primary", "positive_prompt"}:
@@ -1069,6 +1220,26 @@ async def _evaluation_or_404(
             message="The evaluation was not found.",
         )
     return evaluation
+
+
+async def _reviewable_media_or_404(
+    session: AsyncSession,
+    media_id: UUID,
+) -> Media:
+    media = await session.get(Media, media_id)
+    if media is None:
+        raise ApiError(
+            status_code=404,
+            code="MEDIA_NOT_FOUND",
+            message="The media record was not found.",
+        )
+    if media.status not in REVIEWABLE_MEDIA_STATUSES:
+        raise ApiError(
+            status_code=422,
+            code="MEDIA_NOT_REVIEWABLE",
+            message="This media is not ready for evaluation.",
+        )
+    return media
 
 
 async def _review_session_or_404(
