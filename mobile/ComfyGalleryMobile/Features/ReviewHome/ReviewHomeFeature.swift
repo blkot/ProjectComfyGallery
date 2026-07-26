@@ -56,21 +56,24 @@ final class ReviewHomeFeature {
         isCreating = true
         errorMessage = nil
         let filter = filterForCurrentSource()
+        let modules: [String] = includeCharacter ? ["character"] : []
         let request = CreateSessionRequest(
             name: nil,
             sourceKind: sourceKind,
             filter: filter,
             randomLimit: randomLimit,
             orderingMode: orderingMode,
-            optionalModules: includeCharacter ? ["character"] : []
+            optionalModules: modules
         )
-        logger.log("Creating session source=\(self.sourceKind.rawValue, privacy: .public) ordering=\(self.orderingMode.rawValue, privacy: .public)")
+        logger.log("Creating session source=\(self.sourceKind.rawValue, privacy: .public) ordering=\(self.orderingMode.rawValue, privacy: .public) modules=\(modules, privacy: .public) includeCharacter=\(self.includeCharacter)")
         do {
             let session: ReviewSession = try await apiClient.request(.createReviewSession(request))
+            logger.log("Created session id=\(session.id, privacy: .public) modules=\(session.optionalModules ?? [], privacy: .public) candidateCount=\(session.candidateCount)")
             await load()
             isCreating = false
             return session
         } catch let error as APIError {
+            logger.error("Create session failed: \(error.localizedDescription, privacy: .public)")
             errorMessage = error.errorDescription ?? "Could not create review session."
             isCreating = false
             return nil

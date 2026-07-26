@@ -82,6 +82,8 @@ final class ReviewWorkspaceFeature {
         let item: ReviewItem = try await apiClient.request(.reviewItem(sessionID: sessionID, position: position))
         reviewItem = item
         position = item.position
+        let evalSummary = item.evaluations.map { "\($0.evaluationKind)(id=\($0.id.prefix(8)),criteria=\($0.criteria.count))" }.joined(separator: ", ")
+        logger.log("Fetched item position=\(item.position) evaluations=[\(evalSummary, privacy: .public)]")
     }
 
     private func seedLatestKnownVersions() {
