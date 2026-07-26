@@ -38,23 +38,22 @@ struct ReviewWorkspaceView: View {
                                 ForEach(evaluation.criteria) { criterion in
                                     CriterionCard(
                                         criterion: criterion,
-                                        score: feature.score(for: criterion),
-                                        evaluation: evaluation,
+                                        score: feature.score(forCriterion: criterion.id),
                                         onScore: { value in
-                                            Task { await feature.setScore(value, for: criterion, evaluation: evaluation) }
+                                            Task { await feature.setScore(value, criterionID: criterion.id) }
                                         },
                                         onClear: {
-                                            Task { await feature.clearScore(for: criterion, evaluation: evaluation) }
+                                            Task { await feature.clearScore(criterionID: criterion.id) }
                                         },
                                         onNA: {
-                                            Task { await feature.setNA(for: criterion, evaluation: evaluation) }
+                                            Task { await feature.setNA(criterionID: criterion.id) }
                                         },
                                         isDisabled: feature.saveState == .saving
                                     )
                                 }
 
                                 Button {
-                                    Task { await feature.toggleTrash(evaluation: evaluation) }
+                                    Task { await feature.toggleTrash(evaluationID: evaluation.id) }
                                 } label: {
                                     Label(
                                         evaluation.isTrash ? "Restore from Trash" : "Mark as Trash",

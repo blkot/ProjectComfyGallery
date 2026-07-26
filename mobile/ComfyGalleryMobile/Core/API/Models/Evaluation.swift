@@ -18,7 +18,11 @@ struct Evaluation: Decodable, Identifiable, Sendable {
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        id = try c.decodeIfPresent(String.self, forKey: .id) ?? ""
+        if let v = try c.decodeIfPresent(String.self, forKey: .id), !v.isEmpty {
+            id = v
+        } else {
+            id = UUID().uuidString
+        }
         evaluationKind = try c.decodeIfPresent(String.self, forKey: .evaluationKind) ?? "base"
         progressState = (try? c.decodeIfPresent(ProgressState.self, forKey: .progressState)) ?? .notStarted
         isTrash = try c.decodeIfPresent(Bool.self, forKey: .isTrash) ?? false
@@ -91,7 +95,6 @@ struct EvaluationScore: Decodable, Sendable {
         naReason = try c.decodeIfPresent(String.self, forKey: .naReason)
     }
 }
-
 
 struct SetScoreRequest: Encodable, Sendable {
     let expectedVersion: Int

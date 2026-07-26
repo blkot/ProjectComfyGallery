@@ -5,17 +5,17 @@ import OSLog
 @Observable
 final class ReviewWorkspaceFeature {
     let sessionID: String
-    var reviewItem: ReviewItem?
-    var position: Int = 0
-    var isLoading = true
-    var errorMessage: String?
-    var saveState: SaveState = .saved
+    private(set) var reviewItem: ReviewItem?
+    private(set) var position: Int = 0
+    private(set) var isLoading = true
+    private(set) var errorMessage: String?
+    private(set) var saveState: SaveState = .saved
 
-    var mediaImage: UIImage?
-    var mediaVideoURL: URL?
-    var mediaPosterImage: UIImage?
-    var isLoadingMedia = false
-    var loadMediaFailed = false
+    private(set) var mediaImage: UIImage?
+    private(set) var mediaVideoURL: URL?
+    private(set) var mediaPosterImage: UIImage?
+    private(set) var isLoadingMedia = false
+    private(set) var loadMediaFailed = false
 
     var showConflict = false
     var conflictMessage = ""
@@ -31,6 +31,14 @@ final class ReviewWorkspaceFeature {
     private let commandQueue: ReviewCommandQueue
     private let localStore: LocalStore
     private let logger = Logger(subsystem: "com.comfygallery.mobile", category: "ReviewWorkspace")
+
+    // Tracks the highest version we've ever seen for each evaluation ID. Used to
+    // assign expected_version to outgoing requests even when the captured
+    // Evaluation struct is stale (closures capture by value).
+    private var latestKnownVersions: [String: Int] = [:]
+    // Tracks in-flight commit tasks per criterion so a rapid second commit can
+    // cancel the first.
+    private var commitTasks: [String: Task<Void, Never>] = [:]
 
     enum SaveState {
         case saved, saving, savedLocally, needsAttention
@@ -50,11 +58,14 @@ final class ReviewWorkspaceFeature {
         self.localStore = localStore
     }
 
+    // MARK: - Loading
+
     func load() async {
         isLoading = true
         errorMessage = nil
         do {
             try await fetchCurrentItem()
+            seedLatestKnownVersions()
             await loadMedia()
         } catch let error as APIError {
             errorMessage = error.errorDescription ?? "Could not load review item."
@@ -69,6 +80,16 @@ final class ReviewWorkspaceFeature {
         reviewItem = item
         position = item.position
     }
+
+    private func seedLatestKnownVersions() {
+        guard let item = reviewItem else { return }
+        for evaluation in item.evaluations {
+            latestKnownVersions[evaluation.id] = evaluation.version
+        }
+        logger.log("Seeded versions: \(self.latestKnownVersions)")
+    }
+
+    // MARK: - Navigation
 
     func navigateToPrevious() async {
         guard position > 0, saveState != .saving else { return }
@@ -101,100 +122,6 @@ final class ReviewWorkspaceFeature {
         let _: ReviewSession = try await apiClient.request(.patchReviewSession(id: sessionID, body))
     }
 
-    func setScore(_ value: Int, for criterion: Criterion, evaluation: Evaluation) async {
-        let previousValue = currentScoreValue(for: criterion, in: evaluation)
-        lastActionDescription = "Set \(criterion.label) to \(value)"
-        lastActionCriterionID = criterion.id
-        lastActionPreviousValue = previousValue
-
-        await runMutation(
-            kind: .score,
-            evaluation: evaluation,
-            criterion: criterion,
-            intendedValue: value,
-            expectedVersion: evaluation.version
-        )
-    }
-
-    func setNA(for criterion: Criterion, evaluation: Evaluation) async {
-        let previousValue = currentScoreValue(for: criterion, in: evaluation)
-        lastActionDescription = "Marked \(criterion.label) as N/A"
-        lastActionCriterionID = criterion.id
-        lastActionPreviousValue = previousValue
-
-        await runMutation(
-            kind: .na,
-            evaluation: evaluation,
-            criterion: criterion,
-            intendedValue: nil,
-            expectedVersion: evaluation.version
-        )
-    }
-
-    func clearScore(for criterion: Criterion, evaluation: Evaluation) async {
-        let previousValue = currentScoreValue(for: criterion, in: evaluation)
-        lastActionDescription = "Cleared \(criterion.label)"
-        lastActionCriterionID = criterion.id
-        lastActionPreviousValue = previousValue
-
-        await runMutation(
-            kind: .clear,
-            evaluation: evaluation,
-            criterion: criterion,
-            intendedValue: nil,
-            expectedVersion: evaluation.version
-        )
-    }
-
-    func toggleTrash(evaluation: Evaluation) async {
-        lastActionDescription = evaluation.isTrash ? "Restored from trash" : "Moved to trash"
-        lastActionCriterionID = nil
-        lastActionPreviousValue = nil
-
-        await runMutation(
-            kind: evaluation.isTrash ? .restore : .trash,
-            evaluation: evaluation,
-            criterion: nil,
-            intendedValue: nil,
-            expectedVersion: evaluation.version
-        )
-    }
-
-    func undoLastAction() async {
-        guard let evaluation = currentEvaluation,
-              let _ = lastActionDescription,
-              let criterionID = lastActionCriterionID,
-              let previousValue = lastActionPreviousValue,
-              let criterion = evaluation.criteria.first(where: { $0.id == criterionID }) else {
-            return
-        }
-        let kind: CommandKind
-        var intendedValue: Int? = nil
-        kind = .score
-        intendedValue = previousValue
-        lastActionDescription = nil
-        lastActionCriterionID = nil
-        lastActionPreviousValue = nil
-
-        await runMutation(
-            kind: kind,
-            evaluation: evaluation,
-            criterion: criterion,
-            intendedValue: intendedValue,
-            expectedVersion: evaluation.version
-        )
-    }
-
-    func resolveConflict(useServerValue: Bool) async {
-        showConflict = false
-        if useServerValue {
-            try? await fetchCurrentItem()
-            saveState = .saved
-        } else {
-            saveState = .needsAttention
-        }
-    }
-
     func finishSession() async {
         let body = PatchSessionBody(currentCursor: nil, status: .finished)
         do {
@@ -206,25 +133,96 @@ final class ReviewWorkspaceFeature {
         }
     }
 
+    // MARK: - Public actions (called by View, IDs only — no captured structs)
+
+    func setScore(_ value: Int, criterionID: String) async {
+        let previousValue = serverScoreValue(forCriterion: criterionID)
+        lastActionDescription = "Set \(criterionID) to \(value)"
+        lastActionCriterionID = criterionID
+        lastActionPreviousValue = previousValue
+        await runMutation(kind: .score, criterionID: criterionID, intendedValue: value)
+    }
+
+    func setNA(criterionID: String) async {
+        let previousValue = serverScoreValue(forCriterion: criterionID)
+        lastActionDescription = "Marked \(criterionID) as N/A"
+        lastActionCriterionID = criterionID
+        lastActionPreviousValue = previousValue
+        await runMutation(kind: .na, criterionID: criterionID, intendedValue: nil)
+    }
+
+    func clearScore(criterionID: String) async {
+        let previousValue = serverScoreValue(forCriterion: criterionID)
+        lastActionDescription = "Cleared \(criterionID)"
+        lastActionCriterionID = criterionID
+        lastActionPreviousValue = previousValue
+        await runMutation(kind: .clear, criterionID: criterionID, intendedValue: nil)
+    }
+
+    func toggleTrash(evaluationID: String) async {
+        guard let eval = currentEvaluation, eval.id == evaluationID else { return }
+        lastActionDescription = eval.isTrash ? "Restored from trash" : "Moved to trash"
+        lastActionCriterionID = nil
+        lastActionPreviousValue = nil
+        await runMutation(kind: eval.isTrash ? .restore : .trash, criterionID: nil, intendedValue: nil)
+    }
+
+    func undoLastAction() async {
+        guard let evaluation = currentEvaluation,
+              lastActionDescription != nil,
+              let criterionID = lastActionCriterionID,
+              let previousValue = lastActionPreviousValue,
+              let criterion = evaluation.criteria.first(where: { $0.id == criterionID }) else {
+            return
+        }
+        let kind: CommandKind = .score
+        let intendedValue: Int? = previousValue
+        lastActionDescription = nil
+        lastActionCriterionID = nil
+        lastActionPreviousValue = nil
+        await runMutation(kind: kind, criterionID: criterion.id, intendedValue: intendedValue)
+    }
+
+    func resolveConflict(useServerValue: Bool) async {
+        showConflict = false
+        if useServerValue {
+            await load()
+            saveState = .saved
+        } else {
+            saveState = .needsAttention
+        }
+    }
+
+    // MARK: - Mutation pipeline
+
     private func runMutation(
         kind: CommandKind,
-        evaluation: Evaluation,
-        criterion: Criterion?,
-        intendedValue: Int?,
-        expectedVersion: Int
+        criterionID: String?,
+        intendedValue: Int?
     ) async {
-        saveState = .saving
+        guard let evaluation = currentEvaluation else {
+            saveState = .needsAttention
+            return
+        }
+
+        // Always use the highest known version, even if the captured Evaluation
+        // struct (or its container) is stale.
+        let expectedVersion = latestKnownVersions[evaluation.id] ?? evaluation.version
         let profileID = (try? localStore.activeProfile()?.uuid) ?? ""
         let mutation = PendingMutation(
             serverProfileUUID: profileID,
             reviewSessionUUID: sessionID,
             mediaUUID: reviewItem?.media.id ?? "",
             evaluationUUID: evaluation.id,
-            criterionVersionUUID: criterion?.id,
+            criterionVersionUUID: criterionID,
             commandKind: kind,
             intendedValue: intendedValue,
             baseEvaluationVersion: expectedVersion
         )
+
+        logger.log("runMutation kind=\(kind.rawValue, privacy: .public) criterion=\(criterionID ?? "—", privacy: .public) eval=\(evaluation.id, privacy: .public) expectedVersion=\(expectedVersion)")
+
+        saveState = .saving
 
         do {
             try localStore.insertPendingMutation(mutation)
@@ -235,18 +233,24 @@ final class ReviewWorkspaceFeature {
         }
 
         do {
-            let updatedEvaluation = try await commandQueue.enqueue(mutation)
-            applyEvaluationUpdate(updatedEvaluation)
+            let updated = try await commandQueue.enqueue(mutation)
+            latestKnownVersions[updated.id] = updated.version
+            applyEvaluationUpdate(updated)
             try? localStore.deletePendingMutation(mutation)
             saveState = .saved
+            logger.log("Mutation succeeded, new version=\(updated.version)")
         } catch let error as APIError {
             switch error {
             case .conflict(let envelope):
+                logger.error("Conflict on \(evaluation.id, privacy: .public): \(envelope.error.message, privacy: .public)")
                 presentConflict(envelope: envelope, localDescription: mutation.commandKind.rawValue)
                 try? localStore.deletePendingMutation(mutation)
                 saveState = .needsAttention
+                // Refetch to resync — never guess the version
+                await load()
             case .unauthorized, .forbidden:
                 saveState = .needsAttention
+                try? localStore.deletePendingMutation(mutation)
             default:
                 if error.isRetryable {
                     saveState = .savedLocally
@@ -257,6 +261,7 @@ final class ReviewWorkspaceFeature {
                 }
             }
         } catch {
+            logger.error("Unknown error: \(error.localizedDescription)")
             saveState = .savedLocally
         }
     }
@@ -285,13 +290,25 @@ final class ReviewWorkspaceFeature {
         )
     }
 
-    private func currentScoreValue(for criterion: Criterion, in evaluation: Evaluation) -> Int? {
-        if let score = evaluation.scores.first(where: { $0.criterionVersionId == criterion.id }),
-           score.state == .scored {
-            return score.value
-        }
-        return nil
+    // MARK: - Reads
+
+    var currentEvaluation: Evaluation? { reviewItem?.evaluations.first }
+
+    func score(forCriterion criterionID: String) -> EvaluationScore? {
+        currentEvaluation?.scores.first { $0.criterionVersionId == criterionID }
     }
+
+    private func serverScoreValue(forCriterion criterionID: String) -> Int? {
+        guard let score = score(forCriterion: criterionID), score.state == .scored else { return nil }
+        return score.value
+    }
+
+    var isLastItem: Bool {
+        guard let item = reviewItem else { return false }
+        return item.position >= item.session.candidateCount - 1
+    }
+
+    // MARK: - Media
 
     private func loadMedia() async {
         guard let item = reviewItem else { return }
@@ -321,16 +338,5 @@ final class ReviewWorkspaceFeature {
 
     func reloadMedia() async {
         await loadMedia()
-    }
-
-    var currentEvaluation: Evaluation? { reviewItem?.evaluations.first }
-
-    func score(for criterion: Criterion) -> EvaluationScore? {
-        currentEvaluation?.scores.first { $0.criterionVersionId == criterion.id }
-    }
-
-    var isLastItem: Bool {
-        guard let item = reviewItem else { return false }
-        return item.position >= item.session.candidateCount - 1
     }
 }

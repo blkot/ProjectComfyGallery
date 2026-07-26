@@ -3,7 +3,6 @@ import SwiftUI
 struct CriterionCard: View {
     let criterion: Criterion
     let score: EvaluationScore?
-    let evaluation: Evaluation
     let onScore: (Int) -> Void
     let onClear: () -> Void
     let onNA: () -> Void
@@ -11,7 +10,6 @@ struct CriterionCard: View {
 
     @State private var sliderValue: Double = 0
     @State private var isEditing = false
-    @State private var pendingFinalValue: Int?
 
     private var isUnset: Bool {
         guard let score = score else { return true }
@@ -33,28 +31,13 @@ struct CriterionCard: View {
             VStack(spacing: 8) {
                 HStack {
                     Slider(
-                        value: Binding(
-                            get: { sliderValue },
-                            set: { newValue in
-                                let intValue = Int(newValue.rounded())
-                                let oldValue = Int(sliderValue.rounded())
-                                if intValue != oldValue {
-                                    let generator = UISelectionFeedbackGenerator()
-                                    generator.selectionChanged()
-                                }
-                                sliderValue = Double(intValue)
-                                if isEditing {
-                                    pendingFinalValue = intValue
-                                }
-                            }
-                        ),
+                        value: $sliderValue,
                         in: 0...10,
                         step: 1,
                         onEditingChanged: { editing in
                             isEditing = editing
                             if !editing {
-                                guard let final = pendingFinalValue else { return }
-                                pendingFinalValue = nil
+                                let final = Int(sliderValue.rounded())
                                 let currentDisplayed = displayedScoreValue()
                                 guard final != currentDisplayed else { return }
                                 onScore(final)
