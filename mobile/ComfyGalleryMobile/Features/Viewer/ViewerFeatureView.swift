@@ -9,6 +9,7 @@ struct ViewerFeatureView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var currentItemID: String?
+    @State private var currentScale: CGFloat = 1.0
     @State private var showControls = true
     @State private var prefetchedIDs: Set<String> = []
     private let logger = Logger(subsystem: "com.comfygallery.mobile", category: "Viewer")
@@ -35,15 +36,19 @@ struct ViewerFeatureView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 0) {
                     ForEach(items) { item in
-                        ViewerPageView(item: item)
-                            .frame(width: UIScreen.main.bounds.width)
-                            .tag(item.id)
+                        ViewerPageView(
+                            item: item,
+                            scale: item.id == currentItemID ? $currentScale : .constant(1.0)
+                        )
+                        .frame(width: UIScreen.main.bounds.width)
+                        .tag(item.id)
                     }
                 }
                 .scrollTargetLayout()
             }
             .scrollTargetBehavior(.paging)
             .scrollPosition(id: $currentItemID)
+            .scrollDisabled(currentScale > 1.05)
             .ignoresSafeArea()
         }
         .overlay(alignment: .top) { topBar }
@@ -58,6 +63,7 @@ struct ViewerFeatureView: View {
             Task { await prefetchNeighbors() }
         }
         .onChange(of: currentItemID) { _, _ in
+            currentScale = 1.0
             library.loadMoreIfNearEnd(index: currentIndex)
             Task { await prefetchNeighbors() }
         }
@@ -91,6 +97,7 @@ struct ViewerFeatureView: View {
     private var dismissSwipeGesture: some Gesture {
         DragGesture(minimumDistance: 50)
             .onEnded { value in
+                guard currentScale <= 1.05 else { return }
                 let horizontal = abs(value.translation.width)
                 let vertical = abs(value.translation.height)
                 if vertical > horizontal && value.translation.height > 100 {
@@ -127,6 +134,7 @@ struct ViewerFeatureView: View {
 
 private struct ViewerPageView: View {
     let item: MobileMediaSummary
+    @Binding var scale: CGFloat
     @Environment(AppEnvironment.self) private var environment
 
     @State private var image: UIImage?
@@ -135,7 +143,6 @@ private struct ViewerPageView: View {
     @State private var isLoading = false
     @State private var loadFailed = false
     @State private var loadError: String?
-    @State private var scale: CGFloat = 1.0
 
     private let logger = Logger(subsystem: "com.comfygallery.mobile", category: "ViewerPage")
 
