@@ -95,7 +95,7 @@ struct ReviewWorkspaceView: View {
         let completion = feature.criteriaCompletion(forEvaluation: evaluation.id)
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(evaluation.evaluationKind == "character" ? "Character" : "Core Evaluation")
+                Text(evaluationTitle(evaluation.evaluationKind))
                     .font(.title3).fontWeight(.semibold)
                 Spacer()
                 evaluationStateBadge(evaluation.progressState)
@@ -172,6 +172,17 @@ struct ReviewWorkspaceView: View {
                 }
             }
             .padding(.horizontal).padding(.vertical, 8).background(.bar)
+        }
+    }
+
+    private func evaluationTitle(_ kind: String) -> String {
+        switch kind {
+        case "base": return "Core Evaluation"
+        case "character": return "Character"
+        case "identity": return "Identity"
+        case "technical": return "Technical"
+        case "aesthetic": return "Aesthetic"
+        default: return kind.capitalized
         }
     }
 
