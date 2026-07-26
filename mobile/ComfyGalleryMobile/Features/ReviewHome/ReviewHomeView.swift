@@ -5,7 +5,6 @@ struct ReviewHomeView: View {
     @State private var feature: ReviewHomeFeature
     @State private var showingNewSession = false
     @State private var selectedSession: ReviewSession?
-    @State private var showingWorkspace = false
 
     init(apiClient: APIClient) {
         _feature = State(initialValue: ReviewHomeFeature(apiClient: apiClient))
@@ -35,15 +34,14 @@ struct ReviewHomeView: View {
 
                     Section("Quick Actions") {
                         Button {
-                            feature.sourceKind = .inProgress
+                            feature.configureForQuickAction(.inProgress)
                             showingNewSession = true
                         } label: {
                             Label("Resume In Progress (\(summary.inProgressCount))", systemImage: "arrow.counterclockwise")
                         }
 
                         Button {
-                            feature.sourceKind = .random
-                            feature.randomLimit = 100
+                            feature.configureForQuickAction(.random)
                             showingNewSession = true
                         } label: {
                             Label("Start Random Review", systemImage: "shuffle")
@@ -74,7 +72,9 @@ struct ReviewHomeView: View {
                 }
             }
             .sheet(isPresented: $showingNewSession) {
-                NewSessionSheet(feature: feature)
+                NewSessionSheet(feature: feature) { session in
+                    selectedSession = session
+                }
             }
             .fullScreenCover(item: $selectedSession) { session in
                 ReviewWorkspaceView(

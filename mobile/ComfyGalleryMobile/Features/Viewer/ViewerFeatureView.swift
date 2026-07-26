@@ -16,6 +16,7 @@ struct ViewerFeatureView: View {
     @State private var loadFailed = false
     @State private var loadErrorText: String?
     @State private var showControls = true
+    @State private var currentScale: CGFloat = 1.0
 
     private let logger = Logger(subsystem: "com.comfygallery.mobile", category: "Viewer")
 
@@ -34,11 +35,10 @@ struct ViewerFeatureView: View {
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-
             content
         }
         .overlay(alignment: .top) { topBar }
-        .overlay(alignment: .bottom) { bottomBar }
+        .simultaneousGesture(navigationSwipeGesture)
         .onTapGesture {
             withAnimation(.easeInOut(duration: 0.2)) {
                 showControls.toggle()
@@ -56,6 +56,7 @@ struct ViewerFeatureView: View {
             isLoading = true
             loadFailed = false
             loadErrorText = nil
+            currentScale = 1.0
             Task { await loadCurrentItem() }
         }
     }
@@ -70,7 +71,7 @@ struct ViewerFeatureView: View {
             } else if item.kind == .video, let url = videoURL {
                 VideoPlayerView(videoURL: url, posterImage: posterImage)
             } else if let image = image {
-                ImageViewer(image: image)
+                ImageViewer(image: image, scale: $currentScale)
             } else {
                 errorView(message: "Media could not be decoded.")
             }
@@ -134,36 +135,22 @@ struct ViewerFeatureView: View {
         }
     }
 
-    private var bottomBar: some View {
-        Group {
-            if showControls {
-                HStack {
-                    Button {
-                        navigateToPrevious()
-                    } label: {
-                        Image(systemName: "arrow.left.circle.fill")
-                            .font(.title2)
-                            .foregroundStyle(currentIndex > 0 ? .white : .gray)
-                    }
-                    .disabled(currentIndex <= 0)
-                    .accessibilityLabel("Previous")
-
-                    Spacer()
-
-                    Button {
+    private var navigationSwipeGesture: some Gesture {
+        DragGesture(minimumDistance: 40)
+            .onEnded { value in
+                guard currentScale <= 1.0 else { return }
+                let horizontal = abs(value.translation.width)
+                let vertical = abs(value.translation.height)
+                if horizontal > vertical {
+                    if value.translation.width < -40 {
                         navigateToNext()
-                    } label: {
-                        Image(systemName: "arrow.right.circle.fill")
-                            .font(.title2)
-                            .foregroundStyle(currentIndex < items.count - 1 ? .white : .gray)
+                    } else if value.translation.width > 40 {
+                        navigateToPrevious()
                     }
-                    .disabled(currentIndex >= items.count - 1)
-                    .accessibilityLabel("Next")
+                } else if value.translation.height > 80 {
+                    dismiss()
                 }
-                .padding()
-                .background(.black.opacity(0.5))
             }
-        }
     }
 
     private func loadCurrentItem() async {

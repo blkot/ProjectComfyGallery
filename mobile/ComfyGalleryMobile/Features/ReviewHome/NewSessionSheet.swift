@@ -3,6 +3,7 @@ import SwiftUI
 struct NewSessionSheet: View {
     @Bindable var feature: ReviewHomeFeature
     @Environment(\.dismiss) private var dismiss
+    let onCreated: (ReviewSession) -> Void
 
     var body: some View {
         NavigationStack {
@@ -12,6 +13,13 @@ struct NewSessionSheet: View {
                         Text("Random Unevaluated").tag(SourceKind.random)
                         Text("In Progress").tag(SourceKind.inProgress)
                         Text("Current Library View").tag(SourceKind.filter)
+                    }
+                    .onChange(of: feature.sourceKind) { _, newValue in
+                        switch newValue {
+                        case .random: feature.orderingMode = .random
+                        case .inProgress: feature.orderingMode = .stable
+                        case .filter: feature.orderingMode = .random
+                        }
                     }
 
                     if feature.sourceKind == .filter {
@@ -36,6 +44,14 @@ struct NewSessionSheet: View {
 
                     Toggle("Character Rubric", isOn: $feature.includeCharacter)
                 }
+
+                if let error = feature.errorMessage {
+                    Section {
+                        Text(error)
+                            .foregroundStyle(.red)
+                            .font(.caption)
+                    }
+                }
             }
             .navigationTitle("New Review")
             .navigationBarTitleDisplayMode(.inline)
@@ -44,12 +60,24 @@ struct NewSessionSheet: View {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Start Review") {
+                    Button {
                         Task {
-                            _ = await feature.createSession()
-                            dismiss()
+                            if let session = await feature.createSession() {
+                                onCreated(session)
+                                dismiss()
+                            }
+                        }
+                    } label: {
+                        if feature.isCreating {
+                            HStack(spacing: 6) {
+                                ProgressView().scaleEffect(0.7)
+                                Text("Creating…")
+                            }
+                        } else {
+                            Text("Start Review")
                         }
                     }
+                    .disabled(feature.isCreating)
                 }
             }
         }
