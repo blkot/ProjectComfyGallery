@@ -24,9 +24,8 @@ struct CriterionCard: View {
                 scoreStateChip
             }
 
-            if let description = criterion.description {
-                Text(description).font(.caption).foregroundStyle(.secondary)
-            }
+            criterionDescriptionView
+                .padding(.bottom, 2)
 
             VStack(spacing: 8) {
                 HStack {
@@ -107,6 +106,24 @@ struct CriterionCard: View {
     private func displayedScoreValue() -> Int? {
         guard let score = score, score.state == .scored else { return nil }
         return score.value
+    }
+
+    @ViewBuilder
+    private var criterionDescriptionView: some View {
+        if let description = criterion.description, !description.isEmpty {
+            Text(description)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        } else if let lo = criterion.minValue, let hi = criterion.maxValue {
+            Text("Score \(lo)–\(hi). Drag the slider, or mark N/A if this criterion doesn't apply.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } else {
+            Text("Drag the slider to score, or mark N/A if this criterion doesn't apply.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
     }
 
     @ViewBuilder

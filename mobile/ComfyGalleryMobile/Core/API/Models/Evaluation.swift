@@ -44,6 +44,9 @@ struct Criterion: Decodable, Identifiable, Sendable {
         case criterionVersionId = "criterion_version_id"
         case criterionId = "criterion_id"
         case label, description
+        case explanation
+        case helpText = "help_text"
+        case help
         case minValue = "min_value"
         case maxValue = "max_value"
     }
@@ -60,7 +63,17 @@ struct Criterion: Decodable, Identifiable, Sendable {
             id = UUID().uuidString
         }
         label = try c.decodeIfPresent(String.self, forKey: .label) ?? "Criterion"
-        description = try c.decodeIfPresent(String.self, forKey: .description)
+        if let v = try c.decodeIfPresent(String.self, forKey: .description), !v.isEmpty {
+            description = v
+        } else if let v = try c.decodeIfPresent(String.self, forKey: .explanation), !v.isEmpty {
+            description = v
+        } else if let v = try c.decodeIfPresent(String.self, forKey: .helpText), !v.isEmpty {
+            description = v
+        } else if let v = try c.decodeIfPresent(String.self, forKey: .help), !v.isEmpty {
+            description = v
+        } else {
+            description = nil
+        }
         minValue = try c.decodeIfPresent(Int.self, forKey: .minValue)
         maxValue = try c.decodeIfPresent(Int.self, forKey: .maxValue)
     }
