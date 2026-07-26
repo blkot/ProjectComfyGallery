@@ -22,48 +22,15 @@ struct ReviewWorkspaceView: View {
                 Spacer()
             } else if let item = feature.reviewItem {
                 mediaStage(media: item.media)
-                    .frame(maxHeight: UIScreen.main.bounds.height * 0.48)
+                    .frame(maxHeight: UIScreen.main.bounds.height * 0.4)
 
                 Divider()
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         PromptSection(prompts: item.prompts)
-
                         ForEach(item.evaluations) { evaluation in
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text(evaluation.evaluationKind == "character" ? "Character" : "Core Evaluation")
-                                    .font(.title3).fontWeight(.semibold)
-
-                                ForEach(evaluation.criteria) { criterion in
-                                    CriterionCard(
-                                        criterion: criterion,
-                                        score: feature.score(forCriterion: criterion.id),
-                                        onScore: { value in
-                                            Task { await feature.setScore(value, criterionID: criterion.id) }
-                                        },
-                                        onClear: {
-                                            Task { await feature.clearScore(criterionID: criterion.id) }
-                                        },
-                                        onNA: {
-                                            Task { await feature.setNA(criterionID: criterion.id) }
-                                        },
-                                        isDisabled: feature.saveState == .saving
-                                    )
-                                }
-
-                                Button {
-                                    Task { await feature.toggleTrash(evaluationID: evaluation.id) }
-                                } label: {
-                                    Label(
-                                        evaluation.isTrash ? "Restore from Trash" : "Mark as Trash",
-                                        systemImage: evaluation.isTrash ? "arrow.uturn.backward" : "trash"
-                                    ).frame(maxWidth: .infinity)
-                                }
-                                .buttonStyle(.bordered)
-                                .tint(evaluation.isTrash ? .green : .red)
-                                .padding(.top, 8)
-                            }
+                            evaluationSection(evaluation)
                         }
                     }
                     .padding()
@@ -95,13 +62,65 @@ struct ReviewWorkspaceView: View {
             }
             Spacer()
             if let item = feature.reviewItem {
-                Text("\(item.position + 1) / \(item.session.candidateCount)")
-                    .font(.subheadline).foregroundStyle(.secondary)
+                VStack(spacing: 2) {
+                    Text("\(item.position + 1) / \(item.session.candidateCount)")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                    if let state = feature.primaryEvaluationState {
+                        evaluationStateBadge(state)
+                    }
+                }
             }
             Spacer()
             SaveStateIndicator(state: feature.saveState)
         }
         .padding(.horizontal).padding(.vertical, 8).background(.bar)
+    }
+
+    @ViewBuilder
+    private func evaluationSection(_ evaluation: Evaluation) -> some View {
+        let completion = feature.criteriaCompletion(forEvaluation: evaluation.id)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(evaluation.evaluationKind == "character" ? "Character" : "Core Evaluation")
+                    .font(.title3).fontWeight(.semibold)
+                Spacer()
+                evaluationStateBadge(evaluation.progressState)
+            }
+
+            if completion.total > 0 {
+                Text("\(completion.scored) of \(completion.total) criteria scored")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            ForEach(evaluation.criteria) { criterion in
+                CriterionCard(
+                    criterion: criterion,
+                    score: feature.score(forCriterion: criterion.id),
+                    onScore: { value in
+                        Task { await feature.setScore(value, criterionID: criterion.id) }
+                    },
+                    onClear: {
+                        Task { await feature.clearScore(criterionID: criterion.id) }
+                    },
+                    onNA: {
+                        Task { await feature.setNA(criterionID: criterion.id) }
+                    },
+                    isDisabled: feature.saveState == .saving
+                )
+            }
+
+            Button {
+                Task { await feature.toggleTrash(evaluationID: evaluation.id) }
+            } label: {
+                Label(
+                    evaluation.isTrash ? "Restore from Trash" : "Mark as Trash",
+                    systemImage: evaluation.isTrash ? "arrow.uturn.backward" : "trash"
+                ).frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .tint(evaluation.isTrash ? .green : .red)
+            .padding(.top, 8)
+        }
     }
 
     private var bottomBar: some View {
@@ -140,6 +159,23 @@ struct ReviewWorkspaceView: View {
             }
             .padding(.horizontal).padding(.vertical, 8).background(.bar)
         }
+    }
+
+    @ViewBuilder
+    private func evaluationStateBadge(_ state: ProgressState) -> some View {
+        let appearance: (String, Color, String) = {
+            switch state {
+            case .notStarted: return ("Not started", .secondary, "circle")
+            case .inProgress: return ("In progress", .orange, "circle.dotted")
+            case .complete: return ("Complete", .green, "checkmark.circle.fill")
+            }
+        }()
+        Label(appearance.0, systemImage: appearance.2)
+            .font(.caption2)
+            .padding(.horizontal, 6).padding(.vertical, 2)
+            .background(appearance.1.opacity(0.15))
+            .foregroundStyle(appearance.1)
+            .clipShape(Capsule())
     }
 
     @ViewBuilder

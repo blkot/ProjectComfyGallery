@@ -276,6 +276,7 @@ final class ReviewWorkspaceFeature {
     private func applyEvaluationUpdate(_ updated: Evaluation) {
         guard let item = reviewItem else { return }
         var evaluations = item.evaluations
+        let previousState: ProgressState? = evaluations.first(where: { $0.id == updated.id })?.progressState
         if let index = evaluations.firstIndex(where: { $0.id == updated.id }) {
             evaluations[index] = updated
         } else {
@@ -288,6 +289,24 @@ final class ReviewWorkspaceFeature {
             prompts: item.prompts,
             evaluations: evaluations
         )
+        if previousState != updated.progressState {
+            logger.log("Evaluation \(updated.id, privacy: .public) state: \(String(describing: previousState)) -> \(String(describing: updated.progressState))")
+        }
+    }
+
+    var primaryEvaluationState: ProgressState? {
+        currentEvaluation?.progressState
+    }
+
+    func criteriaCompletion(forEvaluation evalID: String) -> (scored: Int, total: Int) {
+        guard let eval = reviewItem?.evaluations.first(where: { $0.id == evalID }) else {
+            return (0, 0)
+        }
+        let total = eval.criteria.count
+        let scored = eval.criteria.filter { c in
+            eval.scores.contains { $0.criterionVersionId == c.id && ($0.state == .scored || $0.state == .na) }
+        }.count
+        return (scored, total)
     }
 
     // MARK: - Reads
