@@ -7,6 +7,7 @@ final class ReviewCommandQueue {
     private let localStore: LocalStore
     private let logger = Logger(subsystem: "com.comfygallery.mobile", category: "CommandQueue")
     private var laneStates: [String: LaneState] = [:]
+    private var latestVersions: [String: Int] = [:]
     private var isShutdown = false
 
     private final class LaneState {
@@ -42,8 +43,22 @@ final class ReviewCommandQueue {
             for w in waiters { w.resume() }
         }
 
-        let evaluation = try await execute(mutation)
-        return evaluation
+        var effective = mutation
+        if let lv = latestVersions[key], lv > effective.baseEvaluationVersion {
+            logger.log("Bumping expected_version \(mutation.baseEvaluationVersion) -> \(lv) for \(mutation.commandKind.rawValue, privacy: .public)")
+            effective.baseEvaluationVersion = lv
+        }
+
+        do {
+            let evaluation = try await execute(effective)
+            latestVersions[key] = evaluation.version
+            return evaluation
+        } catch let error as APIError {
+            if case .conflict = error {
+                latestVersions[key] = nil
+            }
+            throw error
+        }
     }
 
     func shutdown() {
@@ -52,6 +67,13 @@ final class ReviewCommandQueue {
 
     func laneIsIdle(for evaluationUUID: String) -> Bool {
         laneStates[evaluationUUID]?.isProcessing != true
+    }
+
+    func noteExternalVersion(_ version: Int, for evaluationUUID: String) {
+        let current = latestVersions[evaluationUUID] ?? 0
+        if version > current {
+            latestVersions[evaluationUUID] = version
+        }
     }
 
     private func execute(_ mutation: PendingMutation) async throws -> Evaluation {

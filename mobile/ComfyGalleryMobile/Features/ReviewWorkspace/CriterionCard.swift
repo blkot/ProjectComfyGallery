@@ -10,6 +10,8 @@ struct CriterionCard: View {
     let isDisabled: Bool
 
     @State private var sliderValue: Double = 0
+    @State private var isEditing = false
+    @State private var pendingFinalValue: Int?
 
     private var isUnset: Bool {
         guard let score = score else { return true }
@@ -30,18 +32,35 @@ struct CriterionCard: View {
 
             VStack(spacing: 8) {
                 HStack {
-                    Slider(value: Binding(
-                        get: { sliderValue },
-                        set: { newValue in
-                            let intValue = Int(newValue.rounded())
-                            let oldValue = Int(sliderValue.rounded())
-                            if intValue != oldValue {
-                                let generator = UISelectionFeedbackGenerator()
-                                generator.selectionChanged()
+                    Slider(
+                        value: Binding(
+                            get: { sliderValue },
+                            set: { newValue in
+                                let intValue = Int(newValue.rounded())
+                                let oldValue = Int(sliderValue.rounded())
+                                if intValue != oldValue {
+                                    let generator = UISelectionFeedbackGenerator()
+                                    generator.selectionChanged()
+                                }
+                                sliderValue = Double(intValue)
+                                if isEditing {
+                                    pendingFinalValue = intValue
+                                }
                             }
-                            sliderValue = Double(intValue)
+                        ),
+                        in: 0...10,
+                        step: 1,
+                        onEditingChanged: { editing in
+                            isEditing = editing
+                            if !editing {
+                                guard let final = pendingFinalValue else { return }
+                                pendingFinalValue = nil
+                                let currentDisplayed = displayedScoreValue()
+                                guard final != currentDisplayed else { return }
+                                onScore(final)
+                            }
                         }
-                    ), in: 0...10, step: 1)
+                    )
                     .disabled(isDisabled)
                     .opacity(isUnset ? 0.4 : 1.0)
 
@@ -61,13 +80,11 @@ struct CriterionCard: View {
                 }
             }
             .onAppear { syncSliderFromScore() }
-            .onChange(of: score?.value) { _, _ in syncSliderFromScore() }
-            .onChange(of: score?.state) { _, _ in syncSliderFromScore() }
-            .onChange(of: sliderValue) { _, newValue in
-                let intValue = Int(newValue.rounded())
-                let currentDisplayed = displayedScoreValue()
-                guard intValue != currentDisplayed else { return }
-                onScore(intValue)
+            .onChange(of: score?.value) { _, _ in
+                if !isEditing { syncSliderFromScore() }
+            }
+            .onChange(of: score?.state) { _, _ in
+                if !isEditing { syncSliderFromScore() }
             }
 
             HStack(spacing: 12) {
