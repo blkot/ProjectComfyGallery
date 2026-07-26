@@ -1,4 +1,5 @@
 import SwiftUI
+import OSLog
 
 struct ViewerFeatureView: View {
     let initialItem: MobileMediaSummary
@@ -13,12 +14,16 @@ struct ViewerFeatureView: View {
     @State private var posterImage: UIImage?
     @State private var isLoading = true
     @State private var loadFailed = false
+    @State private var loadErrorText: String?
     @State private var showControls = true
+
+    private let logger = Logger(subsystem: "com.comfygallery.mobile", category: "Viewer")
 
     init(initialItem: MobileMediaSummary, items: [MobileMediaSummary]) {
         self.initialItem = initialItem
         self.items = items
-        _currentIndex = State(initialValue: items.firstIndex(where: { $0.id == initialItem.id }) ?? 0)
+        let initialIndex = items.firstIndex(where: { $0.id == initialItem.id }) ?? 0
+        _currentIndex = State(initialValue: initialIndex)
     }
 
     private var currentItem: MobileMediaSummary? {
@@ -30,126 +35,155 @@ struct ViewerFeatureView: View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-                if let item = currentItem {
-                    if isLoading {
-                        VStack(spacing: 12) {
-                            ProgressView()
-                                .tint(.white)
-                            Text("Loading...")
-                                .foregroundStyle(.secondary)
-                        }
-                    } else if loadFailed {
-                        VStack(spacing: 16) {
-                            Image(systemName: "exclamationmark.triangle")
-                                .font(.system(size: 40))
-                                .foregroundStyle(.orange)
-                            Text("Could not load media")
-                                .foregroundStyle(.secondary)
-                            Button("Retry") {
-                                Task { await loadCurrentItem() }
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(.white)
-                        }
-                    } else if item.kind == .video, let url = videoURL {
-                        VideoPlayerView(videoURL: url, posterImage: posterImage)
-                    } else if let image = image {
-                        ImageViewer(image: image)
-                    } else {
-                        VStack(spacing: 16) {
-                            Image(systemName: item.kind == .video ? "play.slash" : "photo")
-                                .font(.system(size: 40))
-                                .foregroundStyle(.secondary)
-                            Text("Could not load media")
-                                .foregroundStyle(.secondary)
-                            Button("Retry") {
-                                Task { await loadCurrentItem() }
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(.white)
-                        }
-                    }
-                }
+            content
+        }
+        .overlay(alignment: .top) { topBar }
+        .overlay(alignment: .bottom) { bottomBar }
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showControls.toggle()
             }
-            .overlay(alignment: .top) {
-                if showControls {
-                    HStack {
-                        Button {
-                            dismiss()
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.title2)
-                                .foregroundStyle(.white)
-                        }
-
-                        Spacer()
-
-                        Text("\(currentIndex + 1) / \(items.count)")
-                            .foregroundStyle(.white)
-                            .font(.subheadline)
-                    }
-                    .padding()
-                    .background(.black.opacity(0.4))
-                }
-            }
-            .overlay(alignment: .bottom) {
-                if showControls {
-                    HStack {
-                        Button {
-                            navigateToPrevious()
-                        } label: {
-                            Image(systemName: "arrow.left.circle.fill")
-                                .font(.title2)
-                                .foregroundStyle(currentIndex > 0 ? .white : .gray)
-                        }
-                        .disabled(currentIndex <= 0)
-
-                        Spacer()
-
-                        Button {
-                            navigateToNext()
-                        } label: {
-                            Image(systemName: "arrow.right.circle.fill")
-                                .font(.title2)
-                                .foregroundStyle(currentIndex < items.count - 1 ? .white : .gray)
-                        }
-                        .disabled(currentIndex >= items.count - 1)
-                    }
-                    .padding()
-                    .background(.black.opacity(0.4))
-                }
-            }
-            .onTapGesture {
-                withAnimation {
-                    showControls.toggle()
-                }
-            }
+        }
         .task {
-            // Delay load to let presentation animation complete
-            try? await Task.sleep(nanoseconds: 400_000_000)
+            logger.log("Viewer .task fired, items.count=\(items.count), currentIndex=\(currentIndex)")
             await loadCurrentItem()
         }
-        .onChange(of: currentIndex) { _, _ in
+        .onChange(of: currentIndex) { _, newValue in
+            logger.log("Viewer index changed to \(newValue)")
             image = nil
             videoURL = nil
             posterImage = nil
             isLoading = true
             loadFailed = false
-            Task {
-                try? await Task.sleep(nanoseconds: 200_000_000)
-                await loadCurrentItem()
+            loadErrorText = nil
+            Task { await loadCurrentItem() }
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if let item = currentItem {
+            if isLoading {
+                loadingView
+            } else if loadFailed {
+                errorView(message: loadErrorText ?? "Could not load media")
+            } else if item.kind == .video, let url = videoURL {
+                VideoPlayerView(videoURL: url, posterImage: posterImage)
+            } else if let image = image {
+                ImageViewer(image: image)
+            } else {
+                errorView(message: "Media could not be decoded.")
+            }
+        } else {
+            errorView(message: "No item at position \(currentIndex).")
+        }
+    }
+
+    private var loadingView: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .scaleEffect(1.4)
+                .tint(.white)
+            Text("Loading…")
+                .font(.footnote)
+                .foregroundStyle(.white.opacity(0.7))
+        }
+    }
+
+    private func errorView(message: String) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 40))
+                .foregroundStyle(.orange)
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.8))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+            Button("Retry") {
+                Task { await loadCurrentItem() }
+            }
+            .buttonStyle(.bordered)
+            .tint(.white)
+        }
+    }
+
+    private var topBar: some View {
+        Group {
+            if showControls {
+                HStack {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(.white)
+                    }
+                    .accessibilityLabel("Close")
+
+                    Spacer()
+
+                    Text("\(currentIndex + 1) of \(items.count)")
+                        .foregroundStyle(.white)
+                        .font(.subheadline)
+                        .accessibilityLabel("Item \(currentIndex + 1) of \(items.count)")
+                }
+                .padding()
+                .background(.black.opacity(0.5))
+            }
+        }
+    }
+
+    private var bottomBar: some View {
+        Group {
+            if showControls {
+                HStack {
+                    Button {
+                        navigateToPrevious()
+                    } label: {
+                        Image(systemName: "arrow.left.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(currentIndex > 0 ? .white : .gray)
+                    }
+                    .disabled(currentIndex <= 0)
+                    .accessibilityLabel("Previous")
+
+                    Spacer()
+
+                    Button {
+                        navigateToNext()
+                    } label: {
+                        Image(systemName: "arrow.right.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(currentIndex < items.count - 1 ? .white : .gray)
+                    }
+                    .disabled(currentIndex >= items.count - 1)
+                    .accessibilityLabel("Next")
+                }
+                .padding()
+                .background(.black.opacity(0.5))
             }
         }
     }
 
     private func loadCurrentItem() async {
-        guard let item = currentItem else { return }
+        guard let item = currentItem else {
+            logger.error("loadCurrentItem: currentItem is nil (index=\(currentIndex), count=\(items.count))")
+            isLoading = false
+            loadFailed = true
+            loadErrorText = "No item available at this position."
+            return
+        }
         isLoading = true
         loadFailed = false
+        loadErrorText = nil
 
         do {
             let repo = environment.mediaRepository
-            let targetSize = CGSize(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+            let screenWidth = UIScreen.main.bounds.width
+            let screenHeight = UIScreen.main.bounds.height
+            let targetSize = CGSize(width: screenWidth, height: screenHeight)
+            logger.log("Loading media id=\(item.id, privacy: .public) at \(screenWidth)x\(screenHeight)")
             let img = try await repo.fetchPreviewImage(
                 mediaID: item.id,
                 targetSize: targetSize
@@ -161,9 +195,17 @@ struct ViewerFeatureView: View {
                 videoURL = try await repo.fetchPlaybackVideo(mediaID: item.id)
             }
             isLoading = false
+            logger.log("Loaded media id=\(item.id, privacy: .public)")
+        } catch let error as APIError {
+            isLoading = false
+            loadFailed = true
+            loadErrorText = error.errorDescription
+            logger.error("Failed to load media id=\(item.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
         } catch {
             isLoading = false
             loadFailed = true
+            loadErrorText = error.localizedDescription
+            logger.error("Failed to load media id=\(item.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
         }
     }
 

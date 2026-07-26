@@ -53,10 +53,8 @@ struct LibraryView: View {
                     feature.applyFilters()
                 }
             }
-            .fullScreenCover(isPresented: $showingViewer) {
-                if let item = selectedItem {
-                    ViewerFeatureView(initialItem: item, items: feature.items)
-                }
+            .fullScreenCover(item: $selectedItem) { item in
+                ViewerFeatureView(initialItem: item, items: feature.items)
             }
         }
         .task {
