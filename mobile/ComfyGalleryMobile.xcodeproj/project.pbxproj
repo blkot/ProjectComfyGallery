@@ -59,6 +59,7 @@
 		EE8B2984A07A08A9F78839F0 /* ReviewSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41B3713A2E4C8150BB055BB3 /* ReviewSummary.swift */; };
 		EFEB56ADB752ACF7F8D413B7 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = E71955067BFDC9910C229606 /* APIClient.swift */; };
 		F197ADC63C0DF4880C94E1B9 /* ReviewCommandQueueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D935E186428FBD881B19C805 /* ReviewCommandQueueTests.swift */; };
+		F889934584584B24F926B3E5 /* CriterionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10F3D0501E21960B2A04C814 /* CriterionCatalog.swift */; };
 		FA27FACCF5252DB09C267550 /* FixtureContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17D5706B9A5B263DD5C71BE2 /* FixtureContractTests.swift */; };
 		FCD4085AC5D4E063801BA2B4 /* ConnectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57F9E919F046E72D1BC1F1F2 /* ConnectionService.swift */; };
 /* End PBXBuildFile section */
@@ -88,6 +89,7 @@
 		0D1EFCB6AB305B9AB18B240F /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
 		0EF8F70F08545F03477EA43D /* MediaPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPage.swift; sourceTree = "<group>"; };
 		0F6C5C483B79D28C8D0D63EF /* UserSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserSession.swift; sourceTree = "<group>"; };
+		10F3D0501E21960B2A04C814 /* CriterionCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CriterionCatalog.swift; sourceTree = "<group>"; };
 		17D5706B9A5B263DD5C71BE2 /* FixtureContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixtureContractTests.swift; sourceTree = "<group>"; };
 		18A1C54AAD0C2C310CDFE088 /* Enums.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Enums.swift; sourceTree = "<group>"; };
 		1BB33D564CF411FDE1572F97 /* LocalStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalStore.swift; sourceTree = "<group>"; };
@@ -96,7 +98,7 @@
 		2991121B14361DDA25BC2831 /* DesignTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignTokens.swift; sourceTree = "<group>"; };
 		32147668C12DBEF6534FB27E /* ReviewHomeFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewHomeFeature.swift; sourceTree = "<group>"; };
 		332DDB2713A033DE43607E65 /* MediaRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaRepository.swift; sourceTree = "<group>"; };
-		3A431D0C470BAB02EEFB8208 /* ComfyGalleryMobileUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ComfyGalleryMobileUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		3A431D0C470BAB02EEFB8208 /* ComfyGalleryMobileUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ComfyGalleryMobileUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3A738B241FCA882FD38D10E9 /* VideoCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoCache.swift; sourceTree = "<group>"; };
 		3A9E44CB309982E03410D2AA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		41B3713A2E4C8150BB055BB3 /* ReviewSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewSummary.swift; sourceTree = "<group>"; };
@@ -119,7 +121,7 @@
 		9FCA0FC6EC195B55971DB790 /* ReviewWorkspaceFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewWorkspaceFeature.swift; sourceTree = "<group>"; };
 		A262D9E06192E50DB887CCDD /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A83F4237DA81A0B113736FA2 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
-		A888706415A0C0F953B77D45 /* ComfyGalleryMobileTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ComfyGalleryMobileTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A888706415A0C0F953B77D45 /* ComfyGalleryMobileTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ComfyGalleryMobileTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B41CA67AF828841A6D36087E /* MediaCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaCell.swift; sourceTree = "<group>"; };
 		B41D19B95C756B5E0E27A08A /* SampleData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleData.swift; sourceTree = "<group>"; };
 		BB759B6450B6F02423B60EFF /* ComfyGalleryMobileUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComfyGalleryMobileUITests.swift; sourceTree = "<group>"; };
@@ -135,7 +137,7 @@
 		D9F5D71B91247D518C40854A /* VideoPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerView.swift; sourceTree = "<group>"; };
 		DAA365C0D53CB9A6827CEDB6 /* ComfyGalleryMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComfyGalleryMobileApp.swift; sourceTree = "<group>"; };
 		E3B935DBB6CF77B49522BEE3 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
-		E3D6F5B4F0B56F3388C12BD7 /* ComfyGalleryMobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ComfyGalleryMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E3D6F5B4F0B56F3388C12BD7 /* ComfyGalleryMobile.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ComfyGalleryMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E71955067BFDC9910C229606 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		F12670C598C8AECB8894C777 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 		F733FF60626E536B403E664B /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
@@ -361,6 +363,7 @@
 			isa = PBXGroup;
 			children = (
 				1E9EDA6903122FA8E93B7B1D /* APIErrorEnvelope.swift */,
+				10F3D0501E21960B2A04C814 /* CriterionCatalog.swift */,
 				18A1C54AAD0C2C310CDFE088 /* Enums.swift */,
 				D88C9B6669330C201744FF29 /* Evaluation.swift */,
 				45F495DAB9A534328EBF490C /* Health.swift */,
@@ -526,6 +529,7 @@
 				36DEE58184D9C0B255E5EB32 /* ConnectionView.swift in Sources */,
 				E66DFE169661D30F7ED9C559 /* CredentialStore.swift in Sources */,
 				AFDC2582FF38EF68647D89EE /* CriterionCard.swift in Sources */,
+				F889934584584B24F926B3E5 /* CriterionCatalog.swift in Sources */,
 				A3E891C4FDD71E9C08D582C1 /* DesignTokens.swift in Sources */,
 				B93BFFA8DA132C12CB356E58 /* Endpoint.swift in Sources */,
 				D82108A84870ACAD0447D779 /* Enums.swift in Sources */,
@@ -593,7 +597,6 @@
 			baseConfigurationReference = 64A2CC800A3B0EB259FDC792 /* Release.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -611,7 +614,6 @@
 			baseConfigurationReference = F733FF60626E536B403E664B /* Debug.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -692,7 +694,6 @@
 			baseConfigurationReference = 64A2CC800A3B0EB259FDC792 /* Release.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -766,7 +767,6 @@
 			baseConfigurationReference = F733FF60626E536B403E664B /* Debug.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -786,7 +786,6 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_LANGUAGE = en;
-				DEVELOPMENT_TEAM = QG45Q7UB5U;
 				INFOPLIST_FILE = ComfyGalleryMobile/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -806,7 +805,6 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_LANGUAGE = en;
-				DEVELOPMENT_TEAM = QG45Q7UB5U;
 				INFOPLIST_FILE = ComfyGalleryMobile/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

@@ -115,6 +115,14 @@ struct CriterionCard: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+        } else if let entry = CriterionCatalog.entry(for: criterion) {
+            VStack(alignment: .leading, spacing: 2) {
+                anchorRow(value: 0, text: entry.zeroAnchor)
+                anchorRow(value: 5, text: entry.fiveAnchor)
+                anchorRow(value: 10, text: entry.tenAnchor)
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
         } else if let lo = criterion.minValue, let hi = criterion.maxValue {
             Text("Score \(lo)–\(hi). Drag the slider, or mark N/A if this criterion doesn't apply.")
                 .font(.caption)
@@ -123,6 +131,20 @@ struct CriterionCard: View {
             Text("Drag the slider to score, or mark N/A if this criterion doesn't apply.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private func anchorRow(value: Int, text: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text("\(value)")
+                .font(.caption2).fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+                .frame(minWidth: 18, alignment: .leading)
+            Text(text)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

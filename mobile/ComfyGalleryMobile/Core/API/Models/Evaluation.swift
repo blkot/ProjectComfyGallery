@@ -34,6 +34,7 @@ struct Evaluation: Decodable, Identifiable, Sendable {
 
 struct Criterion: Decodable, Identifiable, Sendable {
     let id: String
+    let stableID: String?
     let label: String
     let description: String?
     let minValue: Int?
@@ -43,6 +44,9 @@ struct Criterion: Decodable, Identifiable, Sendable {
         case id
         case criterionVersionId = "criterion_version_id"
         case criterionId = "criterion_id"
+        case stableId = "stable_id"
+        case key
+        case slug
         case label, description
         case explanation
         case helpText = "help_text"
@@ -61,6 +65,17 @@ struct Criterion: Decodable, Identifiable, Sendable {
             id = v
         } else {
             id = UUID().uuidString
+        }
+        if let v = try c.decodeIfPresent(String.self, forKey: .stableId), !v.isEmpty {
+            stableID = v
+        } else if let v = try c.decodeIfPresent(String.self, forKey: .criterionId), !v.isEmpty, v.contains(".") {
+            stableID = v
+        } else if let v = try c.decodeIfPresent(String.self, forKey: .key), !v.isEmpty {
+            stableID = v
+        } else if let v = try c.decodeIfPresent(String.self, forKey: .slug), !v.isEmpty {
+            stableID = v
+        } else {
+            stableID = nil
         }
         label = try c.decodeIfPresent(String.self, forKey: .label) ?? "Criterion"
         if let v = try c.decodeIfPresent(String.self, forKey: .description), !v.isEmpty {
