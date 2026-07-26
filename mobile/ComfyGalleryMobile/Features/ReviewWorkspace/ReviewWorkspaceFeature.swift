@@ -22,6 +22,9 @@ final class ReviewWorkspaceFeature {
     var conflictServerValue = ""
     var conflictLocalValue = ""
 
+    var lastSaveError: String?
+    var requiresReconnect = false
+
     private var lastActionDescription: String?
     private var lastActionCriterionID: String?
     private var lastActionPreviousValue: Int?
@@ -238,6 +241,7 @@ final class ReviewWorkspaceFeature {
             applyEvaluationUpdate(updated)
             try? localStore.deletePendingMutation(mutation)
             saveState = .saved
+            lastSaveError = nil
             logger.log("Mutation succeeded, new version=\(updated.version)")
         } catch let error as APIError {
             switch error {
@@ -246,23 +250,29 @@ final class ReviewWorkspaceFeature {
                 presentConflict(envelope: envelope, localDescription: mutation.commandKind.rawValue)
                 try? localStore.deletePendingMutation(mutation)
                 saveState = .needsAttention
-                // Refetch to resync — never guess the version
+                lastSaveError = envelope.error.message
                 await load()
             case .unauthorized, .forbidden:
+                logger.error("Auth error on \(evaluation.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 saveState = .needsAttention
+                lastSaveError = "Your session is no longer valid. Please reconnect."
                 try? localStore.deletePendingMutation(mutation)
+                requiresReconnect = true
             default:
                 if error.isRetryable {
                     saveState = .savedLocally
+                    lastSaveError = error.errorDescription
                 } else {
                     try? localStore.deletePendingMutation(mutation)
                     saveState = .needsAttention
+                    lastSaveError = error.errorDescription
                     errorMessage = error.errorDescription
                 }
             }
         } catch {
             logger.error("Unknown error: \(error.localizedDescription)")
             saveState = .savedLocally
+            lastSaveError = error.localizedDescription
         }
     }
 

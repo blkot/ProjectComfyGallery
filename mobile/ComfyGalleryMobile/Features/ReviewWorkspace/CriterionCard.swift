@@ -45,7 +45,6 @@ struct CriterionCard: View {
                         }
                     )
                     .disabled(isDisabled)
-                    .opacity(isUnset ? 0.4 : 1.0)
 
                     Text("\(Int(sliderValue.rounded()))")
                         .font(.title3).fontWeight(.semibold)

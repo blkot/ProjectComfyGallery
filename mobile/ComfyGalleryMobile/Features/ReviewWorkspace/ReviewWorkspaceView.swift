@@ -4,6 +4,7 @@ struct ReviewWorkspaceView: View {
     @Environment(AppEnvironment.self) private var environment
     @Environment(\.dismiss) private var dismiss
     @State var feature: ReviewWorkspaceFeature
+    @State private var showingSaveError = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -49,6 +50,17 @@ struct ReviewWorkspaceView: View {
                 }
             )
         }
+        .alert("Save failed", isPresented: $showingSaveError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(feature.lastSaveError ?? "The last change could not be saved.")
+        }
+        .onChange(of: feature.requiresReconnect) { _, needsReconnect in
+            if needsReconnect {
+                environment.isConnected = false
+                dismiss()
+            }
+        }
         .task { await feature.load() }
     }
 
@@ -71,7 +83,9 @@ struct ReviewWorkspaceView: View {
                 }
             }
             Spacer()
-            SaveStateIndicator(state: feature.saveState)
+            SaveStateIndicator(state: feature.saveState) {
+                showingSaveError = true
+            }
         }
         .padding(.horizontal).padding(.vertical, 8).background(.bar)
     }
