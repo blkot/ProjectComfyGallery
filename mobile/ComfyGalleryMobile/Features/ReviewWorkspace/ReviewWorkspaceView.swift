@@ -109,15 +109,15 @@ struct ReviewWorkspaceView: View {
             ForEach(evaluation.criteria) { criterion in
                 CriterionCard(
                     criterion: criterion,
-                    score: feature.score(forCriterion: criterion.id),
+                    score: feature.score(forCriterion: criterion.id, evaluationID: evaluation.id),
                     onScore: { value in
-                        Task { await feature.setScore(value, criterionID: criterion.id) }
+                        Task { await feature.setScore(value, criterionID: criterion.id, evaluationID: evaluation.id) }
                     },
                     onClear: {
-                        Task { await feature.clearScore(criterionID: criterion.id) }
+                        Task { await feature.clearScore(criterionID: criterion.id, evaluationID: evaluation.id) }
                     },
                     onNA: {
-                        Task { await feature.setNA(criterionID: criterion.id) }
+                        Task { await feature.setNA(criterionID: criterion.id, evaluationID: evaluation.id) }
                     },
                     isDisabled: feature.saveState == .saving
                 )

@@ -52,6 +52,7 @@ struct CriterionCard: View {
                         .frame(minWidth: 32, alignment: .trailing)
                         .foregroundStyle(isUnset ? .secondary : .primary)
                 }
+                .sensoryFeedback(.selection, trigger: Int(sliderValue.rounded()))
 
                 HStack {
                     Text("0").font(.caption2).foregroundStyle(.secondary)

@@ -138,36 +138,36 @@ final class ReviewWorkspaceFeature {
 
     // MARK: - Public actions (called by View, IDs only — no captured structs)
 
-    func setScore(_ value: Int, criterionID: String) async {
-        let previousValue = serverScoreValue(forCriterion: criterionID)
+    func setScore(_ value: Int, criterionID: String, evaluationID: String) async {
+        let previousValue = serverScoreValue(forCriterion: criterionID, evaluationID: evaluationID)
         lastActionDescription = "Set \(criterionID) to \(value)"
         lastActionCriterionID = criterionID
         lastActionPreviousValue = previousValue
-        await runMutation(kind: .score, criterionID: criterionID, intendedValue: value)
+        await runMutation(kind: .score, criterionID: criterionID, intendedValue: value, evaluationID: evaluationID)
     }
 
-    func setNA(criterionID: String) async {
-        let previousValue = serverScoreValue(forCriterion: criterionID)
+    func setNA(criterionID: String, evaluationID: String) async {
+        let previousValue = serverScoreValue(forCriterion: criterionID, evaluationID: evaluationID)
         lastActionDescription = "Marked \(criterionID) as N/A"
         lastActionCriterionID = criterionID
         lastActionPreviousValue = previousValue
-        await runMutation(kind: .na, criterionID: criterionID, intendedValue: nil)
+        await runMutation(kind: .na, criterionID: criterionID, intendedValue: nil, evaluationID: evaluationID)
     }
 
-    func clearScore(criterionID: String) async {
-        let previousValue = serverScoreValue(forCriterion: criterionID)
+    func clearScore(criterionID: String, evaluationID: String) async {
+        let previousValue = serverScoreValue(forCriterion: criterionID, evaluationID: evaluationID)
         lastActionDescription = "Cleared \(criterionID)"
         lastActionCriterionID = criterionID
         lastActionPreviousValue = previousValue
-        await runMutation(kind: .clear, criterionID: criterionID, intendedValue: nil)
+        await runMutation(kind: .clear, criterionID: criterionID, intendedValue: nil, evaluationID: evaluationID)
     }
 
     func toggleTrash(evaluationID: String) async {
-        guard let eval = currentEvaluation, eval.id == evaluationID else { return }
+        guard let eval = reviewItem?.evaluations.first(where: { $0.id == evaluationID }) else { return }
         lastActionDescription = eval.isTrash ? "Restored from trash" : "Moved to trash"
         lastActionCriterionID = nil
         lastActionPreviousValue = nil
-        await runMutation(kind: eval.isTrash ? .restore : .trash, criterionID: nil, intendedValue: nil)
+        await runMutation(kind: eval.isTrash ? .restore : .trash, criterionID: nil, intendedValue: nil, evaluationID: evaluationID)
     }
 
     func undoLastAction() async {
@@ -183,7 +183,7 @@ final class ReviewWorkspaceFeature {
         lastActionDescription = nil
         lastActionCriterionID = nil
         lastActionPreviousValue = nil
-        await runMutation(kind: kind, criterionID: criterion.id, intendedValue: intendedValue)
+        await runMutation(kind: kind, criterionID: criterion.id, intendedValue: intendedValue, evaluationID: evaluation.id)
     }
 
     func resolveConflict(useServerValue: Bool) async {
@@ -201,10 +201,12 @@ final class ReviewWorkspaceFeature {
     private func runMutation(
         kind: CommandKind,
         criterionID: String?,
-        intendedValue: Int?
+        intendedValue: Int?,
+        evaluationID: String
     ) async {
-        guard let evaluation = currentEvaluation else {
+        guard let evaluation = reviewItem?.evaluations.first(where: { $0.id == evaluationID }) else {
             saveState = .needsAttention
+            lastSaveError = "This evaluation is no longer available."
             return
         }
 
@@ -323,12 +325,17 @@ final class ReviewWorkspaceFeature {
 
     var currentEvaluation: Evaluation? { reviewItem?.evaluations.first }
 
-    func score(forCriterion criterionID: String) -> EvaluationScore? {
-        currentEvaluation?.scores.first { $0.criterionVersionId == criterionID }
+    func evaluation(id: String) -> Evaluation? {
+        reviewItem?.evaluations.first { $0.id == id }
     }
 
-    private func serverScoreValue(forCriterion criterionID: String) -> Int? {
-        guard let score = score(forCriterion: criterionID), score.state == .scored else { return nil }
+    func score(forCriterion criterionID: String, evaluationID: String) -> EvaluationScore? {
+        guard let eval = evaluation(id: evaluationID) else { return nil }
+        return eval.scores.first { $0.criterionVersionId == criterionID }
+    }
+
+    private func serverScoreValue(forCriterion criterionID: String, evaluationID: String) -> Int? {
+        guard let score = score(forCriterion: criterionID, evaluationID: evaluationID), score.state == .scored else { return nil }
         return score.value
     }
 
