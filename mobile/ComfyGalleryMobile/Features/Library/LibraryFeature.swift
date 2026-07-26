@@ -77,6 +77,14 @@ final class LibraryFeature {
         Task { await loadMore() }
     }
 
+    func loadMoreIfNearEnd(index: Int) {
+        guard items.count > 0,
+              index >= items.count - 3,
+              items.count < total,
+              !isLoadingMore else { return }
+        Task { await loadMore() }
+    }
+
     private func loadMore() async {
         isLoadingMore = true
         do {

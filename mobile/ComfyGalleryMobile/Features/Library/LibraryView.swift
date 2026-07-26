@@ -54,7 +54,7 @@ struct LibraryView: View {
                 }
             }
             .fullScreenCover(item: $selectedItem) { item in
-                ViewerFeatureView(initialItem: item, items: feature.items)
+                ViewerFeatureView(initialItem: item, library: feature)
             }
         }
         .task {

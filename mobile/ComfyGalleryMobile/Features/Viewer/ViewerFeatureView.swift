@@ -3,7 +3,7 @@ import OSLog
 
 struct ViewerFeatureView: View {
     let initialItem: MobileMediaSummary
-    let items: [MobileMediaSummary]
+    @Bindable var library: LibraryFeature
 
     @Environment(AppEnvironment.self) private var environment
     @Environment(\.dismiss) private var dismiss
@@ -13,11 +13,14 @@ struct ViewerFeatureView: View {
     @State private var prefetchedIDs: Set<String> = []
     private let logger = Logger(subsystem: "com.comfygallery.mobile", category: "Viewer")
 
-    init(initialItem: MobileMediaSummary, items: [MobileMediaSummary]) {
+    init(initialItem: MobileMediaSummary, library: LibraryFeature) {
         self.initialItem = initialItem
-        self.items = items
+        self.library = library
         _currentItemID = State(initialValue: initialItem.id)
     }
+
+    private var items: [MobileMediaSummary] { library.items }
+    private var totalCount: Int { library.total }
 
     private var currentIndex: Int {
         guard let id = currentItemID,
@@ -51,10 +54,11 @@ struct ViewerFeatureView: View {
             }
         }
         .onAppear {
-            logger.log("Viewer appeared, items.count=\(items.count)")
+            logger.log("Viewer appeared, items.count=\(items.count), total=\(totalCount)")
             Task { await prefetchNeighbors() }
         }
         .onChange(of: currentItemID) { _, _ in
+            library.loadMoreIfNearEnd(index: currentIndex)
             Task { await prefetchNeighbors() }
         }
     }
@@ -74,7 +78,7 @@ struct ViewerFeatureView: View {
 
                     Spacer()
 
-                    Text("\(currentIndex + 1) of \(items.count)")
+                    Text("\(currentIndex + 1) of \(max(totalCount, items.count))")
                         .foregroundStyle(.white)
                         .font(.subheadline)
                 }
@@ -138,7 +142,6 @@ private struct ViewerPageView: View {
     var body: some View {
         ZStack {
             Color.black
-
             content
         }
         .task { await load() }
@@ -217,9 +220,5 @@ private struct ViewerPageView: View {
             loadError = error.localizedDescription
             logger.error("Failed page id=\(item.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
         }
-    }
-
-    private func resetZoom() {
-        scale = 1.0
     }
 }
