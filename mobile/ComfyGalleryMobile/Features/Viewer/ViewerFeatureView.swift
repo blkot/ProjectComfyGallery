@@ -8,75 +8,156 @@ struct ViewerFeatureView: View {
     @Environment(AppEnvironment.self) private var environment
     @Environment(\.dismiss) private var dismiss
 
-    @State private var currentIndex: Int
-    @State private var image: UIImage?
-    @State private var videoURL: URL?
-    @State private var posterImage: UIImage?
-    @State private var isLoading = true
-    @State private var loadFailed = false
-    @State private var loadErrorText: String?
+    @State private var currentItemID: String?
     @State private var showControls = true
-    @State private var currentScale: CGFloat = 1.0
-
+    @State private var prefetchedIDs: Set<String> = []
     private let logger = Logger(subsystem: "com.comfygallery.mobile", category: "Viewer")
 
     init(initialItem: MobileMediaSummary, items: [MobileMediaSummary]) {
         self.initialItem = initialItem
         self.items = items
-        let initialIndex = items.firstIndex(where: { $0.id == initialItem.id }) ?? 0
-        _currentIndex = State(initialValue: initialIndex)
+        _currentItemID = State(initialValue: initialItem.id)
     }
 
-    private var currentItem: MobileMediaSummary? {
-        guard currentIndex >= 0, currentIndex < items.count else { return nil }
-        return items[currentIndex]
+    private var currentIndex: Int {
+        guard let id = currentItemID,
+              let index = items.firstIndex(where: { $0.id == id }) else { return 0 }
+        return index
     }
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            content
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 0) {
+                    ForEach(items) { item in
+                        ViewerPageView(item: item)
+                            .frame(width: UIScreen.main.bounds.width)
+                            .tag(item.id)
+                    }
+                }
+                .scrollTargetLayout()
+            }
+            .scrollTargetBehavior(.paging)
+            .scrollPosition(id: $currentItemID)
+            .ignoresSafeArea()
         }
         .overlay(alignment: .top) { topBar }
-        .simultaneousGesture(navigationSwipeGesture)
+        .simultaneousGesture(dismissSwipeGesture)
         .onTapGesture {
             withAnimation(.easeInOut(duration: 0.2)) {
                 showControls.toggle()
             }
         }
-        .task {
-            logger.log("Viewer .task fired, items.count=\(items.count), currentIndex=\(currentIndex)")
-            await loadCurrentItem()
+        .onAppear {
+            logger.log("Viewer appeared, items.count=\(items.count)")
+            Task { await prefetchNeighbors() }
         }
-        .onChange(of: currentIndex) { _, newValue in
-            logger.log("Viewer index changed to \(newValue)")
-            image = nil
-            videoURL = nil
-            posterImage = nil
-            isLoading = true
-            loadFailed = false
-            loadErrorText = nil
-            currentScale = 1.0
-            Task { await loadCurrentItem() }
+        .onChange(of: currentItemID) { _, _ in
+            Task { await prefetchNeighbors() }
         }
+    }
+
+    private var topBar: some View {
+        Group {
+            if showControls {
+                HStack {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(.white)
+                    }
+                    .accessibilityLabel("Close")
+
+                    Spacer()
+
+                    Text("\(currentIndex + 1) of \(items.count)")
+                        .foregroundStyle(.white)
+                        .font(.subheadline)
+                }
+                .padding()
+                .background(.black.opacity(0.5))
+            }
+        }
+    }
+
+    private var dismissSwipeGesture: some Gesture {
+        DragGesture(minimumDistance: 50)
+            .onEnded { value in
+                let horizontal = abs(value.translation.width)
+                let vertical = abs(value.translation.height)
+                if vertical > horizontal && value.translation.height > 100 {
+                    dismiss()
+                }
+            }
+    }
+
+    private func prefetchNeighbors() async {
+        let index = currentIndex
+        let idsToPrefetch: [String] = [index - 1, index + 1]
+            .filter { $0 >= 0 && $0 < items.count }
+            .map { items[$0].id }
+            .filter { !prefetchedIDs.contains($0) }
+
+        for id in idsToPrefetch {
+            prefetchedIDs.insert(id)
+        }
+
+        let repo = environment.mediaRepository
+        let screenWidth = UIScreen.main.bounds.width
+        let screenHeight = UIScreen.main.bounds.height
+        let target = CGSize(width: screenWidth, height: screenHeight)
+
+        await withTaskGroup(of: Void.self) { group in
+            for id in idsToPrefetch {
+                group.addTask {
+                    _ = try? await repo.fetchPreviewImage(mediaID: id, targetSize: target)
+                }
+            }
+        }
+    }
+}
+
+private struct ViewerPageView: View {
+    let item: MobileMediaSummary
+    @Environment(AppEnvironment.self) private var environment
+
+    @State private var image: UIImage?
+    @State private var videoURL: URL?
+    @State private var posterImage: UIImage?
+    @State private var isLoading = false
+    @State private var loadFailed = false
+    @State private var loadError: String?
+    @State private var scale: CGFloat = 1.0
+
+    private let logger = Logger(subsystem: "com.comfygallery.mobile", category: "ViewerPage")
+
+    var body: some View {
+        ZStack {
+            Color.black
+
+            content
+        }
+        .task { await load() }
     }
 
     @ViewBuilder
     private var content: some View {
-        if let item = currentItem {
-            if isLoading {
-                loadingView
-            } else if loadFailed {
-                errorView(message: loadErrorText ?? "Could not load media")
-            } else if item.kind == .video, let url = videoURL {
-                VideoPlayerView(videoURL: url, posterImage: posterImage)
-            } else if let image = image {
-                ImageViewer(image: image, scale: $currentScale)
-            } else {
-                errorView(message: "Media could not be decoded.")
-            }
+        if isLoading && image == nil && videoURL == nil {
+            loadingView
+        } else if loadFailed {
+            errorView(message: loadError ?? "Could not load media")
+        } else if item.kind == .video, let url = videoURL {
+            VideoPlayerView(videoURL: url, posterImage: posterImage)
+        } else if let image = image {
+            ImageViewer(image: image, scale: $scale)
+        } else if posterImage != nil {
+            Color.black
         } else {
-            errorView(message: "No item at position \(currentIndex).")
+            errorView(message: loadError ?? "Media could not be decoded.")
         }
     }
 
@@ -102,79 +183,21 @@ struct ViewerFeatureView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             Button("Retry") {
-                Task { await loadCurrentItem() }
+                Task { await load() }
             }
             .buttonStyle(.bordered)
             .tint(.white)
         }
     }
 
-    private var topBar: some View {
-        Group {
-            if showControls {
-                HStack {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title2)
-                            .foregroundStyle(.white)
-                    }
-                    .accessibilityLabel("Close")
-
-                    Spacer()
-
-                    Text("\(currentIndex + 1) of \(items.count)")
-                        .foregroundStyle(.white)
-                        .font(.subheadline)
-                        .accessibilityLabel("Item \(currentIndex + 1) of \(items.count)")
-                }
-                .padding()
-                .background(.black.opacity(0.5))
-            }
-        }
-    }
-
-    private var navigationSwipeGesture: some Gesture {
-        DragGesture(minimumDistance: 40)
-            .onEnded { value in
-                guard currentScale <= 1.0 else { return }
-                let horizontal = abs(value.translation.width)
-                let vertical = abs(value.translation.height)
-                if horizontal > vertical {
-                    if value.translation.width < -40 {
-                        navigateToNext()
-                    } else if value.translation.width > 40 {
-                        navigateToPrevious()
-                    }
-                } else if value.translation.height > 80 {
-                    dismiss()
-                }
-            }
-    }
-
-    private func loadCurrentItem() async {
-        guard let item = currentItem else {
-            logger.error("loadCurrentItem: currentItem is nil (index=\(currentIndex), count=\(items.count))")
-            isLoading = false
-            loadFailed = true
-            loadErrorText = "No item available at this position."
-            return
-        }
+    private func load() async {
         isLoading = true
         loadFailed = false
-        loadErrorText = nil
-
+        loadError = nil
         do {
             let repo = environment.mediaRepository
-            let screenWidth = UIScreen.main.bounds.width
-            let screenHeight = UIScreen.main.bounds.height
-            let targetSize = CGSize(width: screenWidth, height: screenHeight)
-            logger.log("Loading media id=\(item.id, privacy: .public) at \(screenWidth)x\(screenHeight)")
-            let img = try await repo.fetchPreviewImage(
-                mediaID: item.id,
-                targetSize: targetSize
-            )
+            let target = CGSize(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+            let img = try await repo.fetchPreviewImage(mediaID: item.id, targetSize: target)
             posterImage = img
             if item.kind == .image {
                 image = img
@@ -182,27 +205,21 @@ struct ViewerFeatureView: View {
                 videoURL = try await repo.fetchPlaybackVideo(mediaID: item.id)
             }
             isLoading = false
-            logger.log("Loaded media id=\(item.id, privacy: .public)")
+            logger.log("Loaded page id=\(item.id, privacy: .public)")
         } catch let error as APIError {
             isLoading = false
             loadFailed = true
-            loadErrorText = error.errorDescription
-            logger.error("Failed to load media id=\(item.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            loadError = error.errorDescription
+            logger.error("Failed page id=\(item.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
         } catch {
             isLoading = false
             loadFailed = true
-            loadErrorText = error.localizedDescription
-            logger.error("Failed to load media id=\(item.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            loadError = error.localizedDescription
+            logger.error("Failed page id=\(item.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
         }
     }
 
-    private func navigateToPrevious() {
-        guard currentIndex > 0 else { return }
-        currentIndex -= 1
-    }
-
-    private func navigateToNext() {
-        guard currentIndex < items.count - 1 else { return }
-        currentIndex += 1
+    private func resetZoom() {
+        scale = 1.0
     }
 }

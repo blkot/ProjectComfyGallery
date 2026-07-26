@@ -22,7 +22,11 @@ struct ImageViewer: View {
             .simultaneousGesture(panGesture)
             .onTapGesture(count: 2) {
                 withAnimation(.spring()) {
-                    resetZoom()
+                    if scale > 1.0 {
+                        resetZoom()
+                    } else {
+                        scale = 2.0
+                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
