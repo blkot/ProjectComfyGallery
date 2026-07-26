@@ -27,9 +27,8 @@ struct ViewerFeatureView: View {
     }
 
     var body: some View {
-        GeometryReader { _ in
-            ZStack {
-                Color.black.ignoresSafeArea()
+        ZStack {
+            Color.black.ignoresSafeArea()
 
                 if let item = currentItem {
                     if isLoading {
@@ -125,8 +124,9 @@ struct ViewerFeatureView: View {
                     showControls.toggle()
                 }
             }
-        }
         .task {
+            // Delay load to let presentation animation complete
+            try? await Task.sleep(nanoseconds: 400_000_000)
             await loadCurrentItem()
         }
         .onChange(of: currentIndex) { _, _ in
@@ -135,7 +135,10 @@ struct ViewerFeatureView: View {
             posterImage = nil
             isLoading = true
             loadFailed = false
-            Task { await loadCurrentItem() }
+            Task {
+                try? await Task.sleep(nanoseconds: 200_000_000)
+                await loadCurrentItem()
+            }
         }
     }
 
