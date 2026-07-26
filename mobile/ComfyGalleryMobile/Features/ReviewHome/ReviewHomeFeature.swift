@@ -86,7 +86,9 @@ final class ReviewHomeFeature {
 
     func deleteSession(_ session: ReviewSession) async {
         do {
-            let _: ReviewSession = try await apiClient.request(.deleteReviewSession(id: session.id))
+            // DELETE typically returns 204 No Content or a non-JSON body;
+            // don't try to decode it as a ReviewSession.
+            _ = try await apiClient.requestData(.deleteReviewSession(id: session.id))
             await load()
         } catch let error as APIError {
             errorMessage = error.errorDescription ?? "Could not delete session."
