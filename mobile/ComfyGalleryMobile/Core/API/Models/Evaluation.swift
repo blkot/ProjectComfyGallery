@@ -36,14 +36,25 @@ struct Criterion: Decodable, Identifiable, Sendable {
     let maxValue: Int?
 
     enum CodingKeys: String, CodingKey {
-        case id, label, description
+        case id
+        case criterionVersionId = "criterion_version_id"
+        case criterionId = "criterion_id"
+        case label, description
         case minValue = "min_value"
         case maxValue = "max_value"
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        id = try c.decodeIfPresent(String.self, forKey: .id) ?? ""
+        if let v = try c.decodeIfPresent(String.self, forKey: .id), !v.isEmpty {
+            id = v
+        } else if let v = try c.decodeIfPresent(String.self, forKey: .criterionVersionId), !v.isEmpty {
+            id = v
+        } else if let v = try c.decodeIfPresent(String.self, forKey: .criterionId), !v.isEmpty {
+            id = v
+        } else {
+            id = UUID().uuidString
+        }
         label = try c.decodeIfPresent(String.self, forKey: .label) ?? "Criterion"
         description = try c.decodeIfPresent(String.self, forKey: .description)
         minValue = try c.decodeIfPresent(Int.self, forKey: .minValue)
@@ -58,19 +69,29 @@ struct EvaluationScore: Decodable, Sendable {
     let naReason: String?
 
     enum CodingKeys: String, CodingKey {
-        case state, value
+        case state, value, id
         case criterionVersionId = "criterion_version_id"
+        case criterionId = "criterion_id"
         case naReason = "na_reason"
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        criterionVersionId = try c.decodeIfPresent(String.self, forKey: .criterionVersionId) ?? ""
+        if let v = try c.decodeIfPresent(String.self, forKey: .criterionVersionId), !v.isEmpty {
+            criterionVersionId = v
+        } else if let v = try c.decodeIfPresent(String.self, forKey: .id), !v.isEmpty {
+            criterionVersionId = v
+        } else if let v = try c.decodeIfPresent(String.self, forKey: .criterionId), !v.isEmpty {
+            criterionVersionId = v
+        } else {
+            criterionVersionId = UUID().uuidString
+        }
         state = (try? c.decodeIfPresent(ScoreState.self, forKey: .state)) ?? .unset
         value = try c.decodeIfPresent(Int.self, forKey: .value)
         naReason = try c.decodeIfPresent(String.self, forKey: .naReason)
     }
 }
+
 
 struct SetScoreRequest: Encodable, Sendable {
     let expectedVersion: Int
