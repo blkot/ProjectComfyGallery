@@ -9,7 +9,7 @@ struct ReviewSession: Decodable, Identifiable, Sendable {
     let currentCursor: Int?
     let candidateCount: Int
     let progressCounts: ProgressCounts?
-    let optionalModules: [String]
+    let optionalModules: [String]?
     let lastOpenedAt: String?
 
     enum CodingKeys: String, CodingKey {
@@ -21,6 +21,20 @@ struct ReviewSession: Decodable, Identifiable, Sendable {
         case progressCounts = "progress_counts"
         case optionalModules = "optional_modules"
         case lastOpenedAt = "last_opened_at"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(String.self, forKey: .id) ?? ""
+        name = try c.decodeIfPresent(String.self, forKey: .name)
+        sourceKind = (try? c.decodeIfPresent(SourceKind.self, forKey: .sourceKind)) ?? .random
+        orderingMode = (try? c.decodeIfPresent(OrderingMode.self, forKey: .orderingMode)) ?? .random
+        status = (try? c.decodeIfPresent(SessionStatus.self, forKey: .status)) ?? .active
+        currentCursor = try c.decodeIfPresent(Int.self, forKey: .currentCursor)
+        candidateCount = try c.decodeIfPresent(Int.self, forKey: .candidateCount) ?? 0
+        progressCounts = try c.decodeIfPresent(ProgressCounts.self, forKey: .progressCounts)
+        optionalModules = try c.decodeIfPresent([String].self, forKey: .optionalModules) ?? []
+        lastOpenedAt = try c.decodeIfPresent(String.self, forKey: .lastOpenedAt)
     }
 }
 
@@ -34,6 +48,21 @@ struct ProgressCounts: Decodable, Sendable {
         case notStarted = "not_started"
         case inProgress = "in_progress"
         case complete, trash
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        notStarted = try c.decodeIfPresent(Int.self, forKey: .notStarted) ?? 0
+        inProgress = try c.decodeIfPresent(Int.self, forKey: .inProgress) ?? 0
+        complete = try c.decodeIfPresent(Int.self, forKey: .complete) ?? 0
+        trash = try c.decodeIfPresent(Int.self, forKey: .trash) ?? 0
+    }
+
+    init(notStarted: Int, inProgress: Int, complete: Int, trash: Int) {
+        self.notStarted = notStarted
+        self.inProgress = inProgress
+        self.complete = complete
+        self.trash = trash
     }
 }
 
@@ -59,6 +88,12 @@ struct MediaFilter: Encodable, Sendable {
     let evaluationState: EvaluationState?
     let trash: Bool?
 
+    init(kind: MediaKind? = nil, evaluationState: EvaluationState? = nil, trash: Bool? = nil) {
+        self.kind = kind
+        self.evaluationState = evaluationState
+        self.trash = trash
+    }
+
     enum CodingKeys: String, CodingKey {
         case kind
         case evaluationState = "evaluation_state"
@@ -75,3 +110,4 @@ struct PatchSessionBody: Encodable, Sendable {
         case status
     }
 }
+

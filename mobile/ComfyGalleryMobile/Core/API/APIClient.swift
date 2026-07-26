@@ -29,9 +29,15 @@ actor APIClient {
         let decoder = JSONDecoder()
         do {
             return try decoder.decode(T.self, from: data)
+        } catch let error as DecodingError {
+            let detail = decodingErrorDetail(error)
+            let body = prettyPrint(data: data)
+            logger.error("Decoding \(endpoint.path, privacy: .public) as \(String(describing: T.self), privacy: .public) failed: \(detail, privacy: .public)\nbody: \(body, privacy: .public)")
+            throw APIError.decodingError("\(detail). Server response: \(body)")
         } catch {
-            logger.error("Decoding error for \(endpoint.path): \(error.localizedDescription)")
-            throw APIError.decodingError(error.localizedDescription)
+            let body = prettyPrint(data: data)
+            logger.error("Decoding \(endpoint.path, privacy: .public) failed: \(error.localizedDescription, privacy: .public)\nbody: \(body, privacy: .public)")
+            throw APIError.decodingError("\(error.localizedDescription). Server response: \(body)")
         }
     }
 
@@ -97,5 +103,33 @@ actor APIClient {
             }
             throw APIError.map(statusCode: response.statusCode, envelope: envelope)
         }
+    }
+
+    private func decodingErrorDetail(_ error: DecodingError) -> String {
+        switch error {
+        case .keyNotFound(let key, let ctx):
+            return "missing key '\(key.stringValue)' at \(ctx.codingPath.map { $0.stringValue }.joined(separator: "."))"
+        case .valueNotFound(let type, let ctx):
+            return "missing value of type \(type) at \(ctx.codingPath.map { $0.stringValue }.joined(separator: "."))"
+        case .typeMismatch(let type, let ctx):
+            return "type mismatch for \(type) at \(ctx.codingPath.map { $0.stringValue }.joined(separator: "."))"
+        case .dataCorrupted(let ctx):
+            return "data corrupted at \(ctx.codingPath.map { $0.stringValue }.joined(separator: ".")): \(ctx.debugDescription)"
+        @unknown default:
+            return error.localizedDescription
+        }
+    }
+
+    private func prettyPrint(data: Data) -> String {
+        guard let parsed = try? JSONSerialization.jsonObject(with: data, options: []),
+              let pretty = try? JSONSerialization.data(withJSONObject: parsed, options: [.prettyPrinted, .sortedKeys]),
+              let str = String(data: pretty, encoding: .utf8) else {
+            return String(data: data, encoding: .utf8) ?? "<binary>"
+        }
+        let max = 1500
+        if str.count > max {
+            return String(str.prefix(max)) + "…<truncated>"
+        }
+        return str
     }
 }

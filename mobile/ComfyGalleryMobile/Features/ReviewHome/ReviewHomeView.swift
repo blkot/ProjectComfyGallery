@@ -13,6 +13,31 @@ struct ReviewHomeView: View {
     var body: some View {
         NavigationStack {
             List {
+                if feature.isLoading && feature.summary == nil && feature.sessions.isEmpty {
+                    Section {
+                        HStack {
+                            Spacer()
+                            ProgressView()
+                            Spacer()
+                        }
+                        .listRowBackground(Color.clear)
+                    }
+                }
+
+                if let error = feature.errorMessage {
+                    Section {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(error)
+                                .foregroundStyle(.red)
+                                .font(.caption)
+                            Button("Retry") {
+                                Task { await feature.load() }
+                            }
+                            .font(.caption)
+                        }
+                    }
+                }
+
                 if let summary = feature.summary {
                     Section("Overview") {
                         HStack {
