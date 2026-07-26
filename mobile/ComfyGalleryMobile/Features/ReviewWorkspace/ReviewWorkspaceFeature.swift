@@ -67,15 +67,58 @@ final class ReviewWorkspaceFeature {
         isLoading = true
         errorMessage = nil
         do {
-            try await fetchCurrentItem()
+            try await resumeFromFirstIncomplete()
             seedLatestKnownVersions()
             await loadMedia()
+            await checkAndFinishIfNeeded()
         } catch let error as APIError {
             errorMessage = error.errorDescription ?? "Could not load review item."
         } catch {
             errorMessage = "Could not load review item."
         }
         isLoading = false
+    }
+
+    private func resumeFromFirstIncomplete() async throws {
+        var item: ReviewItem = try await apiClient.request(.reviewItem(sessionID: sessionID, position: position))
+        let lastAllowed = max(0, (item.session.candidateCount) - 1)
+        var safetyCounter = 0
+        while isItemFullyResolved(item) && item.position < lastAllowed && safetyCounter < 100 {
+            safetyCounter += 1
+            let next = item.position + 1
+            do {
+                try await updateCursor(next)
+            } catch {
+                logger.error("Failed to advance cursor to \(next): \(error.localizedDescription)")
+                break
+            }
+            position = next
+            item = try await apiClient.request(.reviewItem(sessionID: sessionID, position: next))
+        }
+        reviewItem = item
+        position = item.position
+        let evalSummary = item.evaluations.map { "\($0.evaluationKind)(id=\($0.id.prefix(8)),criteria=\($0.criteria.count))" }.joined(separator: ", ")
+        logger.log("Resumed at position=\(item.position) evaluations=[\(evalSummary, privacy: .public)]")
+    }
+
+    private func isItemFullyResolved(_ item: ReviewItem) -> Bool {
+        guard !item.evaluations.isEmpty else { return false }
+        return item.evaluations.allSatisfy { $0.progressState == .complete || $0.isTrash }
+    }
+
+    private func checkAndFinishIfNeeded() async {
+        guard let item = reviewItem,
+              let counts = item.session.progressCounts else { return }
+        let total = item.session.candidateCount
+        let resolved = counts.complete + counts.trash
+        guard total > 0, resolved >= total else { return }
+        let body = PatchSessionBody(currentCursor: nil, status: .finished)
+        do {
+            let _: ReviewSession = try await apiClient.request(.patchReviewSession(id: sessionID, body))
+            logger.log("Session auto-finished: resolved=\(resolved)/\(total)")
+        } catch {
+            logger.error("Failed to auto-finish session: \(error.localizedDescription)")
+        }
     }
 
     private func fetchCurrentItem() async throws {
@@ -110,7 +153,10 @@ final class ReviewWorkspaceFeature {
         do {
             try await updateCursor(newPosition)
             position = newPosition
-            await load()
+            try await fetchCurrentItem()
+            seedLatestKnownVersions()
+            await loadMedia()
+            await checkAndFinishIfNeeded()
         } catch let error as APIError {
             errorMessage = error.errorDescription ?? "Could not navigate."
         } catch {
@@ -255,7 +301,7 @@ final class ReviewWorkspaceFeature {
                 try? localStore.deletePendingMutation(mutation)
                 saveState = .needsAttention
                 lastSaveError = envelope.error.message
-                await load()
+                try? await fetchCurrentItem()
             case .unauthorized, .forbidden:
                 logger.error("Auth error on \(evaluation.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 saveState = .needsAttention

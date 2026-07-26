@@ -101,7 +101,9 @@ struct ReviewHomeView: View {
                     selectedSession = session
                 }
             }
-            .fullScreenCover(item: $selectedSession) { session in
+            .fullScreenCover(item: $selectedSession, onDismiss: {
+                Task { await feature.load() }
+            }) { session in
                 ReviewWorkspaceView(
                     feature: ReviewWorkspaceFeature(
                         sessionID: session.id,
