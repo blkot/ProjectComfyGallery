@@ -3,10 +3,12 @@ import SwiftUI
 @MainActor
 @Observable
 final class SettingsFeature {
+    var showDisconnectConfirmed = false
     var showDisconnectConfirmation = false
     var privacyCoverEnabled = false
-    var cacheSizeDescription: String = "Calculating..."
+    var cacheSizeDescription: String = ""
     var isClearingCache = false
+    var appVersionDescription: String = ""
 
     private let connectionService: ConnectionService
     private let mediaRepository: MediaRepository
@@ -14,6 +16,12 @@ final class SettingsFeature {
     init(connectionService: ConnectionService, mediaRepository: MediaRepository) {
         self.connectionService = connectionService
         self.mediaRepository = mediaRepository
+        self.appVersionDescription = Self.readAppVersion()
+    }
+
+    func refreshCacheSize() async {
+        let bytes = await mediaRepository.currentCacheBytes()
+        cacheSizeDescription = Self.formatBytes(bytes)
     }
 
     func disconnect() async {
@@ -23,7 +31,21 @@ final class SettingsFeature {
     func clearCache() async {
         isClearingCache = true
         await mediaRepository.clearAllCaches()
-        cacheSizeDescription = "0 bytes"
+        await refreshCacheSize()
         isClearingCache = false
+    }
+
+    private static func readAppVersion() -> String {
+        let info = Bundle.main.infoDictionary
+        let short = info?["CFBundleShortVersionString"] as? String ?? "0.0.0"
+        let build = info?["CFBundleVersion"] as? String ?? "0"
+        return "\(short) (\(build))"
+    }
+
+    private static func formatBytes(_ bytes: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useKB, .useMB, .useGB]
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: bytes)
     }
 }

@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import OSLog
+import UniformTypeIdentifiers
 
 actor MediaRepository {
     private let apiClient: APIClient
@@ -56,9 +57,14 @@ actor MediaRepository {
         }
         let task = Task<URL, Error> {
             let tempURL = FileManager.default.temporaryDirectory
-                .appendingPathComponent("video_download_\(UUID().uuidString).mp4")
-            try await apiClient.download(.mediaPlayback(id: mediaID), to: tempURL)
-            let cachedURL = try await videoCache.store(mediaID: mediaID, sourceURL: tempURL)
+                .appendingPathComponent("video_download_\(UUID().uuidString)")
+            let response = try await apiClient.download(.mediaPlayback(id: mediaID), to: tempURL)
+            let suggested = suggestedExtension(from: response) ?? "mp4"
+            let cachedURL = try await videoCache.store(
+                mediaID: mediaID,
+                sourceURL: tempURL,
+                suggestedExtension: suggested
+            )
             return cachedURL
         }
         activeVideoTasks[mediaID] = task
@@ -87,7 +93,19 @@ actor MediaRepository {
         await videoCache.clearAll()
     }
 
+    func currentCacheBytes() async -> Int64 {
+        return await videoCache.currentSize
+    }
+
     private func handleMemoryWarning() {
         imageCache.removeAllObjects()
+    }
+
+    private func suggestedExtension(from response: HTTPURLResponse) -> String? {
+        guard let contentType = response.value(forHTTPHeaderField: "Content-Type"),
+              let utType = UTType(mimeType: contentType) else {
+            return nil
+        }
+        return utType.preferredFilenameExtension
     }
 }

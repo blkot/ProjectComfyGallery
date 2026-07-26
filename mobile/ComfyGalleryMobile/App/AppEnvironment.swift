@@ -13,29 +13,32 @@ final class AppEnvironment {
     var selectedTab: Tab = .library
     var isConnected = false
     var activeReviewSessionID: String?
+    private var didAttemptRestore = false
 
     enum Tab: String, Codable {
         case library, review, settings
     }
 
     init(
-        apiClient: APIClient = APIClient(credentialStore: CredentialStore()),
+        apiClient: APIClient? = nil,
         connectionService: ConnectionService? = nil,
         mediaRepository: MediaRepository? = nil,
         reviewCommandQueue: ReviewCommandQueue? = nil,
-        localStore: LocalStore = LocalStore()
+        localStore: LocalStore? = nil
     ) {
-        let store = localStore
+        let store = localStore ?? LocalStore()
+        let credentialStore = CredentialStore()
+        let client = apiClient ?? APIClient(credentialStore: credentialStore)
         self.localStore = store
-        self.apiClient = apiClient
+        self.apiClient = client
         self.connectionService = connectionService ?? ConnectionService(
-            apiClient: apiClient,
-            credentialStore: CredentialStore(),
+            apiClient: client,
+            credentialStore: credentialStore,
             localStore: store
         )
-        self.mediaRepository = mediaRepository ?? MediaRepository(apiClient: apiClient)
+        self.mediaRepository = mediaRepository ?? MediaRepository(apiClient: client)
         self.reviewCommandQueue = reviewCommandQueue ?? ReviewCommandQueue(
-            apiClient: apiClient,
+            apiClient: client,
             localStore: store
         )
     }
@@ -43,7 +46,7 @@ final class AppEnvironment {
     func handleScenePhase(_ phase: ScenePhase) {
         switch phase {
         case .active:
-            Task { await restoreAndReconcile() }
+            Task { await restoreOrValidateConnection() }
         case .inactive, .background:
             Task { await flushPendingCommands() }
         @unknown default:
@@ -51,7 +54,12 @@ final class AppEnvironment {
         }
     }
 
-    private func restoreAndReconcile() async {
+    private func restoreOrValidateConnection() async {
+        if !didAttemptRestore {
+            didAttemptRestore = true
+            await attemptRestore()
+            return
+        }
         guard isConnected else { return }
         do {
             let _: UserSession = try await apiClient.request(.authSession)
@@ -60,7 +68,28 @@ final class AppEnvironment {
         }
     }
 
+    private func attemptRestore() async {
+        guard let profile = try? localStore.activeProfile(),
+              let token = await connectionService.credentialStore.token(for: profile.uuid),
+              !token.isEmpty,
+              let baseURL = URL(string: profile.baseURL) else {
+            return
+        }
+        await apiClient.configure(baseURL: baseURL)
+        connectionService.baseURL = baseURL
+        do {
+            let health: Health = try await apiClient.request(.health)
+            connectionService.serverVersion = health.version
+            let session: UserSession = try await apiClient.request(.authSession)
+            connectionService.connectionState = .connected(session)
+            isConnected = true
+        } catch {
+            connectionService.connectionState = .error("Could not reconnect: \(error.localizedDescription)")
+            isConnected = false
+        }
+    }
+
     private func flushPendingCommands() async {
-        // Bounded best-effort command flush on backgrounding
+        // Best-effort: nothing to flush synchronously since each command awaits inline.
     }
 }

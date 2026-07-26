@@ -39,7 +39,7 @@ actor APIClient {
         return try await performRequest(endpoint)
     }
 
-    func download(_ endpoint: Endpoint, to destination: URL) async throws {
+    func download(_ endpoint: Endpoint, to destination: URL) async throws -> HTTPURLResponse {
         let request = try await buildRequest(for: endpoint)
         let (tempURL, response) = try await session.download(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
@@ -50,6 +50,7 @@ actor APIClient {
             try FileManager.default.removeItem(at: destination)
         }
         try FileManager.default.moveItem(at: tempURL, to: destination)
+        return httpResponse
     }
 
     private func performRequest(_ endpoint: Endpoint) async throws -> Data {

@@ -4,8 +4,8 @@ import OSLog
 @MainActor
 @Observable
 final class ConnectionService {
+    let credentialStore: CredentialStore
     private let apiClient: APIClient
-    private let credentialStore: CredentialStore
     private let localStore: LocalStore
     private let logger = Logger(subsystem: "com.comfygallery.mobile", category: "Connection")
 
@@ -75,10 +75,10 @@ final class ConnectionService {
             return
         }
 
-        await authenticate(token: tokenToUse)
+        await authenticate(token: tokenToUse, baseURL: normalized)
     }
 
-    func authenticate(token: String) async {
+    func authenticate(token: String, baseURL: URL? = nil) async {
         connectionState = .authenticating
         // Store token BEFORE API call so APIClient can attach it as Bearer header
         credentialStore.store(token: token, for: "default")
@@ -86,6 +86,9 @@ final class ConnectionService {
             let session: UserSession = try await apiClient.request(.authSession)
             // Update with real user ID from server
             credentialStore.store(token: token, for: session.user.id)
+            if let baseURL = baseURL ?? self.baseURL {
+                persistProfile(baseURL: baseURL, userID: session.user.id, token: token)
+            }
             connectionState = .connected(session)
         } catch {
             credentialStore.delete(for: "default")
@@ -94,12 +97,38 @@ final class ConnectionService {
     }
 
     func disconnect() async {
+        if let profile = try? localStore.activeProfile() {
+            await credentialStore.delete(for: profile.uuid)
+        }
         await credentialStore.deleteAll()
         await apiClient.reset()
         try? await localStore.clearAll()
         baseURL = nil
         serverVersion = nil
         connectionState = .disconnected
+    }
+
+    private func persistProfile(baseURL: URL, userID: String, token: String) {
+        let existing = try? localStore.activeProfile()
+        let profile = existing ?? ServerProfile(
+            baseURL: baseURL.absoluteString,
+            displayName: nil,
+            isActive: true
+        )
+        profile.baseURL = baseURL.absoluteString
+        profile.lastServerVersion = serverVersion
+        profile.lastConnectionDate = Date()
+        profile.isActive = true
+        if existing == nil {
+            try? localStore.saveProfile(profile)
+            // Re-store token keyed by the new profile UUID
+            credentialStore.store(token: token, for: profile.uuid)
+            // Clean up redundant intermediate keys
+            credentialStore.delete(for: "default")
+            credentialStore.delete(for: userID)
+        } else {
+            try? localStore.saveContext()
+        }
     }
 
     private func normalizeURL(_ urlString: String) -> URL? {

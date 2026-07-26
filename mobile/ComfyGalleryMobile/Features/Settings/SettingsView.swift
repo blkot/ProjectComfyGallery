@@ -27,7 +27,7 @@ struct SettingsView: View {
                         HStack {
                             Label("Server", systemImage: "network")
                             Spacer()
-                            Text(url.absoluteString).foregroundStyle(.secondary).lineLimit(1)
+                            Text(url.absoluteString).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                         }
                     }
 
@@ -65,7 +65,7 @@ struct SettingsView: View {
                     HStack {
                         Text("App Version")
                         Spacer()
-                        Text("0.1.0").foregroundStyle(.secondary)
+                        Text(feature.appVersionDescription).foregroundStyle(.secondary)
                     }
                 }
             }
@@ -77,6 +77,9 @@ struct SettingsView: View {
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("This will erase your saved token, pending changes, and cached media.")
+            }
+            .task {
+                await feature.refreshCacheSize()
             }
         }
     }

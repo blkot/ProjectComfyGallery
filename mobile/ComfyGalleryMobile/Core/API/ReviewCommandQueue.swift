@@ -6,14 +6,12 @@ final class ReviewCommandQueue {
     private let apiClient: APIClient
     private let localStore: LocalStore
     private let logger = Logger(subsystem: "com.comfygallery.mobile", category: "CommandQueue")
-    private var lanes: [String: Lane] = [:]
-    private let maxRetries = 5
-    private let baseBackoff: UInt64 = 500_000_000 // 500ms
+    private var laneStates: [String: LaneState] = [:]
     private var isShutdown = false
 
-    private struct Lane {
-        var commands: [PendingMutation] = []
+    private final class LaneState {
         var isProcessing = false
+        var waiters: [CheckedContinuation<Void, Never>] = []
     }
 
     init(apiClient: APIClient, localStore: LocalStore) {
@@ -21,66 +19,42 @@ final class ReviewCommandQueue {
         self.localStore = localStore
     }
 
-    func enqueue(_ mutation: PendingMutation) {
-        guard !isShutdown else { return }
-        if lanes[mutation.evaluationUUID] == nil {
-            lanes[mutation.evaluationUUID] = Lane()
+    func enqueue(_ mutation: PendingMutation) async throws -> Evaluation {
+        guard !isShutdown else {
+            throw APIError.invalidResponse
         }
-        if let existing = lanes[mutation.evaluationUUID]?.commands.last,
-           existing.commandKind == mutation.commandKind,
-           existing.criterionVersionUUID == mutation.criterionVersionUUID {
-            existing.intendedValue = mutation.intendedValue
-            existing.baseEvaluationVersion = mutation.baseEvaluationVersion
-            return
+
+        let key = mutation.evaluationUUID
+        let lane = laneStates[key] ?? LaneState()
+        laneStates[key] = lane
+
+        while lane.isProcessing {
+            await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+                lane.waiters.append(cont)
+            }
         }
-        lanes[mutation.evaluationUUID]?.commands.append(mutation)
-        Task { await processLane(evaluationUUID: mutation.evaluationUUID) }
+
+        lane.isProcessing = true
+        defer {
+            lane.isProcessing = false
+            let waiters = lane.waiters
+            lane.waiters = []
+            for w in waiters { w.resume() }
+        }
+
+        let evaluation = try await execute(mutation)
+        return evaluation
     }
 
     func shutdown() {
         isShutdown = true
     }
 
-    func reconcilePending(for evaluationUUID: String) -> Bool {
-        return lanes[evaluationUUID]?.commands.isEmpty ?? true
+    func laneIsIdle(for evaluationUUID: String) -> Bool {
+        laneStates[evaluationUUID]?.isProcessing != true
     }
 
-    private func processLane(evaluationUUID: String) async {
-        guard var lane = lanes[evaluationUUID], !lane.isProcessing else { return }
-        lane.isProcessing = true
-        lanes[evaluationUUID] = lane
-
-        defer {
-            lanes[evaluationUUID]?.isProcessing = false
-        }
-
-        while let command = lanes[evaluationUUID]?.commands.first {
-            guard !isShutdown else { break }
-            do {
-                try await execute(command)
-                lanes[evaluationUUID]?.commands.removeFirst()
-                try? localStore.deletePendingMutation(command)
-            } catch let error as APIError {
-                handleError(error, mutation: command)
-                if !error.isRetryable { break }
-                if command.attemptCount >= maxRetries { break }
-                let backoff = baseBackoff * UInt64(pow(2.0, Double(min(command.attemptCount, 10) - 1)))
-                let jitter = UInt64.random(in: 0...(backoff / 4))
-                try? await Task.sleep(nanoseconds: backoff + jitter)
-                continue
-            } catch {
-                command.lastErrorCategory = "unknown"
-                command.attemptCount += 1
-                try? localStore.saveContext()
-                if command.attemptCount >= maxRetries { break }
-                let backoff = baseBackoff
-                let jitter = UInt64.random(in: 0...(backoff / 4))
-                try? await Task.sleep(nanoseconds: backoff + jitter)
-            }
-        }
-    }
-
-    private func execute(_ mutation: PendingMutation) async throws {
+    private func execute(_ mutation: PendingMutation) async throws -> Evaluation {
         let endpoint: Endpoint
         switch mutation.commandKind {
         case .score:
@@ -121,17 +95,6 @@ final class ReviewCommandQueue {
             let request = TrashRestoreRequest(expectedVersion: mutation.baseEvaluationVersion)
             endpoint = .restore(evaluationID: mutation.evaluationUUID, request)
         }
-        let _: Evaluation = try await apiClient.request(endpoint)
-    }
-
-    private func handleError(_ error: APIError, mutation: PendingMutation) {
-        mutation.attemptCount += 1
-        mutation.lastErrorCategory = String(describing: error)
-        try? localStore.saveContext()
-
-        if error.requiresReauthentication {
-            isShutdown = true
-            lanes.removeAll()
-        }
+        return try await apiClient.request(endpoint)
     }
 }
