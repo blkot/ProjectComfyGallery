@@ -1,0 +1,71 @@
+name: ComfyGalleryXR
+
+options:
+  bundleIdPrefix: com.comfygallery
+  deploymentTarget:
+    visionOS: "26.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    ENABLE_STRICT_OBJC_MSGSEND: YES
+    SWIFT_STRICT_CONCURRENCY: complete
+    CURRENT_PROJECT_VERSION: 1
+    MARKETING_VERSION: 0.1.0
+
+targets:
+  ComfyGalleryXR:
+    type: application
+    platform: visionOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: ComfyGalleryXR
+        excludes:
+          - Resources/Info.plist
+    info:
+      path: ComfyGalleryXR/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: Comfy Gallery
+        NSLocalNetworkUsageDescription: Comfy Gallery connects to the gallery server you choose on your local network.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
+        UIApplicationSupportsIndirectInputEvents: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.comfygallery.xr
+        TARGETED_DEVICE_FAMILY: 7
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+    scheme:
+      testTargets:
+        - ComfyGalleryXRTests
+        - ComfyGalleryXRUITests
+
+  ComfyGalleryXRTests:
+    type: bundle.unit-test
+    platform: visionOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: ComfyGalleryXRTests
+    dependencies:
+      - target: ComfyGalleryXR
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.comfygallery.xr.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+  ComfyGalleryXRUITests:
+    type: bundle.ui-testing
+    platform: visionOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: ComfyGalleryXRUITests
+    dependencies:
+      - target: ComfyGalleryXR
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.comfygallery.xr.uitests
+        GENERATE_INFOPLIST_FILE: YES
