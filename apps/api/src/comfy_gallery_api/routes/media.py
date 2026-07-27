@@ -9,14 +9,18 @@ from sqlalchemy import and_, extract, func, or_, select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql import ColumnElement, Select
 
-from comfy_gallery_api.dependencies import DbSessionDep, PrincipalDep, SettingsDep
+from comfy_gallery_api.dependencies import CsrfPrincipalDep, DbSessionDep, PrincipalDep, SettingsDep
 from comfy_gallery_api.errors import ApiError
 from comfy_gallery_api.media_schemas import (
     DerivativeResponse,
     MediaDetailResponse,
+    MediaFavoriteResponse,
+    MediaFavoriteUpdateRequest,
     MediaListItemResponse,
     MediaNavigationResponse,
     MediaPageResponse,
+    MediaSpatialPreferenceResponse,
+    MediaSpatialPreferenceUpdateRequest,
     SourceOccurrenceResponse,
 )
 from comfy_gallery_core.db.models import (
@@ -54,6 +58,8 @@ async def list_media(
     workflow_status: str | None = None,
     evaluation_state: str | None = None,
     trash: bool | None = None,
+    spatial_view_preferred: bool | None = None,
+    favorite: bool | None = None,
     source_root_id: UUID | None = None,
     checkpoint_reference_id: Annotated[list[UUID] | None, Query()] = None,
     checkpoint_reference_match: ReferenceMatch = "any",
@@ -69,6 +75,8 @@ async def list_media(
         workflow_status=workflow_status,
         evaluation_state=evaluation_state,
         trash=trash,
+        spatial_view_preferred=spatial_view_preferred,
+        favorite=favorite,
         source_root_id=source_root_id,
         checkpoint_reference_ids=checkpoint_reference_id or [],
         checkpoint_reference_match=checkpoint_reference_match,
@@ -133,6 +141,8 @@ async def get_media_navigation(
     workflow_status: str | None = None,
     evaluation_state: str | None = None,
     trash: bool | None = None,
+    spatial_view_preferred: bool | None = None,
+    favorite: bool | None = None,
     source_root_id: UUID | None = None,
     checkpoint_reference_id: Annotated[list[UUID] | None, Query()] = None,
     checkpoint_reference_match: ReferenceMatch = "any",
@@ -146,6 +156,8 @@ async def get_media_navigation(
         workflow_status=workflow_status,
         evaluation_state=evaluation_state,
         trash=trash,
+        spatial_view_preferred=spatial_view_preferred,
+        favorite=favorite,
         source_root_id=source_root_id,
         checkpoint_reference_ids=checkpoint_reference_id or [],
         checkpoint_reference_match=checkpoint_reference_match,
@@ -236,10 +248,72 @@ async def get_media(
         ),
         evaluation_state=_base_evaluation(media)[0],
         is_trash=_base_evaluation(media)[1],
+        spatial_view_preferred=media.spatial_view_preferred,
+        favorite=media.favorite,
         derivatives=[DerivativeResponse.model_validate(item) for item in media.derivatives],
         sources=[
             SourceOccurrenceResponse.model_validate(item) for item in media.source_occurrences
         ],
+    )
+
+
+@router.put(
+    "/{media_id}/spatial-preference",
+    response_model=MediaSpatialPreferenceResponse,
+)
+async def update_media_spatial_preference(
+    media_id: UUID,
+    request: MediaSpatialPreferenceUpdateRequest,
+    _principal: PrincipalDep,
+    session: DbSessionDep,
+) -> MediaSpatialPreferenceResponse:
+    media = await session.get(Media, media_id)
+    if media is None:
+        raise ApiError(
+            status_code=404,
+            code="MEDIA_NOT_FOUND",
+            message="The media record was not found.",
+        )
+    if media.kind != "image":
+        raise ApiError(
+            status_code=422,
+            code="SPATIAL_PREFERENCE_UNSUPPORTED",
+            message="Spatial-view preference is available for image media only.",
+        )
+    media.spatial_view_preferred = request.spatial_view_preferred
+    await session.commit()
+    await session.refresh(media)
+    return MediaSpatialPreferenceResponse(
+        media_id=media.id,
+        spatial_view_preferred=media.spatial_view_preferred,
+        updated_at=media.updated_at,
+    )
+
+
+@router.put(
+    "/{media_id}/favorite",
+    response_model=MediaFavoriteResponse,
+)
+async def update_media_favorite(
+    media_id: UUID,
+    request: MediaFavoriteUpdateRequest,
+    _principal: CsrfPrincipalDep,
+    session: DbSessionDep,
+) -> MediaFavoriteResponse:
+    media = await session.get(Media, media_id)
+    if media is None:
+        raise ApiError(
+            status_code=404,
+            code="MEDIA_NOT_FOUND",
+            message="The media record was not found.",
+        )
+    media.favorite = request.favorite
+    await session.commit()
+    await session.refresh(media)
+    return MediaFavoriteResponse(
+        media_id=media.id,
+        favorite=media.favorite,
+        updated_at=media.updated_at,
     )
 
 
@@ -359,6 +433,8 @@ def _list_item(
         ),
         evaluation_state=_base_evaluation(media)[0],
         is_trash=_base_evaluation(media)[1],
+        spatial_view_preferred=media.spatial_view_preferred,
+        favorite=media.favorite,
         file_created_at=_file_created_at(source_mtime_ns, media.created_at),
         created_at=media.created_at,
         preview_url=f"/api/v1/media/{media.id}/preview",
@@ -372,6 +448,8 @@ def _media_id_query(
     workflow_status: str | None,
     evaluation_state: str | None,
     trash: bool | None,
+    spatial_view_preferred: bool | None,
+    favorite: bool | None,
     source_root_id: UUID | None,
     checkpoint_reference_ids: list[UUID],
     checkpoint_reference_match: ReferenceMatch,
@@ -383,6 +461,10 @@ def _media_id_query(
         filters.append(Media.kind == kind)
     if media_status:
         filters.append(Media.status == media_status)
+    if spatial_view_preferred is not None:
+        filters.append(Media.spatial_view_preferred.is_(spatial_view_preferred))
+    if favorite is not None:
+        filters.append(Media.favorite.is_(favorite))
     if workflow_status == "unprocessed":
         filters.append(~Media.workflow_snapshot.has())
     elif workflow_status:

@@ -74,6 +74,9 @@ Key concepts:
 - UUIDv7 ID.
 - Kind: image or video.
 - Lifecycle/readiness status.
+- Independent `favorite` and `spatial_view_preferred` flags, both non-null and
+  false by default. Spatial preference records cross-client display intent, not
+  generated RealityKit bytes or device-specific derivatives.
 - Evaluation-derived state cache, if used, must remain reconstructable.
 - Trash is not stored here as deletion; it belongs to evaluation disposition.
 

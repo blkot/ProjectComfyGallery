@@ -102,6 +102,8 @@ class MediaFilterRequest(BaseModel):
     workflow_status: str | None = None
     evaluation_state: Literal["not_started", "in_progress", "complete"] | None = None
     trash: bool | None = None
+    spatial_view_preferred: bool | None = None
+    favorite: bool | None = None
     source_root_id: UUID | None = None
     # Singular fields keep saved filters created before multi-reference support valid.
     checkpoint_reference_id: UUID | None = None

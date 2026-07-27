@@ -143,6 +143,10 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
   remain available as compact secondary evidence. Media MUST be contained inside
   the current dynamic viewport without control overlays or edge clipping. Blind Review
   MUST preserve its configuration-hiding invariant.
+- **LIB-015:** Favorite and spatial-view-preferred MUST be independent, durable
+  per-media Booleans defaulting to false. Both MUST be exposed by list/detail APIs
+  and usable in library, navigation, saved, bulk, collection/tag, and review filters.
+  Spatial preference updates MUST accept image media only.
 
 ## Manual evaluation
 

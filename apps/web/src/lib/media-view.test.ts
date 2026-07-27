@@ -21,7 +21,7 @@ describe("media view context", () => {
 
   it("preserves filters and moves the library offset with neighbor positions", () => {
     const context = new URLSearchParams(
-      "kind=image&checkpoint_reference_id=checkpoint&lora_reference_id=lora&sort=filename_asc&offset=48",
+      "kind=image&favorite=true&spatial_view_preferred=true&checkpoint_reference_id=checkpoint&lora_reference_id=lora&sort=filename_asc&offset=48",
     );
     const href = mediaDetailHref("next-media", context, 97);
     const parsed = new URL(href, "http://example.test");
@@ -29,6 +29,8 @@ describe("media view context", () => {
     expect(parsed.pathname).toBe("/library/next-media");
     expect(parsed.searchParams.get("checkpoint_reference_id")).toBe("checkpoint");
     expect(parsed.searchParams.get("lora_reference_id")).toBe("lora");
+    expect(parsed.searchParams.get("favorite")).toBe("true");
+    expect(parsed.searchParams.get("spatial_view_preferred")).toBe("true");
     expect(parsed.searchParams.get("sort")).toBe("filename_asc");
     expect(parsed.searchParams.get("offset")).toBe("96");
     expect(parsed.searchParams.get("limit")).toBe("48");
@@ -61,7 +63,7 @@ describe("media view context", () => {
   it("builds a reusable filter with multi-reference match semantics", () => {
     const expression = libraryFilterExpression(
       new URLSearchParams(
-        "kind=image&trash=false&checkpoint_reference_id=checkpoint-a&checkpoint_reference_id=checkpoint-b&checkpoint_reference_match=any&lora_reference_id=lora-a&lora_reference_id=lora-b&lora_reference_match=all&sort=size_desc&offset=48",
+        "kind=image&trash=false&favorite=true&spatial_view_preferred=false&checkpoint_reference_id=checkpoint-a&checkpoint_reference_id=checkpoint-b&checkpoint_reference_match=any&lora_reference_id=lora-a&lora_reference_id=lora-b&lora_reference_match=all&sort=size_desc&offset=48",
       ),
     );
 
@@ -71,6 +73,8 @@ describe("media view context", () => {
       workflow_status: null,
       evaluation_state: null,
       trash: false,
+      spatial_view_preferred: false,
+      favorite: true,
       checkpoint_reference_ids: ["checkpoint-a", "checkpoint-b"],
       checkpoint_reference_match: "any",
       lora_reference_ids: ["lora-a", "lora-b"],

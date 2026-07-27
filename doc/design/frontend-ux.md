@@ -97,6 +97,7 @@ Filters include:
 - Media type.
 - Processing/readiness state.
 - Evaluation state and Trash.
+- Favorite and spatial-view preference.
 - Source root/path.
 - Collection/tag.
 - Architecture family.
@@ -140,6 +141,12 @@ resolves collection/tag membership or review candidates on the server; the brows
 does not download thousands of UUIDs. A collection is an exact membership snapshot
 at action time, whereas a saved filter remains a reusable query that can match future
 imports.
+
+Each gallery card provides an independent Favorite star that does not open or
+select the card. Spatial-preferred images carry a read-only Spatial badge in the
+web gallery; the web client does not claim successful XR generation. Favorite and
+spatial filters remain in the URL, so Media Detail Previous/Next traversal uses the
+same population and server-resolved scope actions preserve both conditions.
 
 ## Media record
 

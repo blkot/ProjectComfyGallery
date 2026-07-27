@@ -7,6 +7,7 @@ import {
   useSearchParams,
 } from "react-router";
 
+import { MediaFavoriteButton } from "../components/media-favorite-button";
 import { MediaEvaluationPanel } from "../components/media-evaluation-panel";
 import { WorkflowInspector } from "../components/workflow-inspector";
 import {
@@ -235,12 +236,22 @@ export function MediaDetailPage() {
             </div>
           </div>
           <div className="media-record-statuses">
+            <MediaFavoriteButton
+              mediaId={item.id}
+              favorite={item.favorite}
+              className="media-record-favorite"
+            />
             <span className="status-chip" data-status={item.status}>
               {titleCase(item.status)}
             </span>
             <span className="status-chip" data-status={item.workflow_status}>
               Workflow {titleCase(item.workflow_status)}
             </span>
+            {item.spatial_view_preferred ? (
+              <span className="status-chip" data-status="spatial">
+                Spatial view preferred
+              </span>
+            ) : null}
           </div>
         </header>
 

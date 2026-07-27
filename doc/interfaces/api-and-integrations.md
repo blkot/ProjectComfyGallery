@@ -74,6 +74,8 @@ GET    /api/v1/media
 POST   /api/v1/media/imports
 GET    /api/v1/media/:id
 GET    /api/v1/media/:id/navigation
+PUT    /api/v1/media/:id/favorite
+PUT    /api/v1/media/:id/spatial-preference
 GET    /api/v1/media/:id/original
 GET    /api/v1/media/:id/preview
 GET    /api/v1/media/:id/playback
@@ -96,7 +98,16 @@ to staging, returns `202 Accepted` with a durable batch, and enqueues the ordina
 processing pipeline. The future ComfyUI node client contract is documented in
 [ComfyUI custom-node upload integration](comfyui-custom-node-upload.md).
 
-The media list and navigation endpoints accept repeated
+Media list and detail responses expose `favorite` and
+`spatial_view_preferred` as non-null Booleans. Both default to false. The
+idempotent preference writes accept `{ "favorite": true }` and
+`{ "spatial_view_preferred": true }`, respectively. Spatial preference accepts
+image media only and returns `SPATIAL_PREFERENCE_UNSUPPORTED` for video. It
+stores cross-client opening intent only; clients retain or regenerate any
+device-specific spatial object themselves.
+
+The media list and navigation endpoints accept optional `favorite` and
+`spatial_view_preferred` Boolean filters and repeated
 `checkpoint_reference_id` and `lora_reference_id` parameters. Their corresponding
 `checkpoint_reference_match` and `lora_reference_match` parameters accept `any`
 (the default OR semantics) or `all` (AND semantics). Checkpoint and LoRA dimensions
@@ -113,6 +124,10 @@ size_desc          | size_asc
 and sort but no pagination boundary, and returns the current one-based position,
 population total, and adjacent media UUIDs/positions. A filtered-out media UUID
 returns `MEDIA_NOT_IN_VIEW`.
+
+The same preference filters are part of the validated reusable media-filter
+expression used by saved filters, server-resolved selection, collections, tags,
+and review sessions.
 
 The workflow summary endpoint uses bounded node/edge limits and never appears in a
 gallery list response. The raw endpoint returns preserved decoded carrier metadata,

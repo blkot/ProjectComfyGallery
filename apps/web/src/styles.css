@@ -1152,6 +1152,47 @@ textarea {
   accent-color: var(--accent);
 }
 
+.media-favorite-button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  background: rgba(12, 12, 10, 0.9);
+  cursor: pointer;
+  display: inline-grid;
+  place-items: center;
+  font-size: 17px;
+  line-height: 1;
+}
+
+.media-favorite-button:hover {
+  color: #ffe18a;
+  border-color: rgba(255, 225, 138, 0.45);
+}
+
+.media-favorite-button[aria-pressed="true"] {
+  color: #ffd55f;
+  border-color: rgba(255, 213, 95, 0.5);
+}
+
+.media-favorite-button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.media-favorite-button[data-error="true"] {
+  border-color: rgba(255, 130, 120, 0.55);
+}
+
+.media-card-favorite {
+  position: absolute;
+  z-index: 4;
+  top: 8px;
+  right: 8px;
+}
+
 .media-card:hover {
   border-color: #4b4a3d;
   transform: translateY(-2px);
@@ -1182,7 +1223,8 @@ textarea {
 .media-duration,
 .warning-badge,
 .workflow-badge,
-.evaluation-badge {
+.evaluation-badge,
+.spatial-badge {
   position: absolute;
   padding: 4px 6px;
   border-radius: 4px;
@@ -1204,7 +1246,7 @@ textarea {
 
 .workflow-badge {
   right: 8px;
-  top: 8px;
+  top: 44px;
   color: #d9dfa6;
 }
 
@@ -1225,6 +1267,12 @@ textarea {
 
 .evaluation-badge[data-status="in_progress"] {
   color: #ffe0a3;
+}
+
+.spatial-badge {
+  left: 8px;
+  bottom: 8px;
+  color: #c5b9ff;
 }
 
 .library-scope-panel {
@@ -2241,6 +2289,17 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
+}
+
+.media-record-favorite {
+  width: 27px;
+  height: 27px;
+  font-size: 15px;
+}
+
+.status-chip[data-status="spatial"] {
+  color: #c5b9ff;
+  border-color: rgba(197, 185, 255, 0.26);
 }
 
 .media-record-panel {

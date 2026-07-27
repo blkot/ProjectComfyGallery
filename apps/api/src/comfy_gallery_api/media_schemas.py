@@ -148,6 +148,8 @@ class MediaListItemResponse(BaseModel):
     workflow_status: str
     evaluation_state: str
     is_trash: bool
+    spatial_view_preferred: bool
+    favorite: bool
     file_created_at: datetime
     created_at: datetime
     preview_url: str
@@ -201,8 +203,30 @@ class MediaDetailResponse(BaseModel):
     workflow_status: str
     evaluation_state: str
     is_trash: bool
+    spatial_view_preferred: bool
+    favorite: bool
     derivatives: list[DerivativeResponse]
     sources: list[SourceOccurrenceResponse]
+
+
+class MediaSpatialPreferenceUpdateRequest(BaseModel):
+    spatial_view_preferred: bool
+
+
+class MediaSpatialPreferenceResponse(BaseModel):
+    media_id: UUID
+    spatial_view_preferred: bool
+    updated_at: datetime
+
+
+class MediaFavoriteUpdateRequest(BaseModel):
+    favorite: bool
+
+
+class MediaFavoriteResponse(BaseModel):
+    media_id: UUID
+    favorite: bool
+    updated_at: datetime
 
 
 class WorkflowValueResponse(BaseModel):

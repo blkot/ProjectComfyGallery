@@ -30,7 +30,7 @@ RUN sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${ALPINE_MIRROR%/}|g" \
 COPY deploy/docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/apps/web/dist /usr/share/nginx/html
 
-ARG CG_PROJECT_VERSION=0.1.0-rc.9
+ARG CG_PROJECT_VERSION=0.1.0-rc.10
 ARG CG_SOURCE_URL=https://github.com/blkot/ProjectComfyGallery
 ARG CG_REVISION=unknown
 

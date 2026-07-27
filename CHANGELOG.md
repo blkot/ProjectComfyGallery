@@ -4,6 +4,18 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.10 — 2026-07-28
+
+- Add the native SwiftUI mobile client for authenticated gallery browsing,
+  resumable blind review, image/video viewing, and reliable queued evaluation
+  writes.
+- Persist independent per-media Favorite and spatial-view preferences with safe
+  false defaults, additive list/detail contracts, and idempotent update APIs.
+- Filter the Library, context-preserving navigation, saved filters, bulk scopes,
+  collections, tags, and review sessions by Favorite or spatial preference.
+- Add Favorite controls and spatial indicators to the web Library and Media
+  Detail while leaving device-generated spatial objects in the XR client.
+
 ## 0.1.0-rc.9 — 2026-07-26
 
 - Skip unsupported GitHub repository attestations for a user-owned private

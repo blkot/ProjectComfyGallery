@@ -1,10 +1,18 @@
 from datetime import UTC, datetime
-from uuid import UUID
+from uuid import UUID, uuid4
 
+import pytest
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from comfy_gallery_api.errors import ApiError
 from comfy_gallery_api.evaluation_schemas import MediaFilterRequest
-from comfy_gallery_api.media_schemas import MediaPageResponse
+from comfy_gallery_api.main import app
+from comfy_gallery_api.media_schemas import (
+    MediaFavoriteUpdateRequest,
+    MediaPageResponse,
+    MediaSpatialPreferenceUpdateRequest,
+)
 from comfy_gallery_api.routes.evaluations import _media_scope_query
 from comfy_gallery_api.routes.media import (
     MediaSort,
@@ -12,6 +20,8 @@ from comfy_gallery_api.routes.media import (
     get_media,
     get_media_navigation,
     list_media,
+    update_media_favorite,
+    update_media_spatial_preference,
 )
 from comfy_gallery_core.db.base import Base
 from comfy_gallery_core.db.models import (
@@ -264,6 +274,166 @@ async def test_media_library_sorts_by_source_time_and_filters_model_usages() -> 
     await engine.dispose()
 
 
+async def test_media_preferences_are_exposed_filterable_and_idempotent() -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
+    async with session_factory() as session:
+        preferred = await _media_without_source(
+            session,
+            kind="image",
+            filename="preferred.png",
+            sha256="1" * 64,
+        )
+        untouched = await _media_without_source(
+            session,
+            kind="image",
+            filename="untouched.png",
+            sha256="2" * 64,
+        )
+        video = await _media_without_source(
+            session,
+            kind="video",
+            filename="clip.mp4",
+            sha256="3" * 64,
+        )
+        await session.commit()
+
+        assert preferred.spatial_view_preferred is False
+        assert preferred.favorite is False
+        initial_page = await _library_page(session, sort="file_created_desc")
+        assert all(item.spatial_view_preferred is False for item in initial_page.items)
+        assert all(item.favorite is False for item in initial_page.items)
+        initial_detail = await get_media(
+            preferred.id,
+            None,  # type: ignore[arg-type]
+            session,
+        )
+        assert initial_detail.spatial_view_preferred is False
+        assert initial_detail.favorite is False
+
+        first_spatial_response = await update_media_spatial_preference(
+            preferred.id,
+            MediaSpatialPreferenceUpdateRequest(spatial_view_preferred=True),
+            None,  # type: ignore[arg-type]
+            session,
+        )
+        repeated_spatial_response = await update_media_spatial_preference(
+            preferred.id,
+            MediaSpatialPreferenceUpdateRequest(spatial_view_preferred=True),
+            None,  # type: ignore[arg-type]
+            session,
+        )
+        favorite_response = await update_media_favorite(
+            preferred.id,
+            MediaFavoriteUpdateRequest(favorite=True),
+            None,  # type: ignore[arg-type]
+            session,
+        )
+        assert first_spatial_response.spatial_view_preferred is True
+        assert repeated_spatial_response.spatial_view_preferred is True
+        assert favorite_response.favorite is True
+
+        await session.refresh(untouched)
+        assert untouched.spatial_view_preferred is False
+        assert untouched.favorite is False
+
+        preferred_page = await _library_page(
+            session,
+            sort="file_created_desc",
+            spatial_view_preferred=True,
+        )
+        favorite_page = await _library_page(
+            session,
+            sort="file_created_desc",
+            favorite=True,
+        )
+        assert [item.id for item in preferred_page.items] == [preferred.id]
+        assert [item.id for item in favorite_page.items] == [preferred.id]
+        assert preferred_page.items[0].favorite is True
+        assert favorite_page.items[0].spatial_view_preferred is True
+
+        reusable_scope_ids = list(
+            await session.scalars(
+                _media_scope_query(
+                    MediaFilterRequest(
+                        spatial_view_preferred=True,
+                        favorite=True,
+                    ),
+                    reviewable_only=False,
+                )
+            )
+        )
+        assert reusable_scope_ids == [preferred.id]
+
+        updated_detail = await get_media(
+            preferred.id,
+            None,  # type: ignore[arg-type]
+            session,
+        )
+        assert updated_detail.spatial_view_preferred is True
+        assert updated_detail.favorite is True
+
+        for _ in range(2):
+            response = await update_media_spatial_preference(
+                preferred.id,
+                MediaSpatialPreferenceUpdateRequest(spatial_view_preferred=False),
+                None,  # type: ignore[arg-type]
+                session,
+            )
+            assert response.spatial_view_preferred is False
+            favorite_update = await update_media_favorite(
+                preferred.id,
+                MediaFavoriteUpdateRequest(favorite=False),
+                None,  # type: ignore[arg-type]
+                session,
+            )
+            assert favorite_update.favorite is False
+
+        with pytest.raises(ApiError) as unsupported:
+            await update_media_spatial_preference(
+                video.id,
+                MediaSpatialPreferenceUpdateRequest(spatial_view_preferred=True),
+                None,  # type: ignore[arg-type]
+                session,
+            )
+        assert unsupported.value.status_code == 422
+        assert unsupported.value.code == "SPATIAL_PREFERENCE_UNSUPPORTED"
+
+        with pytest.raises(ApiError) as missing:
+            await update_media_spatial_preference(
+                uuid4(),
+                MediaSpatialPreferenceUpdateRequest(spatial_view_preferred=True),
+                None,  # type: ignore[arg-type]
+                session,
+            )
+        assert missing.value.status_code == 404
+        assert missing.value.code == "MEDIA_NOT_FOUND"
+
+        with pytest.raises(ApiError) as missing_favorite:
+            await update_media_favorite(
+                uuid4(),
+                MediaFavoriteUpdateRequest(favorite=True),
+                None,  # type: ignore[arg-type]
+                session,
+            )
+        assert missing_favorite.value.status_code == 404
+        assert missing_favorite.value.code == "MEDIA_NOT_FOUND"
+
+    await engine.dispose()
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        unauthenticated = await client.put(
+            f"/api/v1/media/{uuid4()}/spatial-preference",
+            json={"spatial_view_preferred": True},
+        )
+    assert unauthenticated.status_code == 401
+    assert unauthenticated.json()["error"]["code"] == "AUTH_REQUIRED"
+
+
 async def _media_with_source(
     session: AsyncSession,
     *,
@@ -308,6 +478,29 @@ async def _media_with_source(
     return media
 
 
+async def _media_without_source(
+    session: AsyncSession,
+    *,
+    kind: str,
+    filename: str,
+    sha256: str,
+) -> Media:
+    media = Media(kind=kind, status="ready")
+    session.add(media)
+    await session.flush()
+    session.add(
+        MediaAsset(
+            media_id=media.id,
+            sha256=sha256,
+            byte_size=100,
+            original_filename=filename,
+            original_extension=f".{filename.rsplit('.', maxsplit=1)[-1]}",
+            managed_path=f"managed/{filename}",
+        )
+    )
+    return media
+
+
 async def _library_page(
     session: AsyncSession,
     *,
@@ -316,6 +509,8 @@ async def _library_page(
     checkpoint_reference_match: ReferenceMatch = "any",
     lora_reference_ids: list[UUID] | None = None,
     lora_reference_match: ReferenceMatch = "any",
+    spatial_view_preferred: bool | None = None,
+    favorite: bool | None = None,
 ) -> MediaPageResponse:
     return await list_media(
         _principal=None,  # type: ignore[arg-type]
@@ -325,6 +520,8 @@ async def _library_page(
         workflow_status=None,
         evaluation_state=None,
         trash=None,
+        spatial_view_preferred=spatial_view_preferred,
+        favorite=favorite,
         source_root_id=None,
         checkpoint_reference_id=checkpoint_reference_ids,
         checkpoint_reference_match=checkpoint_reference_match,

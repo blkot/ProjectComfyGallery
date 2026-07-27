@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 
+import { MediaFavoriteButton } from "../components/media-favorite-button";
 import {
   apiRequest,
   type Collection,
@@ -49,6 +50,9 @@ export function LibraryPage() {
   const workflowStatus = searchParams.get("workflow_status") ?? "";
   const evaluationState = searchParams.get("evaluation_state") ?? "";
   const trash = searchParams.get("trash") ?? "";
+  const favorite = searchParams.get("favorite") ?? "";
+  const spatialViewPreferred =
+    searchParams.get("spatial_view_preferred") ?? "";
   const checkpointReferenceIds = searchParams.getAll(
     "checkpoint_reference_id",
   );
@@ -312,6 +316,35 @@ export function LibraryPage() {
             <option value="">Any disposition</option>
             <option value="false">Exclude Trash</option>
             <option value="true">Trash only</option>
+          </select>
+        </label>
+        <label>
+          Favorite
+          <select
+            value={favorite}
+            onChange={(event) =>
+              changeLibraryParameter("favorite", event.target.value)
+            }
+          >
+            <option value="">All media</option>
+            <option value="true">Favorites only</option>
+            <option value="false">Not favorites</option>
+          </select>
+        </label>
+        <label>
+          Spatial view
+          <select
+            value={spatialViewPreferred}
+            onChange={(event) =>
+              changeLibraryParameter(
+                "spatial_view_preferred",
+                event.target.value,
+              )
+            }
+          >
+            <option value="">Any spatial preference</option>
+            <option value="true">Spatial preferred</option>
+            <option value="false">Standard 2D</option>
           </select>
         </label>
         <label>
@@ -614,6 +647,11 @@ export function LibraryPage() {
                   : "Select media"}
               </span>
             </label>
+            <MediaFavoriteButton
+              mediaId={item.id}
+              favorite={item.favorite}
+              className="media-card-favorite"
+            />
             <Link
               to={mediaDetailHref(item.id, searchParams)}
               aria-label="Open media record"
@@ -632,6 +670,9 @@ export function LibraryPage() {
                 ) : null}
                 {item.warning_count > 0 ? (
                   <span className="warning-badge">Warning</span>
+                ) : null}
+                {item.spatial_view_preferred ? (
+                  <span className="spatial-badge">Spatial</span>
                 ) : null}
                 <span
                   className="workflow-badge"

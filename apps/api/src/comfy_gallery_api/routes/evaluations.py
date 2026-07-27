@@ -843,6 +843,10 @@ def _media_scope_query(
         query = query.where(Media.kind == media_filter.kind)
     if media_filter.status:
         query = query.where(Media.status == media_filter.status)
+    if media_filter.spatial_view_preferred is not None:
+        query = query.where(Media.spatial_view_preferred.is_(media_filter.spatial_view_preferred))
+    if media_filter.favorite is not None:
+        query = query.where(Media.favorite.is_(media_filter.favorite))
     if media_filter.workflow_status == "unprocessed":
         query = query.where(~Media.workflow_snapshot.has())
     elif media_filter.workflow_status:

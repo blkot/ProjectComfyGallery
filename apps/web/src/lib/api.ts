@@ -69,6 +69,8 @@ export type MediaListItem = {
   workflow_status: string;
   evaluation_state: "not_started" | "in_progress" | "complete";
   is_trash: boolean;
+  spatial_view_preferred: boolean;
+  favorite: boolean;
   file_created_at: string;
   created_at: string;
   preview_url: string;
@@ -89,6 +91,18 @@ export type MediaNavigation = {
   previous_position: number | null;
   next_id: string | null;
   next_position: number | null;
+};
+
+export type MediaSpatialPreference = {
+  media_id: string;
+  spatial_view_preferred: boolean;
+  updated_at: string;
+};
+
+export type MediaFavorite = {
+  media_id: string;
+  favorite: boolean;
+  updated_at: string;
 };
 
 export type Derivative = {

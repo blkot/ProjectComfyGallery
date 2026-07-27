@@ -16,6 +16,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -142,6 +143,18 @@ class Media(TimestampMixin, Base):
         nullable=False,
         default=0,
         server_default="0",
+    )
+    spatial_view_preferred: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=false(),
+    )
+    favorite: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=false(),
     )
     last_error_code: Mapped[str | None] = mapped_column(String(80))
     last_error_message: Mapped[str | None] = mapped_column(Text)

@@ -9,6 +9,8 @@ export type LibraryFilterExpression = {
   workflow_status: string | null;
   evaluation_state: string | null;
   trash: boolean | null;
+  spatial_view_preferred: boolean | null;
+  favorite: boolean | null;
   checkpoint_reference_ids: string[];
   checkpoint_reference_match: ReferenceMatch;
   lora_reference_ids: string[];
@@ -32,6 +34,8 @@ export function libraryFilterExpression(
     workflow_status: search.get("workflow_status") || null,
     evaluation_state: search.get("evaluation_state") || null,
     trash: search.has("trash") ? search.get("trash") === "true" : null,
+    spatial_view_preferred: booleanFilter(search, "spatial_view_preferred"),
+    favorite: booleanFilter(search, "favorite"),
     checkpoint_reference_ids: uniqueValues(
       search.getAll("checkpoint_reference_id"),
     ),
@@ -81,6 +85,10 @@ export function parseOffset(value: string | null): number {
 
 function referenceMatch(value: string | null): ReferenceMatch {
   return value === "all" ? "all" : "any";
+}
+
+function booleanFilter(search: URLSearchParams, name: string): boolean | null {
+  return search.has(name) ? search.get(name) === "true" : null;
 }
 
 function uniqueValues(values: string[]): string[] {
