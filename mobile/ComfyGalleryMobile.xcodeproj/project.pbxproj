@@ -98,7 +98,7 @@
 		2991121B14361DDA25BC2831 /* DesignTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignTokens.swift; sourceTree = "<group>"; };
 		32147668C12DBEF6534FB27E /* ReviewHomeFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewHomeFeature.swift; sourceTree = "<group>"; };
 		332DDB2713A033DE43607E65 /* MediaRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaRepository.swift; sourceTree = "<group>"; };
-		3A431D0C470BAB02EEFB8208 /* ComfyGalleryMobileUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ComfyGalleryMobileUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		3A431D0C470BAB02EEFB8208 /* ComfyGalleryMobileUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ComfyGalleryMobileUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3A738B241FCA882FD38D10E9 /* VideoCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoCache.swift; sourceTree = "<group>"; };
 		3A9E44CB309982E03410D2AA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		41B3713A2E4C8150BB055BB3 /* ReviewSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewSummary.swift; sourceTree = "<group>"; };
@@ -121,7 +121,7 @@
 		9FCA0FC6EC195B55971DB790 /* ReviewWorkspaceFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewWorkspaceFeature.swift; sourceTree = "<group>"; };
 		A262D9E06192E50DB887CCDD /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A83F4237DA81A0B113736FA2 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
-		A888706415A0C0F953B77D45 /* ComfyGalleryMobileTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ComfyGalleryMobileTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A888706415A0C0F953B77D45 /* ComfyGalleryMobileTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ComfyGalleryMobileTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B41CA67AF828841A6D36087E /* MediaCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaCell.swift; sourceTree = "<group>"; };
 		B41D19B95C756B5E0E27A08A /* SampleData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleData.swift; sourceTree = "<group>"; };
 		BB759B6450B6F02423B60EFF /* ComfyGalleryMobileUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComfyGalleryMobileUITests.swift; sourceTree = "<group>"; };
@@ -137,7 +137,7 @@
 		D9F5D71B91247D518C40854A /* VideoPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerView.swift; sourceTree = "<group>"; };
 		DAA365C0D53CB9A6827CEDB6 /* ComfyGalleryMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComfyGalleryMobileApp.swift; sourceTree = "<group>"; };
 		E3B935DBB6CF77B49522BEE3 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
-		E3D6F5B4F0B56F3388C12BD7 /* ComfyGalleryMobile.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ComfyGalleryMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E3D6F5B4F0B56F3388C12BD7 /* ComfyGalleryMobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ComfyGalleryMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E71955067BFDC9910C229606 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		F12670C598C8AECB8894C777 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 		F733FF60626E536B403E664B /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };

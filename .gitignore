@@ -30,3 +30,8 @@ testdata/golden/**/notes.local.md
 *.log
 *.dump
 *.dump.sha256
+
+# Xcode per-user state and local signing overrides
+*.xcuserstate
+xcuserdata/
+/mobile/Config/Local.xcconfig
