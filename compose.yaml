@@ -19,6 +19,10 @@ x-backend-environment: &backend-environment
   CG_RUNTIME_ROOT: ${CG_RUNTIME_ROOT:-/data/runtime}
   CG_ALLOWED_SOURCE_ROOTS: ${CG_ALLOWED_SOURCE_ROOTS:-/imports}
   CG_MAX_UPLOAD_BYTES: ${CG_MAX_UPLOAD_BYTES:-134217728}
+  CG_MAX_VARIANT_UPLOAD_BYTES: ${CG_MAX_VARIANT_UPLOAD_BYTES:-536870912}
+  CG_SPATIAL_VARIANT_VALIDATION_TIMEOUT_SECONDS: ${CG_SPATIAL_VARIANT_VALIDATION_TIMEOUT_SECONDS:-60}
+  CG_SPATIAL_VARIANT_DURATION_TOLERANCE_SECONDS: ${CG_SPATIAL_VARIANT_DURATION_TOLERANCE_SECONDS:-0.5}
+  CG_SPATIAL_VARIANT_DURATION_TOLERANCE_RATIO: ${CG_SPATIAL_VARIANT_DURATION_TOLERANCE_RATIO:-0.01}
   CG_MINIMUM_FREE_BYTES: ${CG_MINIMUM_FREE_BYTES:-536870912}
   CG_WORKFLOW_METADATA_MAX_BYTES: ${CG_WORKFLOW_METADATA_MAX_BYTES:-67108864}
   CG_WORKFLOW_JSON_MAX_DEPTH: ${CG_WORKFLOW_JSON_MAX_DEPTH:-128}
@@ -42,7 +46,7 @@ x-backend-build: &backend-build
   context: .
   dockerfile: deploy/docker/backend.Dockerfile
   args:
-    CG_PROJECT_VERSION: ${CG_IMAGE_TAG:-0.1.0-rc.10}
+    CG_PROJECT_VERSION: ${CG_IMAGE_TAG:-0.1.0-rc.11}
     ALPINE_MIRROR: ${ALPINE_MIRROR:-https://dl-cdn.alpinelinux.org/alpine}
 
 x-service-logging: &service-logging
@@ -53,12 +57,12 @@ x-service-logging: &service-logging
 
 services:
   postgres:
-    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/postgres:${CG_IMAGE_TAG:-0.1.0-rc.10}
+    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/postgres:${CG_IMAGE_TAG:-0.1.0-rc.11}
     build:
       context: .
       dockerfile: deploy/docker/database.Dockerfile
       args:
-        CG_PROJECT_VERSION: ${CG_IMAGE_TAG:-0.1.0-rc.10}
+        CG_PROJECT_VERSION: ${CG_IMAGE_TAG:-0.1.0-rc.11}
         ALPINE_MIRROR: ${ALPINE_MIRROR:-https://dl-cdn.alpinelinux.org/alpine}
     restart: unless-stopped
     environment:
@@ -88,12 +92,12 @@ services:
           memory: ${POSTGRES_MEMORY_LIMIT:-1G}
 
   redis:
-    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/redis:${CG_IMAGE_TAG:-0.1.0-rc.10}
+    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/redis:${CG_IMAGE_TAG:-0.1.0-rc.11}
     build:
       context: .
       dockerfile: deploy/docker/redis.Dockerfile
       args:
-        CG_PROJECT_VERSION: ${CG_IMAGE_TAG:-0.1.0-rc.10}
+        CG_PROJECT_VERSION: ${CG_IMAGE_TAG:-0.1.0-rc.11}
         ALPINE_MIRROR: ${ALPINE_MIRROR:-https://dl-cdn.alpinelinux.org/alpine}
     restart: unless-stopped
     command:
@@ -123,7 +127,7 @@ services:
           memory: ${REDIS_MEMORY_LIMIT:-256M}
 
   api:
-    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/backend:${CG_IMAGE_TAG:-0.1.0-rc.10}
+    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/backend:${CG_IMAGE_TAG:-0.1.0-rc.11}
     build: *backend-build
     restart: unless-stopped
     environment: *backend-environment
@@ -161,7 +165,7 @@ services:
           memory: ${API_MEMORY_LIMIT:-768M}
 
   worker:
-    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/backend:${CG_IMAGE_TAG:-0.1.0-rc.10}
+    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/backend:${CG_IMAGE_TAG:-0.1.0-rc.11}
     build: *backend-build
     restart: unless-stopped
     environment: *backend-environment
@@ -196,12 +200,12 @@ services:
           memory: ${WORKER_MEMORY_LIMIT:-2G}
 
   backup:
-    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/backup:${CG_IMAGE_TAG:-0.1.0-rc.10}
+    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/backup:${CG_IMAGE_TAG:-0.1.0-rc.11}
     build:
       context: .
       dockerfile: deploy/docker/backup.Dockerfile
       args:
-        CG_PROJECT_VERSION: ${CG_IMAGE_TAG:-0.1.0-rc.10}
+        CG_PROJECT_VERSION: ${CG_IMAGE_TAG:-0.1.0-rc.11}
         ALPINE_MIRROR: ${ALPINE_MIRROR:-https://dl-cdn.alpinelinux.org/alpine}
     restart: unless-stopped
     environment:
@@ -240,12 +244,12 @@ services:
           memory: ${BACKUP_MEMORY_LIMIT:-256M}
 
   web:
-    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/web:${CG_IMAGE_TAG:-0.1.0-rc.10}
+    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/web:${CG_IMAGE_TAG:-0.1.0-rc.11}
     build:
       context: .
       dockerfile: deploy/docker/web.Dockerfile
       args:
-        CG_PROJECT_VERSION: ${CG_IMAGE_TAG:-0.1.0-rc.10}
+        CG_PROJECT_VERSION: ${CG_IMAGE_TAG:-0.1.0-rc.11}
         ALPINE_MIRROR: ${ALPINE_MIRROR:-https://dl-cdn.alpinelinux.org/alpine}
     restart: unless-stopped
     ports:

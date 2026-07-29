@@ -51,8 +51,11 @@ export function LibraryPage() {
   const evaluationState = searchParams.get("evaluation_state") ?? "";
   const trash = searchParams.get("trash") ?? "";
   const favorite = searchParams.get("favorite") ?? "";
-  const spatialViewPreferred =
-    searchParams.get("spatial_view_preferred") ?? "";
+  const preferSpatialPlayback =
+    searchParams.get("prefer_spatial_playback") ??
+    searchParams.get("spatial_view_preferred") ??
+    "";
+  const spatialAvailable = searchParams.get("spatial_available") ?? "";
   const checkpointReferenceIds = searchParams.getAll(
     "checkpoint_reference_id",
   );
@@ -188,6 +191,9 @@ export function LibraryPage() {
       const next = new URLSearchParams(current);
       if (value) next.set(name, value);
       else next.delete(name);
+      if (name === "prefer_spatial_playback") {
+        next.delete("spatial_view_preferred");
+      }
       next.delete("offset");
       return next;
     });
@@ -332,12 +338,12 @@ export function LibraryPage() {
           </select>
         </label>
         <label>
-          Spatial view
+          Spatial preference
           <select
-            value={spatialViewPreferred}
+            value={preferSpatialPlayback}
             onChange={(event) =>
               changeLibraryParameter(
-                "spatial_view_preferred",
+                "prefer_spatial_playback",
                 event.target.value,
               )
             }
@@ -345,6 +351,19 @@ export function LibraryPage() {
             <option value="">Any spatial preference</option>
             <option value="true">Spatial preferred</option>
             <option value="false">Standard 2D</option>
+          </select>
+        </label>
+        <label>
+          Spatial video
+          <select
+            value={spatialAvailable}
+            onChange={(event) =>
+              changeLibraryParameter("spatial_available", event.target.value)
+            }
+          >
+            <option value="">Any availability</option>
+            <option value="true">Spatial variant ready</option>
+            <option value="false">No ready spatial variant</option>
           </select>
         </label>
         <label>
@@ -671,8 +690,17 @@ export function LibraryPage() {
                 {item.warning_count > 0 ? (
                   <span className="warning-badge">Warning</span>
                 ) : null}
-                {item.spatial_view_preferred ? (
-                  <span className="spatial-badge">Spatial</span>
+                {item.spatial_available || item.prefer_spatial_playback ? (
+                  <span
+                    className="spatial-badge"
+                    data-available={item.spatial_available || undefined}
+                  >
+                    {item.spatial_available && item.prefer_spatial_playback
+                      ? "Spatial ready · preferred"
+                      : item.spatial_available
+                        ? "Spatial ready"
+                        : "Spatial preferred"}
+                  </span>
                 ) : null}
                 <span
                   className="workflow-badge"

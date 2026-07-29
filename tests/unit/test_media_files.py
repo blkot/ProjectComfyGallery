@@ -64,6 +64,18 @@ def test_unknown_bytes_are_rejected_by_content(tmp_path: Path) -> None:
     assert raised.value.code == "MEDIA_UNSUPPORTED_FORMAT"
 
 
+def test_quicktime_major_brand_uses_mov_extension_and_mime_type(tmp_path: Path) -> None:
+    source = tmp_path / "spatial-video-with-misleading-extension.mp4"
+    source.write_bytes(b"\x00\x00\x00\x18ftypqt  \x00\x00\x00\x00qt  ")
+
+    signature = sniff_media(source)
+
+    assert signature.kind == "video"
+    assert signature.detected_format == "mp4"
+    assert signature.mime_type == "video/quicktime"
+    assert signature.normalized_extension == "mov"
+
+
 def test_low_disk_reserve_rejects_new_media(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

@@ -48,6 +48,14 @@ def enqueue_upload(*, upload_item_id: str, job_id: str) -> str:
     )
 
 
+def enqueue_variant_import(*, variant_id: str, job_id: str) -> str:
+    return enqueue_message(
+        actor_name="process_variant_import",
+        queue_name="media",
+        args=(variant_id, job_id),
+    )
+
+
 def enqueue_workflow(*, media_id: str, job_id: str) -> str:
     return enqueue_message(
         actor_name="extract_workflow",

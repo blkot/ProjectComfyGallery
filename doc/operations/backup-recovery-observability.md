@@ -11,8 +11,9 @@ Order of irreplaceability:
 3. Manual node/model registry corrections.
 4. Saved analysis runs and collections/tags.
 5. Managed original media.
-6. Regenerable semantic extractions.
-7. Regenerable thumbnails/proxies.
+6. Imported non-regenerable media variants.
+7. Regenerable semantic extractions.
+8. Regenerable thumbnails/proxies.
 
 Source rescanning cannot recreate manual work.
 
@@ -34,7 +35,10 @@ Automatic logical backups include:
 
 ### Managed media
 
-Managed original media is backed up through the NAS/storage backup strategy. The application documents expected paths but does not duplicate all media into database backups.
+Managed original media and imported variants are backed up through the NAS/storage
+backup strategy. Variants are not regenerable by the NAS worker, so both
+`managed/originals` and `managed/variants` must be included. The application
+documents expected paths but does not duplicate media into database backups.
 
 ### Derivatives
 
@@ -126,7 +130,7 @@ High-level restore:
    - model/node corrections,
    - criteria/scores/revisions,
    - saved analyses.
-9. Reconcile managed-file paths and missing derivatives.
+9. Reconcile managed original/variant paths, spatial availability, and missing derivatives.
 10. Start workers and regenerate derivatives/requeue incomplete jobs.
 
 ### Production restore commands

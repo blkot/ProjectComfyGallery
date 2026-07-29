@@ -4,6 +4,25 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.11 — 2026-07-30
+
+- Add immutable source-bound media variants with a durable lifecycle, atomic
+  activation/replacement, reconciliation, backup-aware managed storage, and
+  independent spatial playback preference.
+- Accept streamed spatial-video uploads through authenticated APIs, validate Apple
+  MV-HEVC metadata and both HEVC layers fail-closed, and serve active variants with
+  HTTP byte-range support.
+- Project canonical spatial availability, preference, and active-variant facts
+  through list/detail APIs while retaining the deprecated spatial preference alias
+  during the client migration window.
+- Update the web Library and Media Detail to distinguish user playback preference
+  from verified spatial-video availability without changing ordinary original,
+  preview, or playback behavior.
+- Publish a deterministic OpenAPI handoff, client changelog, migration-safe data
+  model, ADR, operational guidance, and real Apple fixture regression coverage.
+- Pin the backend to Alpine 3.23 with FFmpeg 8 and require multiview HEVC decoder
+  capability during image construction.
+
 ## 0.1.0-rc.10 — 2026-07-28
 
 - Add the native SwiftUI mobile client for authenticated gallery browsing,

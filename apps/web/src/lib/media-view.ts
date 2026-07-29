@@ -9,7 +9,8 @@ export type LibraryFilterExpression = {
   workflow_status: string | null;
   evaluation_state: string | null;
   trash: boolean | null;
-  spatial_view_preferred: boolean | null;
+  prefer_spatial_playback: boolean | null;
+  spatial_available: boolean | null;
   favorite: boolean | null;
   checkpoint_reference_ids: string[];
   checkpoint_reference_match: ReferenceMatch;
@@ -19,6 +20,16 @@ export type LibraryFilterExpression = {
 
 export function mediaListQuery(search: URLSearchParams): URLSearchParams {
   const result = new URLSearchParams(search);
+  if (
+    !result.has("prefer_spatial_playback") &&
+    result.has("spatial_view_preferred")
+  ) {
+    result.set(
+      "prefer_spatial_playback",
+      result.get("spatial_view_preferred") ?? "",
+    );
+  }
+  result.delete("spatial_view_preferred");
   result.set("limit", String(mediaPageSize));
   result.set("offset", String(parseOffset(result.get("offset"))));
   result.set("sort", result.get("sort") || defaultMediaSort);
@@ -34,7 +45,10 @@ export function libraryFilterExpression(
     workflow_status: search.get("workflow_status") || null,
     evaluation_state: search.get("evaluation_state") || null,
     trash: search.has("trash") ? search.get("trash") === "true" : null,
-    spatial_view_preferred: booleanFilter(search, "spatial_view_preferred"),
+    prefer_spatial_playback:
+      booleanFilter(search, "prefer_spatial_playback") ??
+      booleanFilter(search, "spatial_view_preferred"),
+    spatial_available: booleanFilter(search, "spatial_available"),
     favorite: booleanFilter(search, "favorite"),
     checkpoint_reference_ids: uniqueValues(
       search.getAll("checkpoint_reference_id"),

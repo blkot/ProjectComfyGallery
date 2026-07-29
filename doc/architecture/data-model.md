@@ -10,6 +10,7 @@ erDiagram
     MEDIA ||--|| MEDIA_ASSET : owns
     MEDIA ||--o{ SOURCE_OCCURRENCE : discovered_at
     MEDIA ||--o{ DERIVATIVE : has
+    MEDIA ||--o{ MEDIA_VARIANT : has
     MEDIA ||--o| WORKFLOW_SNAPSHOT : embeds
     WORKFLOW_SNAPSHOT ||--o{ WORKFLOW_NODE : contains
     WORKFLOW_SNAPSHOT ||--o{ WORKFLOW_EDGE : contains
@@ -74,9 +75,10 @@ Key concepts:
 - UUIDv7 ID.
 - Kind: image or video.
 - Lifecycle/readiness status.
-- Independent `favorite` and `spatial_view_preferred` flags, both non-null and
-  false by default. Spatial preference records cross-client display intent, not
-  generated RealityKit bytes or device-specific derivatives.
+- Independent `favorite` and `prefer_spatial_playback` flags, both non-null and
+  false by default. `spatial_available` is a system-maintained projection of an
+  active, ready spatial-video variant. Preference records cross-client display
+  intent and may remain true while availability is false.
 - Evaluation-derived state cache, if used, must remain reconstructable.
 - Trash is not stored here as deletion; it belongs to evaluation disposition.
 
@@ -118,6 +120,19 @@ Key concepts:
 - Source media and generation recipe version.
 - Codec/container/dimensions/size.
 - Regenerable and never authoritative.
+
+### `media_variant`
+
+- An externally produced, non-regenerable alternate file for one logical media.
+- The first role is `spatial_video`; lifecycle is staging, processing, ready, or
+  failed.
+- SHA-256, byte size, probe facts, validation evidence, converter provenance, and
+  source-original hash are recorded independently from `media_asset`.
+- At most one active row exists per media and role, and only a ready row can be
+  active.
+- Replacement activates the new ready row and deactivates the prior row in one
+  database transaction.
+- The immutable original remains the workflow and identity authority.
 
 ## Workflow evidence
 

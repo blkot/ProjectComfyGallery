@@ -82,9 +82,11 @@ Original files are immutable after placement.
 ```text
 managed/
   originals/<sha256-prefix>/<sha256>.<normalized-extension>
+  variants/<media-uuid>/<role>/<sha256>.<normalized-extension>
   derivatives/<media-uuid>/<recipe-version>/...
 staging/
   uploads/<batch-uuid>/<item-uuid>.upload
+  variants/<variant-uuid>.upload
   scans/<scan-uuid>/<item-job-uuid>.part
 ```
 
@@ -99,6 +101,11 @@ Filesystem placement SHOULD:
 - Flush and atomically rename into the final managed path where supported.
 - Verify expected size and SHA-256.
 - Avoid overwriting an existing target with different bytes.
+
+Imported variants follow the same staging and placement safety rules but do not
+enter original deduplication or workflow extraction. They are externally produced,
+non-regenerable representations governed by
+[ADR-0011](../decisions/0011-imported-media-variants.md).
 
 ## Durable processing pipeline
 
@@ -121,6 +128,23 @@ flowchart LR
 Phase 1 implements discovery through probe and derivative/proxy generation. Phase 2
 implements embedded evidence capture, generic graph normalization, and conservative
 semantic extraction in the same durable job. Registry matching remains Phase 3.
+
+### Spatial-video variant pipeline
+
+```text
+authenticated staged upload
+  -> hash variant
+  -> probe variant
+  -> validate Apple metadata and both MV-HEVC views
+  -> place under managed/variants
+  -> atomically deactivate prior role variant and activate replacement
+  -> synchronize spatial_available
+```
+
+This path attaches alternate bytes to an existing video. It never creates logical
+media, extracts workflow evidence, generates spatial content, or replaces
+`MediaAsset`. Failed validation is terminal for those bytes; retryable storage or
+worker interruption retains enough durable state to resume safely.
 
 ### Stage requirements
 

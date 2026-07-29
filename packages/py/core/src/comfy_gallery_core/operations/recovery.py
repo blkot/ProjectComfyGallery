@@ -12,6 +12,7 @@ from comfy_gallery_core.db.models import (
     ExportRun,
     Job,
     JobStageAttempt,
+    MediaVariant,
     RegistrySyncRun,
     ScanBatch,
     UploadItem,
@@ -33,6 +34,11 @@ def _dispatch_for(job: Job) -> tuple[str, str, tuple[str, ...]] | None:
     job_id = str(job.id)
     dispatches = {
         "process_upload": ("process_upload_item", "media", (resource_id, job_id)),
+        "process_variant_import": (
+            "process_variant_import",
+            "media",
+            (resource_id, job_id),
+        ),
         "scan_source_root": ("scan_source_root", "scan", (resource_id, job_id)),
         "extract_workflow": ("extract_workflow", "workflow", (resource_id, job_id)),
         "registry_sync": ("sync_registry", "registry", (resource_id, job_id)),
@@ -49,13 +55,20 @@ async def _reset_owner(session: AsyncSession, job: Job) -> None:
     owner: object | None = None
     if job.kind == "process_upload":
         owner = await session.get(UploadItem, job.resource_id)
+    elif job.kind == "process_variant_import":
+        owner = await session.get(MediaVariant, job.resource_id)
     elif job.kind == "scan_source_root":
         owner = await session.get(ScanBatch, job.resource_id)
     elif job.kind == "registry_sync":
         owner = await session.get(RegistrySyncRun, job.resource_id)
     elif job.kind == "portable_export":
         owner = await session.get(ExportRun, job.resource_id)
-    if isinstance(owner, (UploadItem, ScanBatch, RegistrySyncRun, ExportRun)):
+    if isinstance(owner, MediaVariant):
+        if not owner.is_active:
+            owner.status = "staging"
+        owner.last_error_code = None
+        owner.last_error_message = None
+    elif isinstance(owner, (UploadItem, ScanBatch, RegistrySyncRun, ExportRun)):
         owner.status = "queued"
         owner.error_code = None
         owner.error_message = None

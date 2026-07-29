@@ -69,6 +69,8 @@ export type MediaListItem = {
   workflow_status: string;
   evaluation_state: "not_started" | "in_progress" | "complete";
   is_trash: boolean;
+  spatial_available: boolean;
+  prefer_spatial_playback: boolean;
   spatial_view_preferred: boolean;
   favorite: boolean;
   file_created_at: string;
@@ -93,8 +95,9 @@ export type MediaNavigation = {
   next_position: number | null;
 };
 
-export type MediaSpatialPreference = {
+export type MediaPlaybackPreference = {
   media_id: string;
+  prefer_spatial_playback: boolean;
   spatial_view_preferred: boolean;
   updated_at: string;
 };
@@ -115,6 +118,25 @@ export type Derivative = {
   height: number | null;
   container: string | null;
   codec: string | null;
+};
+
+export type MediaVariant = {
+  id: string;
+  role: string;
+  status: "ready";
+  mime_type: string;
+  byte_size: number;
+  width: number | null;
+  height: number | null;
+  duration_seconds: number | null;
+  frame_rate: number | null;
+  container: string | null;
+  video_codec: string | null;
+  audio_codec: string | null;
+  converter_name: string | null;
+  converter_version: string | null;
+  ready_at: string;
+  content_url: string;
 };
 
 export type SourceOccurrence = {
@@ -146,6 +168,7 @@ export type MediaDetail = Omit<MediaListItem, "source_count"> & {
   original_url: string;
   workflow_url: string;
   derivatives: Derivative[];
+  variants: MediaVariant[];
   sources: SourceOccurrence[];
 };
 

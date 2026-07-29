@@ -19,14 +19,18 @@ from comfy_gallery_api.media_schemas import (
     MediaListItemResponse,
     MediaNavigationResponse,
     MediaPageResponse,
+    MediaPlaybackPreferenceResponse,
+    MediaPlaybackPreferenceUpdateRequest,
     MediaSpatialPreferenceResponse,
     MediaSpatialPreferenceUpdateRequest,
+    MediaVariantResponse,
     SourceOccurrenceResponse,
 )
 from comfy_gallery_core.db.models import (
     Evaluation,
     Media,
     MediaAsset,
+    MediaVariant,
     ModelUsage,
     SourceOccurrence,
     WorkflowSnapshot,
@@ -58,7 +62,9 @@ async def list_media(
     workflow_status: str | None = None,
     evaluation_state: str | None = None,
     trash: bool | None = None,
+    prefer_spatial_playback: bool | None = None,
     spatial_view_preferred: bool | None = None,
+    spatial_available: bool | None = None,
     favorite: bool | None = None,
     source_root_id: UUID | None = None,
     checkpoint_reference_id: Annotated[list[UUID] | None, Query()] = None,
@@ -69,13 +75,18 @@ async def list_media(
     limit: int = Query(default=48, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> MediaPageResponse:
+    preference_filter = _resolve_preference_filter(
+        canonical=prefer_spatial_playback,
+        legacy=spatial_view_preferred,
+    )
     id_query = _media_id_query(
         kind=kind,
         media_status=media_status,
         workflow_status=workflow_status,
         evaluation_state=evaluation_state,
         trash=trash,
-        spatial_view_preferred=spatial_view_preferred,
+        prefer_spatial_playback=preference_filter,
+        spatial_available=spatial_available,
         favorite=favorite,
         source_root_id=source_root_id,
         checkpoint_reference_ids=checkpoint_reference_id or [],
@@ -141,7 +152,9 @@ async def get_media_navigation(
     workflow_status: str | None = None,
     evaluation_state: str | None = None,
     trash: bool | None = None,
+    prefer_spatial_playback: bool | None = None,
     spatial_view_preferred: bool | None = None,
+    spatial_available: bool | None = None,
     favorite: bool | None = None,
     source_root_id: UUID | None = None,
     checkpoint_reference_id: Annotated[list[UUID] | None, Query()] = None,
@@ -150,13 +163,18 @@ async def get_media_navigation(
     lora_reference_match: ReferenceMatch = "any",
     sort: MediaSort = "file_created_desc",
 ) -> MediaNavigationResponse:
+    preference_filter = _resolve_preference_filter(
+        canonical=prefer_spatial_playback,
+        legacy=spatial_view_preferred,
+    )
     id_query = _media_id_query(
         kind=kind,
         media_status=media_status,
         workflow_status=workflow_status,
         evaluation_state=evaluation_state,
         trash=trash,
-        spatial_view_preferred=spatial_view_preferred,
+        prefer_spatial_playback=preference_filter,
+        spatial_available=spatial_available,
         favorite=favorite,
         source_root_id=source_root_id,
         checkpoint_reference_ids=checkpoint_reference_id or [],
@@ -248,12 +266,37 @@ async def get_media(
         ),
         evaluation_state=_base_evaluation(media)[0],
         is_trash=_base_evaluation(media)[1],
+        spatial_available=media.spatial_available,
+        prefer_spatial_playback=media.prefer_spatial_playback,
         spatial_view_preferred=media.spatial_view_preferred,
         favorite=media.favorite,
         derivatives=[DerivativeResponse.model_validate(item) for item in media.derivatives],
+        variants=[_variant_response(item) for item in media.variants if _is_public_variant(item)],
         sources=[
             SourceOccurrenceResponse.model_validate(item) for item in media.source_occurrences
         ],
+    )
+
+
+@router.put(
+    "/{media_id}/playback-preference",
+    response_model=MediaPlaybackPreferenceResponse,
+)
+async def update_media_playback_preference(
+    media_id: UUID,
+    request: MediaPlaybackPreferenceUpdateRequest,
+    _principal: CsrfPrincipalDep,
+    session: DbSessionDep,
+) -> MediaPlaybackPreferenceResponse:
+    media = await _get_media_record(session, media_id)
+    media.prefer_spatial_playback = request.prefer_spatial_playback
+    await session.commit()
+    await session.refresh(media)
+    return MediaPlaybackPreferenceResponse(
+        media_id=media.id,
+        prefer_spatial_playback=media.prefer_spatial_playback,
+        spatial_view_preferred=media.prefer_spatial_playback,
+        updated_at=media.updated_at,
     )
 
 
@@ -264,28 +307,17 @@ async def get_media(
 async def update_media_spatial_preference(
     media_id: UUID,
     request: MediaSpatialPreferenceUpdateRequest,
-    _principal: PrincipalDep,
+    _principal: CsrfPrincipalDep,
     session: DbSessionDep,
 ) -> MediaSpatialPreferenceResponse:
-    media = await session.get(Media, media_id)
-    if media is None:
-        raise ApiError(
-            status_code=404,
-            code="MEDIA_NOT_FOUND",
-            message="The media record was not found.",
-        )
-    if media.kind != "image":
-        raise ApiError(
-            status_code=422,
-            code="SPATIAL_PREFERENCE_UNSUPPORTED",
-            message="Spatial-view preference is available for image media only.",
-        )
-    media.spatial_view_preferred = request.spatial_view_preferred
+    media = await _get_media_record(session, media_id)
+    media.prefer_spatial_playback = request.spatial_view_preferred
     await session.commit()
     await session.refresh(media)
     return MediaSpatialPreferenceResponse(
         media_id=media.id,
-        spatial_view_preferred=media.spatial_view_preferred,
+        prefer_spatial_playback=media.prefer_spatial_playback,
+        spatial_view_preferred=media.prefer_spatial_playback,
         updated_at=media.updated_at,
     )
 
@@ -390,6 +422,7 @@ async def _load_media(session: DbSessionDep, media_id: UUID) -> Media:
         .options(
             selectinload(Media.asset),
             selectinload(Media.derivatives),
+            selectinload(Media.variants),
             selectinload(Media.source_occurrences),
             selectinload(Media.workflow_snapshot),
             selectinload(Media.evaluations),
@@ -403,6 +436,67 @@ async def _load_media(session: DbSessionDep, media_id: UUID) -> Media:
             message="The media record was not found.",
         )
     return media
+
+
+async def _get_media_record(session: DbSessionDep, media_id: UUID) -> Media:
+    media = await session.get(Media, media_id)
+    if media is None:
+        raise ApiError(
+            status_code=404,
+            code="MEDIA_NOT_FOUND",
+            message="The media record was not found.",
+        )
+    return media
+
+
+def _resolve_preference_filter(
+    *,
+    canonical: bool | None,
+    legacy: bool | None,
+) -> bool | None:
+    if canonical is not None and legacy is not None and canonical != legacy:
+        raise ApiError(
+            status_code=422,
+            code="SPATIAL_PREFERENCE_FILTER_CONFLICT",
+            message=(
+                "prefer_spatial_playback and spatial_view_preferred cannot specify "
+                "different values."
+            ),
+        )
+    return canonical if canonical is not None else legacy
+
+
+def _is_public_variant(variant: MediaVariant) -> bool:
+    return (
+        variant.status == "ready"
+        and variant.is_active
+        and variant.mime_type is not None
+        and variant.byte_size is not None
+        and variant.ready_at is not None
+    )
+
+
+def _variant_response(variant: MediaVariant) -> MediaVariantResponse:
+    if variant.mime_type is None or variant.byte_size is None or variant.ready_at is None:
+        raise ValueError("An active ready variant is missing required file facts.")
+    return MediaVariantResponse(
+        id=variant.id,
+        role=variant.role,
+        status=variant.status,
+        mime_type=variant.mime_type,
+        byte_size=variant.byte_size,
+        width=variant.width,
+        height=variant.height,
+        duration_seconds=variant.duration_seconds,
+        frame_rate=variant.frame_rate,
+        container=variant.container,
+        video_codec=variant.video_codec,
+        audio_codec=variant.audio_codec,
+        converter_name=variant.converter_name,
+        converter_version=variant.converter_version,
+        ready_at=variant.ready_at,
+        content_url=f"/api/v1/media/{variant.media_id}/variants/{variant.id}/content",
+    )
 
 
 def _list_item(
@@ -433,6 +527,8 @@ def _list_item(
         ),
         evaluation_state=_base_evaluation(media)[0],
         is_trash=_base_evaluation(media)[1],
+        spatial_available=media.spatial_available,
+        prefer_spatial_playback=media.prefer_spatial_playback,
         spatial_view_preferred=media.spatial_view_preferred,
         favorite=media.favorite,
         file_created_at=_file_created_at(source_mtime_ns, media.created_at),
@@ -448,7 +544,8 @@ def _media_id_query(
     workflow_status: str | None,
     evaluation_state: str | None,
     trash: bool | None,
-    spatial_view_preferred: bool | None,
+    prefer_spatial_playback: bool | None,
+    spatial_available: bool | None,
     favorite: bool | None,
     source_root_id: UUID | None,
     checkpoint_reference_ids: list[UUID],
@@ -461,8 +558,10 @@ def _media_id_query(
         filters.append(Media.kind == kind)
     if media_status:
         filters.append(Media.status == media_status)
-    if spatial_view_preferred is not None:
-        filters.append(Media.spatial_view_preferred.is_(spatial_view_preferred))
+    if prefer_spatial_playback is not None:
+        filters.append(Media.prefer_spatial_playback.is_(prefer_spatial_playback))
+    if spatial_available is not None:
+        filters.append(Media.spatial_available.is_(spatial_available))
     if favorite is not None:
         filters.append(Media.favorite.is_(favorite))
     if workflow_status == "unprocessed":

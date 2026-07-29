@@ -21,6 +21,7 @@ ADRs capture why consequential choices were made. They are append-only historica
 - [ADR-0008: Observational model-focused analytics](0008-observational-analytics.md)
 - [ADR-0009: Single-user authentication](0009-single-user-authentication.md)
 - [ADR-0010: Do not model ComfyUI instances](0010-no-comfyui-instance-entities.md)
+- [ADR-0011: Preserve originals and import alternate media variants](0011-imported-media-variants.md)
 
 ## ADR template
 

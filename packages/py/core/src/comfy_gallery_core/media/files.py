@@ -56,6 +56,7 @@ class GeneratedDerivative:
 def ensure_storage_layout(settings: Settings) -> None:
     for path in (
         settings.resolved_managed_root / "originals",
+        settings.resolved_managed_root / "variants",
         settings.resolved_managed_root / "derivatives",
         settings.resolved_staging_root,
         settings.resolved_export_root,
@@ -175,6 +176,8 @@ def sniff_media(path: Path) -> MediaSignature:
     if header.startswith(b"RIFF") and header[8:12] == b"WEBP":
         return MediaSignature("image", "webp", "image/webp", "webp")
     if len(header) >= 12 and header[4:8] == b"ftyp":
+        if header[8:12] == b"qt  ":
+            return MediaSignature("video", "mp4", "video/quicktime", "mov")
         return MediaSignature("video", "mp4", "video/mp4", "mp4")
     if header.startswith(b"\x1aE\xdf\xa3"):
         return MediaSignature("video", "webm", "video/webm", "webm")
@@ -364,6 +367,56 @@ def original_location(
 ) -> tuple[Path, Path]:
     relative = Path("originals") / sha256[:2] / f"{sha256}.{signature.normalized_extension}"
     return settings.resolved_managed_root / relative, relative
+
+
+def variant_location(
+    *,
+    media_id: str,
+    role: str,
+    sha256: str,
+    signature: MediaSignature,
+    settings: Settings,
+) -> tuple[Path, Path]:
+    relative = Path("variants") / media_id / role / f"{sha256}.{signature.normalized_extension}"
+    return settings.resolved_managed_root / relative, relative
+
+
+def place_variant(
+    *,
+    staged_path: Path,
+    media_id: str,
+    role: str,
+    sha256: str,
+    signature: MediaSignature,
+    settings: Settings,
+) -> tuple[Path, str]:
+    destination, relative = variant_location(
+        media_id=media_id,
+        role=role,
+        sha256=sha256,
+        signature=signature,
+        settings=settings,
+    )
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if destination.exists():
+        existing_sha, _ = hash_file(destination, chunk_bytes=settings.hash_chunk_bytes)
+        if existing_sha != sha256:
+            raise IngestionError(
+                code="VARIANT_STORAGE_FAILED",
+                message="Managed storage contains different bytes at the variant hash path.",
+            )
+        staged_path.unlink(missing_ok=True)
+        return destination, relative.as_posix()
+    try:
+        os.replace(staged_path, destination)
+    except OSError as exc:
+        raise IngestionError(
+            code="VARIANT_STORAGE_FAILED",
+            message="The validated variant could not be placed in managed storage.",
+            retryable=True,
+            details={"reason": str(exc)},
+        ) from exc
+    return destination, relative.as_posix()
 
 
 def _generate_thumbnail(

@@ -1,6 +1,6 @@
 # API and External Integrations
 
-**Status:** Accepted for behavior; Phase 0–4 authentication, media, workflow, registry, organization, evaluation, and review paths implemented
+**Status:** Accepted for behavior; includes the spatial-video variant compatibility update
 
 ## API principles
 
@@ -75,7 +75,11 @@ POST   /api/v1/media/imports
 GET    /api/v1/media/:id
 GET    /api/v1/media/:id/navigation
 PUT    /api/v1/media/:id/favorite
+PUT    /api/v1/media/:id/playback-preference
 PUT    /api/v1/media/:id/spatial-preference
+POST   /api/v1/media/:id/variant-imports
+GET    /api/v1/media/:id/variant-imports/:variantId
+GET    /api/v1/media/:id/variants/:variantId/content
 GET    /api/v1/media/:id/original
 GET    /api/v1/media/:id/preview
 GET    /api/v1/media/:id/playback
@@ -98,15 +102,29 @@ to staging, returns `202 Accepted` with a durable batch, and enqueues the ordina
 processing pipeline. The future ComfyUI node client contract is documented in
 [ComfyUI custom-node upload integration](comfyui-custom-node-upload.md).
 
-Media list and detail responses expose `favorite` and
-`spatial_view_preferred` as non-null Booleans. Both default to false. The
-idempotent preference writes accept `{ "favorite": true }` and
-`{ "spatial_view_preferred": true }`, respectively. Spatial preference accepts
-image media only and returns `SPATIAL_PREFERENCE_UNSUPPORTED` for video. It
-stores cross-client opening intent only; clients retain or regenerate any
-device-specific spatial object themselves.
+Media list and detail responses expose independent `favorite`,
+`prefer_spatial_playback`, and `spatial_available` Booleans. The deprecated
+`spatial_view_preferred` response alias is also returned with the same value as
+`prefer_spatial_playback` during the compatibility window.
 
-The media list and navigation endpoints accept optional `favorite` and
+The canonical idempotent preference command is:
+
+```text
+PUT /api/v1/media/:id/playback-preference
+{ "prefer_spatial_playback": true }
+```
+
+It accepts image and video media and stores user intent even when no stored spatial
+variant is available. The legacy `/spatial-preference` endpoint and
+`spatial_view_preferred` body remain supported and now accept videos. Neither
+command changes Favorite, availability, variants, or workflow state.
+
+`spatial_available` is read-only and means an active, ready, validated stored
+spatial-video variant exists. It is false for images; runtime spatial-image
+presentation remains client-owned.
+
+The media list and navigation endpoints accept optional `favorite`,
+`prefer_spatial_playback`, `spatial_available`, and deprecated
 `spatial_view_preferred` Boolean filters and repeated
 `checkpoint_reference_id` and `lora_reference_id` parameters. Their corresponding
 `checkpoint_reference_match` and `lora_reference_match` parameters accept `any`
@@ -125,6 +143,9 @@ and sort but no pagination boundary, and returns the current one-based position,
 population total, and adjacent media UUIDs/positions. A filtered-out media UUID
 returns `MEDIA_NOT_IN_VIEW`.
 
+Supplying canonical and legacy preference filters with different values returns
+`SPATIAL_PREFERENCE_FILTER_CONFLICT`.
+
 The same preference filters are part of the validated reusable media-filter
 expression used by saved filters, server-resolved selection, collections, tags,
 and review sessions.
@@ -133,6 +154,37 @@ The workflow summary endpoint uses bounded node/edge limits and never appears in
 gallery list response. The raw endpoint returns preserved decoded carrier metadata,
 exact prompt/workflow strings where available, and decoded JSON only after an
 explicit detail request.
+
+### Spatial-video variant import
+
+`POST /api/v1/media/:id/variant-imports` accepts browser sessions with CSRF or
+bearer API tokens. It requires `Idempotency-Key` and these multipart fields:
+
+```text
+file                  required
+role                  required; spatial_video
+source_asset_sha256   required; exact target MediaAsset SHA-256
+converter_name        optional
+converter_version     optional
+```
+
+The API streams at most `CG_MAX_VARIANT_UPLOAD_BYTES` into controlled staging,
+creates a durable `process_variant_import` job, and returns `202` with the variant
+and job projections. The external converter never submits a server filesystem path.
+Repeating the same completed command key returns the original variant and job;
+reusing it for a different target or source returns `IDEMPOTENCY_KEY_REUSED`.
+
+The worker, not the converter's claims, is authoritative. It verifies the source
+hash, MP4/QuickTime family, HEVC decoding, Apple stereo metadata, a decodable second
+MV-HEVC view, nonzero media facts, and duration tolerance. It stores validation
+evidence and atomically replaces the prior active spatial variant only after the
+new file is fully ready. A failed replacement leaves the prior active row and
+`spatial_available` unchanged.
+
+Media detail exposes only active ready variants and never exposes managed paths.
+`GET /api/v1/media/:id/variants/:variantId/content` is authenticated and
+range-capable. Existing `/playback`, `/original`, and `/preview` paths never switch
+to MV-HEVC; spatial clients explicitly choose `content_url`.
 
 ### Source roots and scans
 
@@ -312,6 +364,7 @@ the bounded CPU work no longer fits an interactive request.
 GET    /health/live
 GET    /health/ready
 GET    /api/v1/system/status
+POST   /api/v1/system/reconcile-spatial-availability
 POST   /api/v1/exports
 GET    /api/v1/exports
 GET    /api/v1/exports/:id
@@ -323,6 +376,9 @@ Health endpoints expose no secrets.
 `/health/live` checks the API process and `/health/ready` checks PostgreSQL and
 Redis. Authenticated status adds worker heartbeat, durable queues, storage pressure,
 backup freshness, and recent scan/sync/export activity.
+
+The reconciliation command repairs the cached `media.spatial_available` projection
+from active ready variant rows. The same repair runs during API startup.
 
 Export creation queues a durable maintenance job. Download becomes available only
 after checksum-recorded completion and remains authenticated. JSON Lines and CSV
@@ -338,6 +394,7 @@ Commands requiring idempotency:
 - External synchronization.
 - Analysis-run creation.
 - Future ComfyUI ingestion.
+- Spatial-video variant import.
 
 The server stores idempotency key, authenticated principal, request fingerprint, resulting entity, and expiration. Reusing a key with a different request fails.
 
@@ -405,6 +462,8 @@ No future endpoint may silently rewrite embedded ground truth.
 
 - Additive response fields are non-breaking.
 - Removing/renaming fields requires a new API version.
+- `spatial_view_preferred` and `/spatial-preference` are deprecated aliases; clients
+  should migrate to `prefer_spatial_playback` and `/playback-preference`.
 - Database schema versions are not exposed as API versions.
 - OpenAPI compatibility checks run in CI after implementation.
 - External adapter breakage is isolated and reported as integration degradation.

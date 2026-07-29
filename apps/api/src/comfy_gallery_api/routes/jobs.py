@@ -7,12 +7,20 @@ from sqlalchemy import select
 from comfy_gallery_api.dependencies import CsrfPrincipalDep, DbSessionDep, PrincipalDep
 from comfy_gallery_api.errors import ApiError
 from comfy_gallery_api.media_schemas import JobResponse
-from comfy_gallery_core.db.models import ExportRun, Job, RegistrySyncRun, ScanBatch, UploadItem
+from comfy_gallery_core.db.models import (
+    ExportRun,
+    Job,
+    MediaVariant,
+    RegistrySyncRun,
+    ScanBatch,
+    UploadItem,
+)
 from comfy_gallery_core.queue import (
     enqueue_portable_export,
     enqueue_registry_sync,
     enqueue_scan,
     enqueue_upload,
+    enqueue_variant_import,
     enqueue_workflow,
 )
 
@@ -86,6 +94,25 @@ async def retry_job(
             item.error_message = None
             await session.commit()
             enqueue_upload(upload_item_id=str(item.id), job_id=str(job.id))
+        elif job.kind == "process_variant_import":
+            variant = await session.get(MediaVariant, job.resource_id)
+            if variant is None:
+                raise ApiError(
+                    status_code=404,
+                    code="VARIANT_NOT_FOUND",
+                    message="The media variant no longer exists.",
+                )
+            if variant.is_active and variant.status == "ready":
+                raise ApiError(
+                    status_code=409,
+                    code="VARIANT_ALREADY_READY",
+                    message="The active ready variant does not need to be retried.",
+                )
+            variant.status = "staging"
+            variant.last_error_code = None
+            variant.last_error_message = None
+            await session.commit()
+            enqueue_variant_import(variant_id=str(variant.id), job_id=str(job.id))
         elif job.kind == "scan_source_root":
             scan = await session.get(ScanBatch, job.resource_id)
             if scan is None:

@@ -1,6 +1,8 @@
 # Spatial Video Variant Backend Update Guide
 
-**Status:** Accepted design; implementation pending
+**Status:** Implemented on `codex/spatial-video-backend`; real Apple MV-HEVC
+validation passes locally, while packaged-image and Vision Pro acceptance remain
+pending
 
 **Date:** 2026-07-29
 
@@ -286,6 +288,7 @@ VARIANT_UPLOAD_TOO_LARGE
 VARIANT_DUPLICATE_CONFLICT
 VARIANT_INVALID_CONTAINER
 VARIANT_INVALID_CODEC
+VARIANT_VALIDATOR_UNAVAILABLE
 VARIANT_SPATIAL_METADATA_MISSING
 VARIANT_DURATION_MISMATCH
 VARIANT_STORAGE_FAILED
@@ -326,6 +329,12 @@ normalizes timing, but the validation result must record them.
 
 The backend's own probe is authoritative. Converter-submitted claims may be stored
 as provenance but are untrusted.
+
+The backend image must provide FFmpeg 7.1 or newer with HEVC multiview decoder
+options. The production image is pinned to Alpine 3.23 and verifies the required
+`view_ids_available` capability while building. The worker also checks the
+capability at runtime and reports `VARIANT_VALIDATOR_UNAVAILABLE` rather than
+misclassifying a candidate when the decoder is too old or missing.
 
 If stock `ffprobe` in the runtime image cannot expose the Apple spatial structures
 needed for a fail-closed check, add a small bounded validator utility or library.
@@ -588,6 +597,39 @@ Also keep negative fixtures for ordinary HEVC and corrupt/missing spatial metada
 Do not make the full CI suite depend on running the expensive spatial conversion
 pipeline.
 
+The first private positive fixture was exercised on 2026-07-29 using the output of
+Apple's `ConvertingSideBySide3DVideoToMultiviewHEVCAndSpatialVideo` example:
+
+```text
+source SHA-256:
+83716e08b2d550a3e25617e7ce84f2bc50b94f8cc1dae94850ab5339e21bab68
+
+spatial variant SHA-256:
+3c43371922649419942ae0c637003e31992ae631d52c697569a5d8c99f19c376
+
+source:
+3840x1080, 30 fps, 4.333333 seconds, HEVC side-by-side
+
+spatial variant:
+1920x1080, 30 fps, 4.333333 seconds, multilayer HEVC
+```
+
+FFmpeg exposes Apple stereo metadata with a 64,000 micrometer baseline,
+`80000/1000` horizontal field of view, and `primary_eye=none`. `none` is valid
+for this Apple-produced file; validation therefore requires the field to be
+present and recognized but does not require a left/right primary eye. Both
+`vidx:0` and `vidx:1` decode successfully. The complete local API/worker import
+reached active `ready`, set `spatial_available=true`, preserved ordinary playback,
+and returned a correct 1,024-byte HTTP range with `206 Partial Content`.
+
+The ignored private regression is enabled with:
+
+```bash
+CG_PRIVATE_SPATIAL_SOURCE=/path/to/Hummingbird.mov \
+CG_PRIVATE_SPATIAL_VARIANT=/path/to/Hummingbird_Spatial.mov \
+uv run pytest tests/golden/test_private_spatial_video_fixture.py
+```
+
 ## Documentation updates required with implementation
 
 The implementing main-session agent must update the governing documents in the same
@@ -625,20 +667,28 @@ LIB-016    Spatial playback preference applies independently to image and video,
 
 ## Implementation checklist
 
-- [ ] Add and verify the Alembic migration.
-- [ ] Add `MediaVariant` ORM model and relationships.
-- [ ] Add the variant service and safe managed storage layout.
-- [ ] Add durable import job/stages.
-- [ ] Add fail-closed spatial MV-HEVC validation.
-- [ ] Add machine-token multipart variant import.
-- [ ] Add variant projections and range-capable content delivery.
-- [ ] Add `spatial_available` to media projections and filtering if needed.
-- [ ] Add the canonical shared playback-preference command.
-- [ ] Preserve the old preference field, endpoint, and filter aliases temporarily.
-- [ ] Keep original/proxy playback behavior unchanged.
-- [ ] Add migration, service, API, concurrency, and fixture tests.
-- [ ] Update requirements, architecture, design, API, traceability, and ADR docs.
-- [ ] Run `make check`.
+- [x] Add and verify the Alembic migration.
+- [x] Add `MediaVariant` ORM model and relationships.
+- [x] Add the variant service and safe managed storage layout.
+- [x] Add durable import job/stages.
+- [x] Add fail-closed spatial MV-HEVC validation.
+- [x] Add machine-token multipart variant import.
+- [x] Add variant projections and range-capable content delivery.
+- [x] Add `spatial_available` to media projections and filtering.
+- [x] Add the canonical shared playback-preference command.
+- [x] Preserve the old preference field, endpoint, and filter aliases temporarily.
+- [x] Keep original/proxy playback behavior unchanged.
+- [x] Add migration, service, API, idempotency, replacement, reconciliation, and
+      synthetic validation tests.
+- [x] Update requirements, architecture, design, API, traceability, and ADR docs.
+- [x] Export and regression-test the OpenAPI contract.
+- [x] Add an optional private real MV-HEVC regression and verify it with FFmpeg
+      8.1 plus the local API/worker.
+- [ ] Repeat the real fixture against the packaged Linux/amd64 backend image and
+      deployed reverse proxy.
+- [x] Run `make check` after the final implementation change (91 Python passing,
+      one optional private-fixture test skipped by default, and 20 frontend tests
+      passing on 2026-07-29).
 - [ ] Verify an actual spatial file on the deployed backend and Vision Pro before
       removing any compatibility alias.
 

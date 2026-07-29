@@ -54,11 +54,18 @@ A user-trained family of adapter artifacts that share an opaque name prefix and 
 
 ## Managed storage
 
-The application-controlled filesystem area containing immutable original media and generated derivatives.
+The application-controlled filesystem area containing immutable original media,
+imported variants, and generated derivatives.
 
 ## Media record
 
 The application entity identified by UUIDv7 that owns workflow data, evaluation history, and source references.
+
+## Media variant
+
+An externally produced, non-regenerable alternate file attached to one logical
+media record. A variant never replaces the immutable original or its embedded
+workflow ground truth.
 
 ## Model enrichment
 
@@ -101,6 +108,18 @@ The structural model-use pattern of a workflow, such as single-model, dual-noise
 ## Proxy
 
 A derived browser-compatible video used for preview while the original remains authoritative.
+
+## Spatial available
+
+System-owned video state indicating that an active, ready, validated
+`spatial_video` variant exists. It is independent from playback preference.
+
+## Spatial playback preference
+
+User-owned intent to use a spatial presentation when one is available. For images
+the client may create a runtime spatial presentation; for videos it may request
+the active spatial-video variant. The stored intent may remain true while no
+variant is available.
 
 ## Review session
 

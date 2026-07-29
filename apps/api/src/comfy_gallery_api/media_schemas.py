@@ -112,6 +112,62 @@ class DerivativeResponse(BaseModel):
     codec: str | None
 
 
+class MediaVariantResponse(BaseModel):
+    id: UUID
+    role: str
+    status: str
+    mime_type: str
+    byte_size: int
+    width: int | None
+    height: int | None
+    duration_seconds: float | None
+    frame_rate: float | None
+    container: str | None
+    video_codec: str | None
+    audio_codec: str | None
+    converter_name: str | None
+    converter_version: str | None
+    ready_at: datetime
+    content_url: str
+
+
+class MediaVariantImportStatusResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    media_id: UUID
+    role: str
+    status: str
+    is_active: bool
+    sha256: str | None
+    byte_size: int | None
+    original_filename: str
+    original_extension: str | None
+    detected_format: str | None
+    mime_type: str | None
+    width: int | None
+    height: int | None
+    duration_seconds: float | None
+    frame_rate: float | None
+    container: str | None
+    video_codec: str | None
+    audio_codec: str | None
+    validation_data: dict[str, object]
+    converter_name: str | None
+    converter_version: str | None
+    source_asset_sha256: str | None
+    ready_at: datetime | None
+    last_error_code: str | None
+    last_error_message: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class VariantImportAcceptedResponse(BaseModel):
+    variant: MediaVariantImportStatusResponse
+    job: JobResponse
+
+
 class SourceOccurrenceResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -148,6 +204,8 @@ class MediaListItemResponse(BaseModel):
     workflow_status: str
     evaluation_state: str
     is_trash: bool
+    spatial_available: bool
+    prefer_spatial_playback: bool
     spatial_view_preferred: bool
     favorite: bool
     file_created_at: datetime
@@ -203,10 +261,24 @@ class MediaDetailResponse(BaseModel):
     workflow_status: str
     evaluation_state: str
     is_trash: bool
+    spatial_available: bool
+    prefer_spatial_playback: bool
     spatial_view_preferred: bool
     favorite: bool
     derivatives: list[DerivativeResponse]
+    variants: list[MediaVariantResponse]
     sources: list[SourceOccurrenceResponse]
+
+
+class MediaPlaybackPreferenceUpdateRequest(BaseModel):
+    prefer_spatial_playback: bool
+
+
+class MediaPlaybackPreferenceResponse(BaseModel):
+    media_id: UUID
+    prefer_spatial_playback: bool
+    spatial_view_preferred: bool
+    updated_at: datetime
 
 
 class MediaSpatialPreferenceUpdateRequest(BaseModel):
@@ -215,8 +287,13 @@ class MediaSpatialPreferenceUpdateRequest(BaseModel):
 
 class MediaSpatialPreferenceResponse(BaseModel):
     media_id: UUID
+    prefer_spatial_playback: bool
     spatial_view_preferred: bool
     updated_at: datetime
+
+
+class SpatialAvailabilityReconcileResponse(BaseModel):
+    updated_media_count: int
 
 
 class MediaFavoriteUpdateRequest(BaseModel):

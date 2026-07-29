@@ -34,11 +34,15 @@ class Settings(BaseSettings):
     runtime_root: Path = Path("./data/runtime")
     allowed_source_roots: str = "./data/import"
     max_upload_bytes: int = Field(default=128 * 1024 * 1024, ge=1024)
+    max_variant_upload_bytes: int = Field(default=512 * 1024 * 1024, ge=1024)
     hash_chunk_bytes: int = Field(default=1024 * 1024, ge=64 * 1024, le=16 * 1024 * 1024)
     minimum_free_bytes: int = Field(default=512 * 1024 * 1024, ge=0)
     thumbnail_max_dimension: int = Field(default=768, ge=128, le=4096)
     ffmpeg_path: str = "ffmpeg"
     ffprobe_path: str = "ffprobe"
+    spatial_variant_validation_timeout_seconds: int = Field(default=60, ge=5, le=600)
+    spatial_variant_duration_tolerance_seconds: float = Field(default=0.5, ge=0, le=30)
+    spatial_variant_duration_tolerance_ratio: float = Field(default=0.01, ge=0, le=1)
     workflow_metadata_max_bytes: int = Field(
         default=64 * 1024 * 1024,
         ge=1024 * 1024,

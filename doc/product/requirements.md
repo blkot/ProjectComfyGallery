@@ -22,6 +22,18 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
 - **MEDIA-007:** Original managed media bytes MUST be immutable.
 - **MEDIA-008:** Source disappearance MUST NOT delete the managed copy.
 - **MEDIA-009:** Evaluation Trash MUST NOT physically delete media.
+- **MEDIA-010:** An externally produced alternate file MUST attach to the existing
+  logical media without replacing its immutable original or workflow ground truth.
+- **MEDIA-011:** A spatial video MUST be reported available only when an active,
+  ready, content-validated `spatial_video` variant exists.
+- **MEDIA-012:** Imported variants MUST be streamed, size-bounded, hashed,
+  content-probed, and durably processed by a retryable worker job.
+- **MEDIA-013:** A replacement variant MUST become active atomically after it is
+  fully ready; a failed replacement MUST leave the prior active variant available.
+- **MEDIA-014:** Spatial availability, spatial playback preference, and Favorite
+  MUST remain independent.
+- **MEDIA-015:** Variant content delivery MUST support byte-range requests without
+  changing ordinary preview, playback, or original-download semantics.
 
 ## Import and processing
 
@@ -143,7 +155,7 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
   remain available as compact secondary evidence. Media MUST be contained inside
   the current dynamic viewport without control overlays or edge clipping. Blind Review
   MUST preserve its configuration-hiding invariant.
-- **LIB-015:** Favorite and spatial-view-preferred MUST be independent, durable
+- **LIB-015:** Favorite and spatial playback preference MUST be independent, durable
   per-media Booleans defaulting to false. Both MUST be exposed by list/detail APIs
   and usable in library, navigation, saved, bulk, collection/tag, and review filters.
   Spatial preference updates MUST accept image media only.

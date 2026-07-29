@@ -11,6 +11,7 @@ from comfy_gallery_api.main import app
 from comfy_gallery_api.media_schemas import (
     MediaFavoriteUpdateRequest,
     MediaPageResponse,
+    MediaPlaybackPreferenceUpdateRequest,
     MediaSpatialPreferenceUpdateRequest,
 )
 from comfy_gallery_api.routes.evaluations import _media_scope_query
@@ -21,6 +22,7 @@ from comfy_gallery_api.routes.media import (
     get_media_navigation,
     list_media,
     update_media_favorite,
+    update_media_playback_preference,
     update_media_spatial_preference,
 )
 from comfy_gallery_core.db.base import Base
@@ -312,6 +314,8 @@ async def test_media_preferences_are_exposed_filterable_and_idempotent() -> None
             session,
         )
         assert initial_detail.spatial_view_preferred is False
+        assert initial_detail.prefer_spatial_playback is False
+        assert initial_detail.spatial_available is False
         assert initial_detail.favorite is False
 
         first_spatial_response = await update_media_spatial_preference(
@@ -333,6 +337,7 @@ async def test_media_preferences_are_exposed_filterable_and_idempotent() -> None
             session,
         )
         assert first_spatial_response.spatial_view_preferred is True
+        assert first_spatial_response.prefer_spatial_playback is True
         assert repeated_spatial_response.spatial_view_preferred is True
         assert favorite_response.favorite is True
 
@@ -343,6 +348,11 @@ async def test_media_preferences_are_exposed_filterable_and_idempotent() -> None
         preferred_page = await _library_page(
             session,
             sort="file_created_desc",
+            prefer_spatial_playback=True,
+        )
+        legacy_preferred_page = await _library_page(
+            session,
+            sort="file_created_desc",
             spatial_view_preferred=True,
         )
         favorite_page = await _library_page(
@@ -351,6 +361,7 @@ async def test_media_preferences_are_exposed_filterable_and_idempotent() -> None
             favorite=True,
         )
         assert [item.id for item in preferred_page.items] == [preferred.id]
+        assert [item.id for item in legacy_preferred_page.items] == [preferred.id]
         assert [item.id for item in favorite_page.items] == [preferred.id]
         assert preferred_page.items[0].favorite is True
         assert favorite_page.items[0].spatial_view_preferred is True
@@ -359,7 +370,7 @@ async def test_media_preferences_are_exposed_filterable_and_idempotent() -> None
             await session.scalars(
                 _media_scope_query(
                     MediaFilterRequest(
-                        spatial_view_preferred=True,
+                        prefer_spatial_playback=True,
                         favorite=True,
                     ),
                     reviewable_only=False,
@@ -367,6 +378,21 @@ async def test_media_preferences_are_exposed_filterable_and_idempotent() -> None
             )
         )
         assert reusable_scope_ids == [preferred.id]
+
+        with pytest.raises(ApiError) as conflicting_filter:
+            await _library_page(
+                session,
+                sort="file_created_desc",
+                prefer_spatial_playback=True,
+                spatial_view_preferred=False,
+            )
+        assert conflicting_filter.value.code == "SPATIAL_PREFERENCE_FILTER_CONFLICT"
+
+        with pytest.raises(ValueError):
+            MediaFilterRequest(
+                prefer_spatial_playback=True,
+                spatial_view_preferred=False,
+            )
 
         updated_detail = await get_media(
             preferred.id,
@@ -392,15 +418,21 @@ async def test_media_preferences_are_exposed_filterable_and_idempotent() -> None
             )
             assert favorite_update.favorite is False
 
-        with pytest.raises(ApiError) as unsupported:
-            await update_media_spatial_preference(
-                video.id,
-                MediaSpatialPreferenceUpdateRequest(spatial_view_preferred=True),
-                None,  # type: ignore[arg-type]
-                session,
-            )
-        assert unsupported.value.status_code == 422
-        assert unsupported.value.code == "SPATIAL_PREFERENCE_UNSUPPORTED"
+        video_response = await update_media_playback_preference(
+            video.id,
+            MediaPlaybackPreferenceUpdateRequest(prefer_spatial_playback=True),
+            None,  # type: ignore[arg-type]
+            session,
+        )
+        assert video_response.prefer_spatial_playback is True
+        assert video_response.spatial_view_preferred is True
+        legacy_video_response = await update_media_spatial_preference(
+            video.id,
+            MediaSpatialPreferenceUpdateRequest(spatial_view_preferred=False),
+            None,  # type: ignore[arg-type]
+            session,
+        )
+        assert legacy_video_response.prefer_spatial_playback is False
 
         with pytest.raises(ApiError) as missing:
             await update_media_spatial_preference(
@@ -509,7 +541,9 @@ async def _library_page(
     checkpoint_reference_match: ReferenceMatch = "any",
     lora_reference_ids: list[UUID] | None = None,
     lora_reference_match: ReferenceMatch = "any",
+    prefer_spatial_playback: bool | None = None,
     spatial_view_preferred: bool | None = None,
+    spatial_available: bool | None = None,
     favorite: bool | None = None,
 ) -> MediaPageResponse:
     return await list_media(
@@ -520,7 +554,9 @@ async def _library_page(
         workflow_status=None,
         evaluation_state=None,
         trash=None,
+        prefer_spatial_playback=prefer_spatial_playback,
         spatial_view_preferred=spatial_view_preferred,
+        spatial_available=spatial_available,
         favorite=favorite,
         source_root_id=None,
         checkpoint_reference_id=checkpoint_reference_ids,

@@ -21,6 +21,7 @@ from comfy_gallery_core.media.jobs import (
     succeed_job,
 )
 from comfy_gallery_core.media.scan import run_source_scan
+from comfy_gallery_core.media.variants import process_variant_import
 from comfy_gallery_core.operations.exports import create_portable_export
 from comfy_gallery_core.registry.sync import process_registry_sync_job
 from comfy_gallery_core.workflow.extraction import process_workflow_job
@@ -70,6 +71,27 @@ async def process_upload_item_actor(upload_item_id: str, job_id: str) -> None:
         logger.error(
             "upload_processing_failed",
             upload_item_id=upload_item_id,
+            job_id=job_id,
+            code=error.code,
+            retryable=error.retryable,
+        )
+        if error.retryable:
+            raise
+
+
+@actor(
+    actor_name="process_variant_import",
+    queue_name="media",
+    max_retries=2,
+    min_backoff=5_000,
+)
+async def process_variant_import_actor(variant_id: str, job_id: str) -> None:
+    try:
+        await _process_variant_import(UUID(variant_id), UUID(job_id))
+    except IngestionError as error:
+        logger.error(
+            "variant_processing_failed",
+            variant_id=variant_id,
             job_id=job_id,
             code=error.code,
             retryable=error.retryable,
@@ -169,6 +191,17 @@ async def _process_upload(upload_item_id: UUID, job_id: UUID) -> None:
         await process_upload_item(
             session,
             upload_item_id=upload_item_id,
+            job_id=job_id,
+            settings=settings,
+        )
+
+
+async def _process_variant_import(variant_id: UUID, job_id: UUID) -> None:
+    database = get_database()
+    async with database.session() as session:
+        await process_variant_import(
+            session,
+            variant_id=variant_id,
             job_id=job_id,
             settings=settings,
         )

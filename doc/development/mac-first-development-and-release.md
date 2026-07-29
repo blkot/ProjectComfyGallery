@@ -55,7 +55,9 @@ password: comfygallery-local-development
 ```
 
 Change `.env.development` when desired. It is ignored by Git and is not copied to
-the NAS.
+the NAS. If another local service already occupies the defaults, set
+`DEV_API_PORT` or `DEV_WEB_PORT`; the launcher passes the selected API address to
+Vite's development proxy automatically.
 
 `Ctrl-C` stops API, worker, and Vite. PostgreSQL and Redis remain available so the
 next start is fast.

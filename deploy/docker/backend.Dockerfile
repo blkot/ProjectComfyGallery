@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM ghcr.io/astral-sh/uv:python3.13-alpine@sha256:48fb7780491d06b7a8705341808536c2c20356c85d7a100858998038a11703f3
+FROM ghcr.io/astral-sh/uv:python3.13-alpine3.23@sha256:31a524210097e4f2d6f732d525cf9479c02ec966a0cd13f43ef71650ef3abf72
 
 ARG ALPINE_MIRROR=https://dl-cdn.alpinelinux.org/alpine
 
@@ -17,6 +17,7 @@ RUN sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${ALPINE_MIRROR%/}|g" \
     apk update && \
     apk upgrade && \
     apk add ffmpeg su-exec && \
+    ffmpeg -hide_banner -h decoder=hevc 2>&1 | grep -q view_ids_available && \
     rm -rf /var/cache/apk/*
 
 RUN addgroup -S -g 10001 comfy && \
@@ -39,7 +40,7 @@ COPY --chown=comfy:comfy deploy/docker/container-entrypoint.sh deploy/docker/con
 RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
     uv sync --frozen --no-dev --all-packages
 
-ARG CG_PROJECT_VERSION=0.1.0-rc.10
+ARG CG_PROJECT_VERSION=0.1.0-rc.11
 ARG CG_SOURCE_URL=https://github.com/blkot/ProjectComfyGallery
 ARG CG_REVISION=unknown
 

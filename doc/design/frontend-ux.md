@@ -97,7 +97,7 @@ Filters include:
 - Media type.
 - Processing/readiness state.
 - Evaluation state and Trash.
-- Favorite and spatial-view preference.
+- Favorite, spatial playback preference, and stored spatial-video availability.
 - Source root/path.
 - Collection/tag.
 - Architecture family.
@@ -143,10 +143,11 @@ at action time, whereas a saved filter remains a reusable query that can match f
 imports.
 
 Each gallery card provides an independent Favorite star that does not open or
-select the card. Spatial-preferred images carry a read-only Spatial badge in the
-web gallery; the web client does not claim successful XR generation. Favorite and
-spatial filters remain in the URL, so Media Detail Previous/Next traversal uses the
-same population and server-resolved scope actions preserve both conditions.
+select the card. The web gallery distinguishes **Spatial preferred** (user intent)
+from **Spatial ready** (a validated stored video variant). It does not claim that an
+image preference proves successful XR runtime generation. Favorite, preference, and
+availability filters remain in the URL, so Media Detail Previous/Next traversal uses
+the same population and server-resolved scope actions preserve all conditions.
 
 ## Media record
 
@@ -182,6 +183,12 @@ The selection is represented by `panel=evaluation` in the Media Detail URL. It i
 preserved across Previous/Next traversal and refresh, but removed when returning to
 the Library or requesting the server-side navigation population. The right pane
 remains independently scrollable in either mode.
+
+The heading also provides a canonical spatial-playback preference control for both
+images and videos. Video detail reports stored spatial availability and active
+variant facts separately. The browser preview deliberately remains on the ordinary
+`playback_url`; it never attempts to silently replace browser-compatible media with
+MV-HEVC.
 
 ### Preview
 

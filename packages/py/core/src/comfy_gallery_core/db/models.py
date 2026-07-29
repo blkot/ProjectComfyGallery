@@ -18,9 +18,10 @@ from sqlalchemy import (
     UniqueConstraint,
     false,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, synonym
 from uuid6 import uuid7
 
 from comfy_gallery_core.db.base import Base, TimestampMixin
@@ -144,11 +145,19 @@ class Media(TimestampMixin, Base):
         default=0,
         server_default="0",
     )
-    spatial_view_preferred: Mapped[bool] = mapped_column(
+    prefer_spatial_playback: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
         default=False,
         server_default=false(),
+    )
+    spatial_view_preferred: Mapped[bool] = synonym("prefer_spatial_playback")
+    spatial_available: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=false(),
+        index=True,
     )
     favorite: Mapped[bool] = mapped_column(
         Boolean,
@@ -165,6 +174,10 @@ class Media(TimestampMixin, Base):
         uselist=False,
     )
     derivatives: Mapped[list[Derivative]] = relationship(
+        back_populates="media",
+        cascade="all, delete-orphan",
+    )
+    variants: Mapped[list[MediaVariant]] = relationship(
         back_populates="media",
         cascade="all, delete-orphan",
     )
@@ -252,6 +265,87 @@ class Derivative(Base):
     )
 
     media: Mapped[Media] = relationship(back_populates="derivatives")
+
+
+class MediaVariant(TimestampMixin, Base):
+    """Externally produced, non-regenerable alternate media bytes."""
+
+    __tablename__ = "media_variant"
+    __table_args__ = (
+        Index("ix_media_variant_media_role_status", "media_id", "role", "status"),
+        Index(
+            "uq_media_variant_active_role",
+            "media_id",
+            "role",
+            unique=True,
+            postgresql_where=text("is_active"),
+            sqlite_where=text("is_active = 1"),
+        ),
+        CheckConstraint(
+            "(NOT is_active) OR status = 'ready'",
+            name="ck_media_variant_active_ready",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid7)
+    media_id: Mapped[UUID] = mapped_column(
+        ForeignKey("media.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    role: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="staging",
+        server_default="staging",
+        index=True,
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=false(),
+    )
+    idempotency_key_hash: Mapped[str | None] = mapped_column(
+        String(64),
+        unique=True,
+        index=True,
+    )
+    sha256: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)
+    byte_size: Mapped[int | None] = mapped_column(BigInteger)
+    original_filename: Mapped[str] = mapped_column(String(1024), nullable=False)
+    original_extension: Mapped[str | None] = mapped_column(String(32))
+    managed_path: Mapped[str | None] = mapped_column(String(1024), unique=True)
+    detected_format: Mapped[str | None] = mapped_column(String(32))
+    mime_type: Mapped[str | None] = mapped_column(String(128))
+    width: Mapped[int | None] = mapped_column(Integer)
+    height: Mapped[int | None] = mapped_column(Integer)
+    duration_seconds: Mapped[float | None] = mapped_column(Float)
+    frame_rate: Mapped[float | None] = mapped_column(Float)
+    container: Mapped[str | None] = mapped_column(String(64))
+    video_codec: Mapped[str | None] = mapped_column(String(64))
+    audio_codec: Mapped[str | None] = mapped_column(String(64))
+    probe_data: Mapped[dict[str, object]] = mapped_column(
+        json_type,
+        nullable=False,
+        default=dict,
+        server_default="{}",
+    )
+    validation_data: Mapped[dict[str, object]] = mapped_column(
+        json_type,
+        nullable=False,
+        default=dict,
+        server_default="{}",
+    )
+    converter_name: Mapped[str | None] = mapped_column(String(128))
+    converter_version: Mapped[str | None] = mapped_column(String(64))
+    source_asset_sha256: Mapped[str | None] = mapped_column(String(64))
+    ready_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error_code: Mapped[str | None] = mapped_column(String(80))
+    last_error_message: Mapped[str | None] = mapped_column(Text)
+
+    media: Mapped[Media] = relationship(back_populates="variants")
 
 
 class SourceRoot(TimestampMixin, Base):

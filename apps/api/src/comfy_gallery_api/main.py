@@ -25,11 +25,13 @@ from comfy_gallery_api.routes.jobs import router as jobs_router
 from comfy_gallery_api.routes.media import router as media_router
 from comfy_gallery_api.routes.registries import router as registries_router
 from comfy_gallery_api.routes.system import router as system_router
+from comfy_gallery_api.routes.variants import router as variants_router
 from comfy_gallery_api.routes.workflows import router as workflows_router
 from comfy_gallery_core.config import get_settings
 from comfy_gallery_core.db import get_database
 from comfy_gallery_core.logging import configure_logging
 from comfy_gallery_core.media.files import ensure_storage_layout
+from comfy_gallery_core.media.variants import reconcile_spatial_availability
 from comfy_gallery_core.operations.recovery import reconcile_interrupted_jobs
 
 settings = get_settings()
@@ -45,6 +47,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     ensure_storage_layout(settings)
     async with get_database().session() as session:
         recovery = await reconcile_interrupted_jobs(session, settings=settings)
+        reconciled_media = await reconcile_spatial_availability(session)
     if recovery.examined:
         logger.info(
             "startup_job_recovery",
@@ -52,6 +55,8 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
             requeued=recovery.requeued,
             failed=recovery.failed,
         )
+    if reconciled_media:
+        logger.info("startup_spatial_availability_reconciled", media_count=reconciled_media)
     logger.info("api_starting", version=__version__, environment=settings.environment)
     yield
     await get_database().dispose()
@@ -99,6 +104,7 @@ app.include_router(system_router)
 app.include_router(imports_router)
 app.include_router(jobs_router)
 app.include_router(media_router)
+app.include_router(variants_router)
 app.include_router(workflows_router)
 app.include_router(registries_router)
 app.include_router(evaluations_router)

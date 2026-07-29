@@ -1275,6 +1275,10 @@ textarea {
   color: #c5b9ff;
 }
 
+.spatial-badge[data-available="true"] {
+  color: #bfe8b0;
+}
+
 .library-scope-panel {
   margin: -9px 0 24px;
   padding: 14px 16px;
@@ -2300,6 +2304,43 @@ textarea {
 .status-chip[data-status="spatial"] {
   color: #c5b9ff;
   border-color: rgba(197, 185, 255, 0.26);
+}
+
+.status-chip[data-status="spatial-ready"] {
+  color: #bfe8b0;
+  border-color: rgba(155, 227, 117, 0.3);
+}
+
+.spatial-preference-button {
+  min-height: 27px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.spatial-preference-button[aria-pressed="true"] {
+  color: #c5b9ff;
+  border-color: rgba(197, 185, 255, 0.36);
+  background: rgba(197, 185, 255, 0.06);
+}
+
+.spatial-preference-button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.spatial-preference-button[data-error="true"] {
+  border-color: rgba(255, 130, 120, 0.4);
+  color: var(--danger);
 }
 
 .media-record-panel {

@@ -10,10 +10,12 @@ from fastapi import APIRouter
 from sqlalchemy import func, select
 
 from comfy_gallery_api import __version__
-from comfy_gallery_api.dependencies import DbSessionDep, PrincipalDep, SettingsDep
+from comfy_gallery_api.dependencies import CsrfPrincipalDep, DbSessionDep, PrincipalDep, SettingsDep
+from comfy_gallery_api.media_schemas import SpatialAvailabilityReconcileResponse
 from comfy_gallery_api.operations_schemas import OperationalStatusResponse, StatusCheck
 from comfy_gallery_api.services import check_database, check_redis
 from comfy_gallery_core.db.models import ExportRun, Job, RegistrySyncRun, ScanBatch
+from comfy_gallery_core.media.variants import reconcile_spatial_availability
 from comfy_gallery_core.operations.heartbeat import (
     WORKER_HEARTBEAT_FILENAME,
     load_worker_heartbeat,
@@ -250,3 +252,15 @@ async def system_status(
         checks=checks,
         warnings=warnings,
     )
+
+
+@router.post(
+    "/reconcile-spatial-availability",
+    response_model=SpatialAvailabilityReconcileResponse,
+)
+async def reconcile_spatial_availability_projection(
+    _principal: CsrfPrincipalDep,
+    session: DbSessionDep,
+) -> SpatialAvailabilityReconcileResponse:
+    updated = await reconcile_spatial_availability(session)
+    return SpatialAvailabilityReconcileResponse(updated_media_count=updated)

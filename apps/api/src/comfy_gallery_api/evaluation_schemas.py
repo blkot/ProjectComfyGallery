@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 from typing import Literal
 from uuid import UUID
@@ -102,7 +104,9 @@ class MediaFilterRequest(BaseModel):
     workflow_status: str | None = None
     evaluation_state: Literal["not_started", "in_progress", "complete"] | None = None
     trash: bool | None = None
+    prefer_spatial_playback: bool | None = None
     spatial_view_preferred: bool | None = None
+    spatial_available: bool | None = None
     favorite: bool | None = None
     source_root_id: UUID | None = None
     # Singular fields keep saved filters created before multi-reference support valid.
@@ -114,6 +118,21 @@ class MediaFilterRequest(BaseModel):
     lora_reference_match: Literal["any", "all"] = "any"
     collection_id: UUID | None = None
     tag_id: UUID | None = None
+
+    @model_validator(mode="after")
+    def reject_conflicting_spatial_preference_aliases(self) -> MediaFilterRequest:
+        if (
+            self.prefer_spatial_playback is not None
+            and self.spatial_view_preferred is not None
+            and self.prefer_spatial_playback != self.spatial_view_preferred
+        ):
+            raise ValueError("prefer_spatial_playback and spatial_view_preferred cannot differ")
+        return self
+
+    def spatial_preference_filter(self) -> bool | None:
+        if self.prefer_spatial_playback is not None:
+            return self.prefer_spatial_playback
+        return self.spatial_view_preferred
 
     def checkpoint_ids(self) -> list[UUID]:
         values = [self.checkpoint_reference_id] if self.checkpoint_reference_id is not None else []
@@ -242,7 +261,7 @@ class MediaMembershipRequest(BaseModel):
     filter: MediaFilterRequest | None = None
 
     @model_validator(mode="after")
-    def require_one_scope(self) -> "MediaMembershipRequest":
+    def require_one_scope(self) -> MediaMembershipRequest:
         if bool(self.media_ids) == (self.filter is not None):
             raise ValueError("Provide either media_ids or filter.")
         return self

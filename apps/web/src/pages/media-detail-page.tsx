@@ -9,6 +9,7 @@ import {
 
 import { MediaFavoriteButton } from "../components/media-favorite-button";
 import { MediaEvaluationPanel } from "../components/media-evaluation-panel";
+import { MediaSpatialPreferenceButton } from "../components/media-spatial-preference-button";
 import { WorkflowInspector } from "../components/workflow-inspector";
 import {
   apiRequest,
@@ -241,15 +242,24 @@ export function MediaDetailPage() {
               favorite={item.favorite}
               className="media-record-favorite"
             />
+            <MediaSpatialPreferenceButton
+              mediaId={item.id}
+              preferred={item.prefer_spatial_playback}
+            />
             <span className="status-chip" data-status={item.status}>
               {titleCase(item.status)}
             </span>
             <span className="status-chip" data-status={item.workflow_status}>
               Workflow {titleCase(item.workflow_status)}
             </span>
-            {item.spatial_view_preferred ? (
-              <span className="status-chip" data-status="spatial">
-                Spatial view preferred
+            {item.kind === "video" ? (
+              <span
+                className="status-chip"
+                data-status={item.spatial_available ? "spatial-ready" : "neutral"}
+              >
+                {item.spatial_available
+                  ? "Spatial variant ready"
+                  : "No spatial video variant"}
               </span>
             ) : null}
           </div>
@@ -282,7 +292,8 @@ export function MediaDetailPage() {
                   <small>Source paths and generated previews</small>
                 </span>
                 <span>
-                  {item.sources.length} paths · {item.derivatives.length} assets
+                  {item.sources.length} paths ·{" "}
+                  {item.derivatives.length + item.variants.length} assets
                 </span>
               </summary>
               <div className="record-inspector-disclosure-body">
@@ -326,6 +337,46 @@ export function MediaDetailPage() {
                     ))}
                   </div>
                 </section>
+                {item.kind === "video" ? (
+                  <section>
+                    <h3>Spatial video</h3>
+                    <div className="history-list">
+                      {item.variants.map((variant) => (
+                        <div className="history-row" key={variant.id}>
+                          <span>
+                            <strong>Active spatial variant</strong>
+                            <small>
+                              {titleCase(variant.video_codec ?? "HEVC")} ·{" "}
+                              {variant.width && variant.height
+                                ? `${variant.width} × ${variant.height}`
+                                : "Unknown dimensions"}
+                            </small>
+                            <small>
+                              {variant.converter_name ?? "External converter"}
+                              {variant.converter_version
+                                ? ` ${variant.converter_version}`
+                                : ""}
+                            </small>
+                          </span>
+                          <span className="history-counts">
+                            {formatBytes(variant.byte_size)}
+                          </span>
+                        </div>
+                      ))}
+                      {item.variants.length === 0 ? (
+                        <p className="muted">
+                          No active spatial-video variant. Web playback continues
+                          to use the ordinary original or browser proxy.
+                        </p>
+                      ) : (
+                        <p className="muted">
+                          Stored for spatial clients. This web preview deliberately
+                          keeps using the ordinary playback path.
+                        </p>
+                      )}
+                    </div>
+                  </section>
+                ) : null}
               </div>
             </details>
 
