@@ -108,6 +108,17 @@ Previous/Next, a compact numbered window centered on the current page, first/las
 page access with ellipses for long ranges, and a direct one-based page jump. Every
 page change remains URL-backed and scrolls the gallery boundary into view.
 
+The Library header also opens a focused **Start slideshow** dialog. The user chooses
+the current filtered result or one collection, an image duration, and optional
+shuffle. Start requests browser fullscreen within the initiating click and opens a
+presentation-only route without the application navigation shell. Images advance on
+the chosen timer; videos autoplay muted and advance when playback ends, with a
+duration-based fallback if playback stalls. The playlist loops until Exit, while
+Pause and Exit controls fade after pointer inactivity and reappear on interaction.
+The browser receives at most 2,000 lightweight playlist records and loads media bytes
+only for the active and next item. Starting or leaving a slideshow does not create a
+Review Session or mutate evaluation/library state.
+
 Filters include:
 
 - Media type.

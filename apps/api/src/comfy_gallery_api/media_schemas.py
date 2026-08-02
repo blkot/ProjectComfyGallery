@@ -220,6 +220,27 @@ class MediaPageResponse(BaseModel):
     offset: int
 
 
+class SlideshowItemResponse(BaseModel):
+    id: UUID
+    kind: str
+    status: str
+    original_filename: str
+    width: int | None
+    height: int | None
+    duration_seconds: float | None
+    preview_url: str
+    playback_url: str
+
+
+class SlideshowPlaylistResponse(BaseModel):
+    items: list[SlideshowItemResponse]
+    total: int
+    limit: int
+    truncated: bool
+    shuffle: bool
+    random_seed: int | None
+
+
 class MediaNavigationResponse(BaseModel):
     media_id: UUID
     position: int

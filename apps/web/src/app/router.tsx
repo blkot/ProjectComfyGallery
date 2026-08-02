@@ -50,6 +50,11 @@ const MediaDetailPage = lazy(() =>
     default: module.MediaDetailPage,
   })),
 );
+const SlideshowPage = lazy(() =>
+  import("../pages/slideshow-page").then((module) => ({
+    default: module.SlideshowPage,
+  })),
+);
 const ReviewHomePage = lazy(() =>
   import("../pages/review-home-page").then((module) => ({
     default: module.ReviewHomePage,
@@ -113,6 +118,24 @@ function PublicLayout() {
   );
 }
 
+function ProtectedPresentationLayout() {
+  const session = useSession();
+
+  if (session.isPending) {
+    return <RoutePending />;
+  }
+
+  if (!session.data) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return (
+    <Suspense fallback={<RoutePending />}>
+      <Outlet />
+    </Suspense>
+  );
+}
+
 export const router = createBrowserRouter([
   {
     element: <PublicLayout />,
@@ -137,6 +160,10 @@ export const router = createBrowserRouter([
       { path: "/registries/models", element: <ModelRegistryPage /> },
       { path: "/settings/tokens", element: <TokensPage /> },
     ],
+  },
+  {
+    element: <ProtectedPresentationLayout />,
+    children: [{ path: "/slideshow", element: <SlideshowPage /> }],
   },
   { path: "*", element: <NotFoundPage /> },
 ]);

@@ -85,6 +85,27 @@ export type MediaPage = {
   offset: number;
 };
 
+export type SlideshowItem = {
+  id: string;
+  kind: "image" | "video";
+  status: string;
+  original_filename: string;
+  width: number | null;
+  height: number | null;
+  duration_seconds: number | null;
+  preview_url: string;
+  playback_url: string;
+};
+
+export type SlideshowPlaylist = {
+  items: SlideshowItem[];
+  total: number;
+  limit: number;
+  truncated: boolean;
+  shuffle: boolean;
+  random_seed: number | null;
+};
+
 export type MediaNavigation = {
   media_id: string;
   position: number;

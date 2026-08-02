@@ -131,6 +131,49 @@ describe("LibraryPage controls sidebar", () => {
       ).toBe(true),
     );
   });
+
+  it("offers filtered or collection slideshow sources", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path.startsWith("/api/v1/media?")) {
+        return Promise.resolve({ items: [], total: 3, limit: 48, offset: 0 });
+      }
+      if (path === "/api/v1/collections") {
+        return Promise.resolve([
+          {
+            id: "collection-1",
+            name: "Favorites reel",
+            description: null,
+            item_count: 2,
+            created_at: "2026-08-02T00:00:00Z",
+            updated_at: "2026-08-02T00:00:00Z",
+          },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+    renderLibrary("/library?kind=image");
+
+    const startButton = await screen.findByRole("button", {
+      name: "Start slideshow",
+    });
+    await waitFor(() => expect(startButton).not.toBeDisabled());
+    fireEvent.click(startButton);
+    const dialog = screen.getByRole("dialog", { name: "Start slideshow" });
+    expect(
+      within(dialog).getByLabelText("Current filtered media (3)"),
+    ).toBeChecked();
+    expect(
+      within(dialog).getByRole("radio", { name: "Collection" }),
+    ).not.toBeDisabled();
+    expect(
+      within(dialog).getByRole("option", { name: "Favorites reel (2)" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("checkbox", {
+        name: "Shuffle this slideshow",
+      }),
+    ).not.toBeChecked();
+  });
 });
 
 function renderLibrary(initialEntry = "/library") {

@@ -20,6 +20,7 @@ from comfy_gallery_api.routes.media import (
     ReferenceMatch,
     get_media,
     get_media_navigation,
+    get_slideshow_playlist,
     list_media,
     update_media_favorite,
     update_media_playback_preference,
@@ -27,14 +28,17 @@ from comfy_gallery_api.routes.media import (
 )
 from comfy_gallery_core.db.base import Base
 from comfy_gallery_core.db.models import (
+    CollectionItem,
     Media,
     MediaAsset,
+    MediaCollection,
     ModelReference,
     ModelReferenceGroup,
     ModelUsage,
     ScanBatch,
     SourceOccurrence,
     SourceRoot,
+    User,
     WorkflowSnapshot,
 )
 
@@ -464,6 +468,108 @@ async def test_media_preferences_are_exposed_filterable_and_idempotent() -> None
         )
     assert unauthenticated.status_code == 401
     assert unauthenticated.json()["error"]["code"] == "AUTH_REQUIRED"
+
+
+async def test_slideshow_playlist_resolves_collections_and_seeded_shuffle() -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
+    async with session_factory() as session:
+        user = User(
+            username="slideshow-owner",
+            username_normalized="slideshow-owner",
+            password_hash="test",
+        )
+        session.add(user)
+        await session.flush()
+        collection = MediaCollection(
+            name="Hands off",
+            description=None,
+            created_by_user_id=user.id,
+        )
+        session.add(collection)
+        await session.flush()
+        images = [
+            await _media_without_source(
+                session,
+                kind="image",
+                filename=f"slide-{index}.png",
+                sha256=str(index) * 64,
+            )
+            for index in range(1, 4)
+        ]
+        outside = await _media_without_source(
+            session,
+            kind="video",
+            filename="outside.mp4",
+            sha256="f" * 64,
+        )
+        session.add_all(
+            [CollectionItem(collection_id=collection.id, media_id=media.id) for media in images]
+        )
+        await session.commit()
+
+        first = await _slideshow_playlist(
+            session,
+            collection_id=collection.id,
+            shuffle=True,
+            random_seed=42,
+            limit=2,
+        )
+        repeated = await _slideshow_playlist(
+            session,
+            collection_id=collection.id,
+            shuffle=True,
+            random_seed=42,
+            limit=2,
+        )
+        assert first.total == 3
+        assert first.truncated is True
+        assert first.random_seed == 42
+        assert [item.id for item in first.items] == [item.id for item in repeated.items]
+        assert len(first.items) == 2
+        assert all(item.id != outside.id for item in first.items)
+        assert all(item.playback_url.endswith("/playback") for item in first.items)
+
+        videos = await _slideshow_playlist(session, kind="video")
+        assert videos.total == 1
+        assert [item.id for item in videos.items] == [outside.id]
+        assert videos.random_seed is None
+
+    await engine.dispose()
+
+
+async def _slideshow_playlist(
+    session: AsyncSession,
+    **overrides: object,
+):
+    parameters: dict[str, object] = {
+        "_principal": None,
+        "session": session,
+        "kind": None,
+        "media_status": None,
+        "workflow_status": None,
+        "evaluation_state": None,
+        "trash": None,
+        "prefer_spatial_playback": None,
+        "spatial_view_preferred": None,
+        "spatial_available": None,
+        "favorite": None,
+        "source_root_id": None,
+        "collection_id": None,
+        "checkpoint_reference_id": None,
+        "checkpoint_reference_match": "any",
+        "lora_reference_id": None,
+        "lora_reference_match": "any",
+        "sort": "file_created_desc",
+        "shuffle": False,
+        "random_seed": None,
+        "limit": 2000,
+    }
+    parameters.update(overrides)
+    return await get_slideshow_playlist(**parameters)  # type: ignore[arg-type]
 
 
 async def _media_with_source(

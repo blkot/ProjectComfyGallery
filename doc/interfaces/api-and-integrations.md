@@ -71,6 +71,7 @@ retain revoked records for audit; a revoked token can no longer authenticate.
 
 ```text
 GET    /api/v1/media
+GET    /api/v1/media/slideshow
 POST   /api/v1/media/imports
 GET    /api/v1/media/:id
 GET    /api/v1/media/:id/navigation
@@ -145,6 +146,16 @@ returns `MEDIA_NOT_IN_VIEW`.
 
 Supplying canonical and legacy preference filters with different values returns
 `SPATIAL_PREFERENCE_FILTER_CONFLICT`.
+
+`GET /api/v1/media/slideshow` is a read-only playlist resolver. It accepts the media
+list filters and deterministic sort, or a `collection_id`, plus `shuffle`, an
+optional nonnegative `random_seed`, and a limit from 1 to 2,000. It returns only the
+media identity, kind, readiness, filename, dimensions/duration, and authenticated
+preview/playback URLs needed by the presentation route. Normal mode follows the
+Library sort. Shuffle is deterministic for the returned seed and operates over the
+bounded, sorted candidate window. The response reports the full matching total and
+whether that window was truncated. Resolving a slideshow never creates a Review
+Session or changes user/media state.
 
 The same preference filters are part of the validated reusable media-filter
 expression used by saved filters, server-resolved selection, collections, tags,

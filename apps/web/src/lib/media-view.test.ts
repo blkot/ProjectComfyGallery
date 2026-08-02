@@ -9,6 +9,8 @@ import {
   mediaNavigationQuery,
   pageOffsetForNumber,
   paginationItems,
+  slideshowHref,
+  slideshowPlaylistQuery,
 } from "./media-view";
 
 describe("media view context", () => {
@@ -136,5 +138,55 @@ describe("media view context", () => {
       lora_reference_ids: ["lora-a", "lora-b"],
       lora_reference_match: "all",
     });
+  });
+
+  it("builds a filtered shuffled slideshow without page boundaries", () => {
+    const href = slideshowHref(
+      new URLSearchParams(
+        "kind=video&favorite=true&offset=96&return_media=selected&sort=size_desc",
+      ),
+      {
+        source: "filter",
+        collectionId: "",
+        shuffle: true,
+        intervalSeconds: 12,
+      },
+    );
+    const parsed = new URL(href, "http://example.test");
+    const playlist = slideshowPlaylistQuery(parsed.searchParams);
+
+    expect(parsed.pathname).toBe("/slideshow");
+    expect(parsed.searchParams.get("return_to")).toContain("/library?");
+    expect(parsed.searchParams.get("interval")).toBe("12");
+    expect(Number(parsed.searchParams.get("random_seed"))).toBeGreaterThanOrEqual(
+      0,
+    );
+    expect(playlist.get("kind")).toBe("video");
+    expect(playlist.get("favorite")).toBe("true");
+    expect(playlist.get("sort")).toBe("size_desc");
+    expect(playlist.get("shuffle")).toBe("true");
+    expect(playlist.get("limit")).toBe("2000");
+    expect(playlist.has("offset")).toBe(false);
+    expect(playlist.has("return_to")).toBe(false);
+  });
+
+  it("isolates collection slideshows from the current Library filters", () => {
+    const href = slideshowHref(
+      new URLSearchParams("kind=image&favorite=true"),
+      {
+        source: "collection",
+        collectionId: "collection-1",
+        shuffle: false,
+        intervalSeconds: 8,
+      },
+    );
+    const parsed = new URL(href, "http://example.test");
+    const playlist = slideshowPlaylistQuery(parsed.searchParams);
+
+    expect(playlist.get("collection_id")).toBe("collection-1");
+    expect(playlist.get("shuffle")).toBe("false");
+    expect(playlist.has("kind")).toBe(false);
+    expect(playlist.has("favorite")).toBe(false);
+    expect(playlist.has("random_seed")).toBe(false);
   });
 });

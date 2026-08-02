@@ -4,6 +4,14 @@ export const mediaReturnParam = "return_media";
 
 export type ReferenceMatch = "any" | "all";
 export type PaginationItem = number | "start-ellipsis" | "end-ellipsis";
+export type SlideshowSource = "filter" | "collection";
+
+export type SlideshowOptions = {
+  source: SlideshowSource;
+  collectionId: string;
+  shuffle: boolean;
+  intervalSeconds: number;
+};
 
 export type LibraryFilterExpression = {
   kind: string | null;
@@ -69,6 +77,50 @@ export function mediaNavigationQuery(search: URLSearchParams): URLSearchParams {
   result.delete("limit");
   result.delete("offset");
   result.delete("panel");
+  return result;
+}
+
+export function slideshowHref(
+  librarySearch: URLSearchParams,
+  options: SlideshowOptions,
+): string {
+  const result =
+    options.source === "filter"
+      ? mediaNavigationQuery(librarySearch)
+      : new URLSearchParams();
+  result.set("source", options.source);
+  if (options.source === "collection") {
+    result.set("collection_id", options.collectionId);
+  }
+  result.set("shuffle", String(options.shuffle));
+  if (options.shuffle) {
+    result.set("random_seed", String(randomSeed()));
+  }
+  result.set("interval", String(options.intervalSeconds));
+  const returnSearch = new URLSearchParams(librarySearch);
+  result.set(
+    "return_to",
+    returnSearch.size ? `/library?${returnSearch.toString()}` : "/library",
+  );
+  return `/slideshow?${result.toString()}`;
+}
+
+export function slideshowPlaylistQuery(
+  slideshowSearch: URLSearchParams,
+): URLSearchParams {
+  const result = new URLSearchParams();
+  const source = slideshowSearch.get("source");
+  if (source === "collection") {
+    copySingle(slideshowSearch, result, "collection_id");
+  } else {
+    for (const name of slideshowFilterParameters) {
+      copyAll(slideshowSearch, result, name);
+    }
+  }
+  copySingle(slideshowSearch, result, "sort");
+  copySingle(slideshowSearch, result, "shuffle");
+  copySingle(slideshowSearch, result, "random_seed");
+  result.set("limit", "2000");
   return result;
 }
 
@@ -154,4 +206,45 @@ function booleanFilter(search: URLSearchParams, name: string): boolean | null {
 
 function uniqueValues(values: string[]): string[] {
   return [...new Set(values.filter(Boolean))];
+}
+
+const slideshowFilterParameters = [
+  "kind",
+  "status",
+  "workflow_status",
+  "evaluation_state",
+  "trash",
+  "prefer_spatial_playback",
+  "spatial_available",
+  "favorite",
+  "source_root_id",
+  "checkpoint_reference_id",
+  "checkpoint_reference_match",
+  "lora_reference_id",
+  "lora_reference_match",
+] as const;
+
+function copySingle(
+  source: URLSearchParams,
+  destination: URLSearchParams,
+  name: string,
+) {
+  const value = source.get(name);
+  if (value) destination.set(name, value);
+}
+
+function copyAll(
+  source: URLSearchParams,
+  destination: URLSearchParams,
+  name: string,
+) {
+  for (const value of source.getAll(name)) {
+    if (value) destination.append(name, value);
+  }
+}
+
+function randomSeed(): number {
+  const values = new Uint32Array(1);
+  globalThis.crypto.getRandomValues(values);
+  return values[0] & 0x7fffffff;
 }

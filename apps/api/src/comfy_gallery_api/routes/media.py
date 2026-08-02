@@ -1,3 +1,5 @@
+import random
+import secrets
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any, Literal
@@ -24,12 +26,16 @@ from comfy_gallery_api.media_schemas import (
     MediaSpatialPreferenceResponse,
     MediaSpatialPreferenceUpdateRequest,
     MediaVariantResponse,
+    SlideshowItemResponse,
+    SlideshowPlaylistResponse,
     SourceOccurrenceResponse,
 )
 from comfy_gallery_core.db.models import (
+    CollectionItem,
     Evaluation,
     Media,
     MediaAsset,
+    MediaCollection,
     MediaVariant,
     ModelUsage,
     SourceOccurrence,
@@ -89,6 +95,7 @@ async def list_media(
         spatial_available=spatial_available,
         favorite=favorite,
         source_root_id=source_root_id,
+        collection_id=None,
         checkpoint_reference_ids=checkpoint_reference_id or [],
         checkpoint_reference_match=checkpoint_reference_match,
         lora_reference_ids=lora_reference_id or [],
@@ -142,6 +149,87 @@ async def list_media(
     )
 
 
+@router.get("/slideshow", response_model=SlideshowPlaylistResponse)
+async def get_slideshow_playlist(
+    _principal: PrincipalDep,
+    session: DbSessionDep,
+    kind: str | None = None,
+    media_status: str | None = Query(default=None, alias="status"),
+    workflow_status: str | None = None,
+    evaluation_state: str | None = None,
+    trash: bool | None = None,
+    prefer_spatial_playback: bool | None = None,
+    spatial_view_preferred: bool | None = None,
+    spatial_available: bool | None = None,
+    favorite: bool | None = None,
+    source_root_id: UUID | None = None,
+    collection_id: UUID | None = None,
+    checkpoint_reference_id: Annotated[list[UUID] | None, Query()] = None,
+    checkpoint_reference_match: ReferenceMatch = "any",
+    lora_reference_id: Annotated[list[UUID] | None, Query()] = None,
+    lora_reference_match: ReferenceMatch = "any",
+    sort: MediaSort = "file_created_desc",
+    shuffle: bool = False,
+    random_seed: int | None = Query(default=None, ge=0, le=2_147_483_647),
+    limit: int = Query(default=2000, ge=1, le=2000),
+) -> SlideshowPlaylistResponse:
+    if collection_id is not None and await session.get(MediaCollection, collection_id) is None:
+        raise ApiError(
+            status_code=404,
+            code="COLLECTION_NOT_FOUND",
+            message="The collection was not found.",
+        )
+    preference_filter = _resolve_preference_filter(
+        canonical=prefer_spatial_playback,
+        legacy=spatial_view_preferred,
+    )
+    id_query = _media_id_query(
+        kind=kind,
+        media_status=media_status,
+        workflow_status=workflow_status,
+        evaluation_state=evaluation_state,
+        trash=trash,
+        prefer_spatial_playback=preference_filter,
+        spatial_available=spatial_available,
+        favorite=favorite,
+        source_root_id=source_root_id,
+        collection_id=collection_id,
+        checkpoint_reference_ids=checkpoint_reference_id or [],
+        checkpoint_reference_match=checkpoint_reference_match,
+        lora_reference_ids=lora_reference_id or [],
+        lora_reference_match=lora_reference_match,
+    )
+    total = int(await session.scalar(select(func.count()).select_from(id_query.subquery())) or 0)
+    media_ids = list(await session.scalars(id_query.order_by(*_media_order(sort)).limit(limit)))
+    resolved_seed: int | None = None
+    if shuffle:
+        resolved_seed = random_seed if random_seed is not None else secrets.randbelow(2_147_483_648)
+        random.Random(resolved_seed).shuffle(media_ids)
+    if not media_ids:
+        return SlideshowPlaylistResponse(
+            items=[],
+            total=total,
+            limit=limit,
+            truncated=total > limit,
+            shuffle=shuffle,
+            random_seed=resolved_seed,
+        )
+    records = list(
+        await session.scalars(
+            select(Media).options(selectinload(Media.asset)).where(Media.id.in_(media_ids))
+        )
+    )
+    records_by_id = {record.id: record for record in records}
+    return SlideshowPlaylistResponse(
+        items=[_slideshow_item(records_by_id[media_id]) for media_id in media_ids],
+        total=total,
+        limit=limit,
+        truncated=total > len(media_ids),
+        shuffle=shuffle,
+        random_seed=resolved_seed,
+    )
+
+
 @router.get("/{media_id}/navigation", response_model=MediaNavigationResponse)
 async def get_media_navigation(
     media_id: UUID,
@@ -177,6 +265,7 @@ async def get_media_navigation(
         spatial_available=spatial_available,
         favorite=favorite,
         source_root_id=source_root_id,
+        collection_id=None,
         checkpoint_reference_ids=checkpoint_reference_id or [],
         checkpoint_reference_match=checkpoint_reference_match,
         lora_reference_ids=lora_reference_id or [],
@@ -537,6 +626,20 @@ def _list_item(
     )
 
 
+def _slideshow_item(media: Media) -> SlideshowItemResponse:
+    return SlideshowItemResponse(
+        id=media.id,
+        kind=media.kind,
+        status=media.status,
+        original_filename=media.asset.original_filename,
+        width=media.width,
+        height=media.height,
+        duration_seconds=media.duration_seconds,
+        preview_url=f"/api/v1/media/{media.id}/preview",
+        playback_url=f"/api/v1/media/{media.id}/playback",
+    )
+
+
 def _media_id_query(
     *,
     kind: str | None,
@@ -548,6 +651,7 @@ def _media_id_query(
     spatial_available: bool | None,
     favorite: bool | None,
     source_root_id: UUID | None,
+    collection_id: UUID | None,
     checkpoint_reference_ids: list[UUID],
     checkpoint_reference_match: ReferenceMatch,
     lora_reference_ids: list[UUID],
@@ -616,6 +720,15 @@ def _media_id_query(
                 SourceOccurrence.media_id == Media.id,
                 SourceOccurrence.source_root_id == source_root_id,
                 SourceOccurrence.superseded_at.is_(None),
+            )
+            .exists()
+        )
+    if collection_id is not None:
+        filters.append(
+            select(CollectionItem.media_id)
+            .where(
+                CollectionItem.media_id == Media.id,
+                CollectionItem.collection_id == collection_id,
             )
             .exists()
         )

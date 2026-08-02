@@ -175,6 +175,12 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
   permits a failed import to be retried with a new idempotency key. Images MUST NOT
   expose this workflow. Replacing a ready variant MUST explain that activation is
   atomic and MUST NOT change Favorite or spatial playback preference.
+- **LIB-018:** Media Library MUST provide a hands-off looping slideshow over either
+  the current filtered result or one static collection. It MUST support optional
+  seeded shuffle, timed image advancement, muted video autoplay with advancement on
+  completion, and recoverable controls that fade while idle. Playlist resolution
+  MUST be read-only, bounded to 2,000 lightweight entries, and MUST NOT create or
+  mutate review sessions, evaluations, selections, collections, or media records.
 
 ## Manual evaluation
 

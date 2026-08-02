@@ -28,8 +28,10 @@ import {
   pageOffsetForNumber,
   paginationItems,
   parseOffset,
+  slideshowHref,
   type LibraryFilterExpression,
   type ReferenceMatch,
+  type SlideshowSource,
 } from "../lib/media-view";
 
 type FilteredSelection = {
@@ -58,6 +60,12 @@ export function LibraryPage() {
   const [tagName, setTagName] = useState("");
   const [tagId, setTagId] = useState("");
   const [savedFilterName, setSavedFilterName] = useState("");
+  const [slideshowOpen, setSlideshowOpen] = useState(false);
+  const [slideshowSource, setSlideshowSource] =
+    useState<SlideshowSource>("filter");
+  const [slideshowCollectionId, setSlideshowCollectionId] = useState("");
+  const [slideshowShuffle, setSlideshowShuffle] = useState(false);
+  const [slideshowInterval, setSlideshowInterval] = useState(8);
   const [controlsCollapsed, setControlsCollapsed] = useState(
     readLibraryControlsCollapsed,
   );
@@ -311,6 +319,21 @@ export function LibraryPage() {
       : { media_ids: [...selected] };
   }
 
+  async function startSlideshow() {
+    const href = slideshowHref(searchParams, {
+      source: slideshowSource,
+      collectionId: slideshowCollectionId,
+      shuffle: slideshowShuffle,
+      intervalSeconds: slideshowInterval,
+    });
+    try {
+      await document.documentElement.requestFullscreen?.();
+    } catch {
+      // Presentation mode still fills the browser viewport when fullscreen is denied.
+    }
+    navigate(href);
+  }
+
   const currentPageIds = media.data?.items.map((item) => item.id) ?? [];
   const currentPageSelected =
     currentPageIds.length > 0 && currentPageIds.every((id) => selected.has(id));
@@ -326,10 +349,139 @@ export function LibraryPage() {
             filenames remain source history, not duplicate media records.
           </p>
         </div>
-        <Link className="primary-button link-button" to="/imports">
-          Import media
-        </Link>
+        <div className="page-header-actions">
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={
+              !media.data?.total &&
+              !collections.data?.some((collection) => collection.item_count > 0)
+            }
+            onClick={() => {
+              setSlideshowCollectionId(
+                (current) => current || collections.data?.[0]?.id || "",
+              );
+              setSlideshowOpen(true);
+            }}
+          >
+            Start slideshow
+          </button>
+          <Link className="primary-button link-button" to="/imports">
+            Import media
+          </Link>
+        </div>
       </header>
+
+      {slideshowOpen ? (
+        <div className="slideshow-setup-backdrop">
+          <section
+            className="panel slideshow-setup"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="slideshow-setup-title"
+          >
+            <div>
+              <p className="kicker">Hands-off playback</p>
+              <h2 id="slideshow-setup-title">Start slideshow</h2>
+              <p className="muted">
+                Images advance automatically. Videos play muted and continue
+                when they finish.
+              </p>
+            </div>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void startSlideshow();
+              }}
+            >
+              <fieldset className="slideshow-source-options">
+                <legend>Media source</legend>
+                <label>
+                  <input
+                    type="radio"
+                    name="slideshow-source"
+                    value="filter"
+                    checked={slideshowSource === "filter"}
+                    onChange={() => setSlideshowSource("filter")}
+                  />
+                  Current filtered media ({media.data?.total ?? 0})
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name="slideshow-source"
+                    value="collection"
+                    checked={slideshowSource === "collection"}
+                    disabled={!collections.data?.length}
+                    onChange={() => setSlideshowSource("collection")}
+                  />
+                  Collection
+                </label>
+              </fieldset>
+              <label>
+                Collection
+                <select
+                  value={slideshowCollectionId}
+                  disabled={slideshowSource !== "collection"}
+                  onChange={(event) =>
+                    setSlideshowCollectionId(event.target.value)
+                  }
+                >
+                  <option value="">Choose a collection</option>
+                  {collections.data?.map((collection) => (
+                    <option value={collection.id} key={collection.id}>
+                      {collection.name} ({collection.item_count})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Image duration
+                <select
+                  value={slideshowInterval}
+                  onChange={(event) =>
+                    setSlideshowInterval(Number(event.target.value))
+                  }
+                >
+                  <option value={5}>5 seconds</option>
+                  <option value={8}>8 seconds</option>
+                  <option value={12}>12 seconds</option>
+                  <option value={20}>20 seconds</option>
+                </select>
+              </label>
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={slideshowShuffle}
+                  onChange={(event) =>
+                    setSlideshowShuffle(event.target.checked)
+                  }
+                />
+                Shuffle this slideshow
+              </label>
+              <div className="slideshow-setup-actions">
+                <button
+                  className="text-button"
+                  type="button"
+                  onClick={() => setSlideshowOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="primary-button"
+                  type="submit"
+                  disabled={
+                    slideshowSource === "collection" &&
+                    !slideshowCollectionId
+                  }
+                >
+                  Start
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
 
       <div
         className="library-workspace"
