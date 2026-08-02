@@ -127,13 +127,17 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
 - **LIB-002:** The library MUST support static collections without copying media.
 - **LIB-003:** The library MUST support reusable dynamic saved filters.
 - **LIB-004:** The library MUST support manual tags.
-- **LIB-005:** Large galleries MUST use pagination or virtualization rather than rendering every item.
+- **LIB-005:** Large galleries MUST use pagination or virtualization rather than
+  rendering every item. Paginated gallery navigation MUST be available above and
+  below the grid, expose clickable nearby page numbers with first/last-page access,
+  and support a direct one-based page jump.
 - **LIB-006:** Import, processing, parsing, and registry errors MUST be visible and filterable.
 - **LIB-007:** The library MUST support deterministic sorting by file time, import
   time, filename, and byte size, with newest file time as the default.
 - **LIB-008:** Media Detail MUST provide Previous and Next traversal over the exact
   filtered and sorted library context from which it was opened, including across
-  pagination boundaries.
+  pagination boundaries. Returning from Media Detail MUST restore the current
+  media's gallery page and visible card position.
 - **LIB-009:** The library and reusable filter scopes MUST support checkpoint and
   LoRA-reference identity filters, including historical workflow-only references and
   confirmed aliases.
@@ -159,6 +163,18 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
   per-media Booleans defaulting to false. Both MUST be exposed by list/detail APIs
   and usable in library, navigation, saved, bulk, collection/tag, and review filters.
   Spatial preference updates MUST accept image media only.
+- **LIB-016:** On wide desktop layouts, Media Library filters and review-scope actions
+  MUST occupy a right-side Library controls sidebar beside the gallery. The sidebar
+  MUST remain scrollable without a visible scrollbar and MUST collapse to a
+  persistent, accessible icon rail. Its preference MUST be remembered locally. The
+  controls MUST stack above the gallery when the available width cannot support both
+  columns.
+- **LIB-017:** Video Media Detail MUST provide an explicit, confirmed spatial-variant
+  attachment workflow that shows the selected filename and size, reports upload and
+  background-validation states, refreshes spatial availability after success, and
+  permits a failed import to be retried with a new idempotency key. Images MUST NOT
+  expose this workflow. Replacing a ready variant MUST explain that activation is
+  atomic and MUST NOT change Favorite or spatial playback preference.
 
 ## Manual evaluation
 

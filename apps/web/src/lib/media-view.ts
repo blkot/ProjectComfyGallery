@@ -1,7 +1,9 @@
 export const mediaPageSize = 48;
 export const defaultMediaSort = "file_created_desc";
+export const mediaReturnParam = "return_media";
 
 export type ReferenceMatch = "any" | "all";
+export type PaginationItem = number | "start-ellipsis" | "end-ellipsis";
 
 export type LibraryFilterExpression = {
   kind: string | null;
@@ -30,6 +32,7 @@ export function mediaListQuery(search: URLSearchParams): URLSearchParams {
     );
   }
   result.delete("spatial_view_preferred");
+  result.delete(mediaReturnParam);
   result.set("limit", String(mediaPageSize));
   result.set("offset", String(parseOffset(result.get("offset"))));
   result.set("sort", result.get("sort") || defaultMediaSort);
@@ -57,9 +60,7 @@ export function libraryFilterExpression(
       search.get("checkpoint_reference_match"),
     ),
     lora_reference_ids: uniqueValues(search.getAll("lora_reference_id")),
-    lora_reference_match: referenceMatch(
-      search.get("lora_reference_match"),
-    ),
+    lora_reference_match: referenceMatch(search.get("lora_reference_match")),
   };
 }
 
@@ -77,18 +78,64 @@ export function mediaDetailHref(
   position?: number | null,
 ): string {
   const result = mediaListQuery(search);
+  result.set(mediaReturnParam, mediaId);
   if (position && position > 0) {
-    const pageOffset = Math.floor((position - 1) / mediaPageSize) * mediaPageSize;
+    const pageOffset =
+      Math.floor((position - 1) / mediaPageSize) * mediaPageSize;
     result.set("offset", String(pageOffset));
   }
   return `/library/${mediaId}?${result.toString()}`;
 }
 
 export function mediaLibraryHref(search: URLSearchParams): string {
+  const returnMediaId = search.get(mediaReturnParam);
   const result = mediaListQuery(search);
   result.delete("limit");
   result.delete("panel");
+  if (returnMediaId) result.set(mediaReturnParam, returnMediaId);
   return `/library?${result.toString()}`;
+}
+
+export function pageOffsetForNumber(pageNumber: number, total: number): number {
+  const pageCount = Math.max(1, Math.ceil(total / mediaPageSize));
+  const requestedPage = Number.isFinite(pageNumber)
+    ? Math.trunc(pageNumber)
+    : 1;
+  const page = Math.min(Math.max(requestedPage, 1), pageCount);
+  return (page - 1) * mediaPageSize;
+}
+
+export function paginationItems(
+  currentPage: number,
+  pageCount: number,
+): PaginationItem[] {
+  const totalPages = Math.max(1, Math.trunc(pageCount));
+  const activePage = Math.min(
+    Math.max(Math.trunc(currentPage) || 1, 1),
+    totalPages,
+  );
+  if (totalPages <= 9) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  let windowStart = Math.max(2, activePage - 2);
+  let windowEnd = Math.min(totalPages - 1, activePage + 2);
+  if (activePage <= 4) {
+    windowStart = 2;
+    windowEnd = 6;
+  } else if (activePage >= totalPages - 3) {
+    windowStart = totalPages - 5;
+    windowEnd = totalPages - 1;
+  }
+
+  const items: PaginationItem[] = [1];
+  if (windowStart > 2) items.push("start-ellipsis");
+  for (let page = windowStart; page <= windowEnd; page += 1) {
+    items.push(page);
+  }
+  if (windowEnd < totalPages - 1) items.push("end-ellipsis");
+  items.push(totalPages);
+  return items;
 }
 
 export function parseOffset(value: string | null): number {

@@ -52,6 +52,7 @@ This structure borrows the audience separation of the Diátaxis documentation mo
 - [Deployment and security](operations/deployment-and-security.md)
 - [Backup, recovery, and observability](operations/backup-recovery-observability.md)
 - [Upgrade runbook](operations/upgrade-runbook.md)
+- [Manual web-only deployment](operations/manual-web-only-deployment.md)
 
 ### Development
 

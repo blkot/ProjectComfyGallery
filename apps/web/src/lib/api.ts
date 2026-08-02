@@ -139,6 +139,36 @@ export type MediaVariant = {
   content_url: string;
 };
 
+export type MediaVariantImportStatus = {
+  id: string;
+  media_id: string;
+  role: string;
+  status: "staging" | "processing" | "ready" | "failed";
+  is_active: boolean;
+  sha256: string | null;
+  byte_size: number | null;
+  original_filename: string;
+  original_extension: string | null;
+  detected_format: string | null;
+  mime_type: string | null;
+  width: number | null;
+  height: number | null;
+  duration_seconds: number | null;
+  frame_rate: number | null;
+  container: string | null;
+  video_codec: string | null;
+  audio_codec: string | null;
+  validation_data: Record<string, unknown>;
+  converter_name: string | null;
+  converter_version: string | null;
+  source_asset_sha256: string | null;
+  ready_at: string | null;
+  last_error_code: string | null;
+  last_error_message: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type SourceOccurrence = {
   id: string;
   source_root_id: string;
@@ -386,6 +416,11 @@ export type Job = {
   created_at: string;
   started_at: string | null;
   completed_at: string | null;
+};
+
+export type VariantImportAccepted = {
+  variant: MediaVariantImportStatus;
+  job: Job;
 };
 
 export type RegistrySyncRun = {

@@ -94,7 +94,9 @@ a migration failure visible before services are replaced.
 
 When an emergency change is isolated to one service and contains no migration
 or shared runtime-contract change, only that service may be rebuilt and
-replaced. For a frontend-only change:
+replaced. For a frontend-only change, follow the detailed
+[manual web-only deployment runbook](manual-web-only-deployment.md). The core
+replacement commands are:
 
 ```bash
 docker compose -f compose.yaml -f compose.production.yaml build web

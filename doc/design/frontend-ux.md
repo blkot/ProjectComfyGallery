@@ -69,9 +69,12 @@ visualizations, and media drill-down.
 ### Gallery view
 
 - Server-paginated grid (48 records per page in Phase 1; virtualization remains an
-  option if measured gallery behavior requires it).
-- Three larger cards per desktop row with a default 2:3 portrait preview frame,
-  matching common 1024×1536 generations. Narrow layouts remain responsive.
+  option if measured gallery behavior requires it). Previous/Next and direct
+  one-based page navigation are duplicated above and below the grid. A page change
+  brings the start of the new grid into view.
+- Three larger cards per ordinary desktop row, expanding to four on extra-wide
+  displays, with a default 2:3 portrait preview frame matching common 1024×1536
+  generations. Narrow layouts remain responsive.
 - Deterministic server sorting by file time, import time, filename, or byte size.
   Newest file time is the default. For NAS sources, file time is the latest active
   source occurrence modification time; browser uploads fall back to the media import
@@ -91,6 +94,19 @@ visualizations, and media drill-down.
 - Filename may be displayed as provenance but is never identity.
 
 ### Filter system
+
+On wide desktop layouts, the complete filter system and Review scope actions occupy
+the **Library controls sidebar**, a sticky, independently scrolling right sidebar
+beside the gallery. Its visual scrollbar remains hidden, and it collapses to a
+persistent icon rail using a locally remembered preference. The gallery and its
+pagination use the remaining content width. When the viewport cannot support both
+columns comfortably, the controls return to a full-width collapsible row above the
+grid.
+
+Gallery pagination is duplicated above and below the cards. Each instance combines
+Previous/Next, a compact numbered window centered on the current page, first/last
+page access with ellipses for long ranges, and a direct one-based page jump. Every
+page change remains URL-backed and scrolls the gallery boundary into view.
 
 Filters include:
 
@@ -190,6 +206,18 @@ variant facts separately. The browser preview deliberately remains on the ordina
 `playback_url`; it never attempts to silently replace browser-compatible media with
 MV-HEVC.
 
+Video detail also exposes a focused **Attach spatial video** panel beside those
+variant facts. The panel accepts QuickTime MOV and compatible MP4-family files,
+shows the selected filename and byte size, and requires a separate confirmation
+before upload. It sends a fresh idempotency key with the source media hash, then
+distinguishes upload, background validation, success, and failure while polling the
+variant-import status. If a ready variant already exists, the panel explains that
+the old file remains active until the replacement is fully validated. Successful
+activation refreshes Media Detail, library, navigation, and job projections without
+changing Favorite, spatial playback preference, ordinary browser playback, original
+download, or workflow evidence. Failed validation keeps the selected file available
+for an explicit retry with a new command key. Image detail never renders this panel.
+
 ### Preview
 
 - Original image or video player.
@@ -208,6 +236,9 @@ Media Detail viewing is separate from blind Review:
   the 48 cards on the current page.
 - The browser updates the remembered gallery offset when traversal crosses a page
   boundary, so “Media library” returns to the target card's page.
+- The detail URL also remembers the current media as a UI-only return anchor. Returning
+  to the Library scrolls that exact card into view and highlights it without sending
+  the anchor to media-list or navigation APIs.
 - Left/Right arrow keys mirror Previous/Next unless focus is in an editable control.
 - Neighbor detail data is prefetched on pointer hover or keyboard focus.
 - The header shows the current one-based position and total population.

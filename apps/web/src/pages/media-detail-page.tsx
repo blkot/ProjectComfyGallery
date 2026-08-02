@@ -10,6 +10,7 @@ import {
 import { MediaFavoriteButton } from "../components/media-favorite-button";
 import { MediaEvaluationPanel } from "../components/media-evaluation-panel";
 import { MediaSpatialPreferenceButton } from "../components/media-spatial-preference-button";
+import { SpatialVariantAttachment } from "../components/spatial-variant-attachment";
 import { WorkflowInspector } from "../components/workflow-inspector";
 import {
   apiRequest,
@@ -281,6 +282,10 @@ export function MediaDetailPage() {
                 <strong>{item.last_error_code}</strong>
                 <p>{item.last_error_message}</p>
               </div>
+            ) : null}
+
+            {item.kind === "video" ? (
+              <SpatialVariantAttachment media={item} />
             ) : null}
 
             <WorkflowInspector mediaId={item.id} />
