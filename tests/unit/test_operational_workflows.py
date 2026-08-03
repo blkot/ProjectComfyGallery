@@ -60,3 +60,21 @@ def test_nas_deployment_pulls_without_building() -> None:
     assert "docker exec comfy-gallery-backup-1 comfy-gallery-backup" in deployment
     assert "alembic -c packages/py/core/alembic.ini upgrade head" in deployment
     assert "alembic -c packages/py/core/alembic.ini check" in deployment
+
+
+def test_media_jobs_have_dedicated_worker_capacity() -> None:
+    compose = yaml.safe_load((ROOT / "compose.yaml").read_text(encoding="utf-8"))
+    services = compose["services"]
+
+    assert services["worker"]["command"][-3:] == ["--queues", "system", "media"]
+    assert services["worker-background"]["command"][-5:] == [
+        "--queues",
+        "scan",
+        "workflow",
+        "registry",
+        "maintenance",
+    ]
+    assert (
+        services["worker-background"]["environment"]["CG_RUNTIME_ROOT"]
+        == "/data/runtime/background-worker"
+    )

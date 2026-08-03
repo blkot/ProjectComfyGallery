@@ -37,7 +37,8 @@ flowchart TB
     Browser["React/TypeScript SPA"]
     Web["Web/static server"]
     API["FastAPI service"]
-    Worker["Dramatiq worker"]
+    MediaWorker["Media worker"]
+    BackgroundWorker["Background worker"]
     Redis["Redis broker"]
     DB["PostgreSQL"]
     Managed["Managed media volume"]
@@ -48,10 +49,13 @@ flowchart TB
     Web --> API
     API --> DB
     API --> Redis
-    Worker --> Redis
-    Worker --> DB
-    Worker --> Managed
-    Worker --> Sources
+    MediaWorker --> Redis
+    MediaWorker --> DB
+    MediaWorker --> Managed
+    BackgroundWorker --> Redis
+    BackgroundWorker --> DB
+    BackgroundWorker --> Managed
+    BackgroundWorker --> Sources
     API --> Managed
     DB -. "pg_dump" .-> Backups
     API -. "portable exports" .-> Backups
@@ -83,7 +87,7 @@ Responsibilities:
 
 CPU-heavy file inspection, hashing, extraction, thumbnailing, and transcoding do not run in API request handlers.
 
-### Dramatiq worker
+### Dramatiq worker pools
 
 Responsibilities:
 
@@ -96,7 +100,11 @@ Responsibilities:
 - Analysis computation when a report is too expensive for an API transaction.
 - Scheduled backups and housekeeping when configured.
 
-Worker concurrency is explicitly bounded for the J4125 CPU.
+The critical pool consumes only `system` and `media` queues, so uploads and spatial
+variant validation cannot wait behind a long scan or registry reprocessing run.
+The background pool consumes `scan`, `workflow`, `registry`, and `maintenance`.
+Each pool uses one process and one thread; their CPU and memory ceilings are
+separate and explicitly bounded for the J4125 CPU.
 
 ### PostgreSQL
 

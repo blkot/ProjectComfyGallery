@@ -6,7 +6,7 @@ RUN sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${ALPINE_MIRROR%/}|g" \
         /etc/apk/repositories && \
     apk upgrade --no-cache
 
-ARG CG_PROJECT_VERSION=0.1.0-rc.12
+ARG CG_PROJECT_VERSION=0.1.0-rc.13
 ARG CG_SOURCE_URL=https://github.com/blkot/ProjectComfyGallery
 ARG CG_REVISION=unknown
 

@@ -4,7 +4,7 @@
 
 ## Target environment
 
-The current production release is locked as `0.1.0-rc.12`. Future milestone images
+The current production release is locked as `0.1.0-rc.13`. Future milestone images
 use the exact locked version as their registry tag and OCI version label, plus
 source-commit and repository labels. Every upstream runtime/build base is pinned
 by immutable SHA-256 digest; changing a base digest is an explicit upgrade
@@ -124,18 +124,20 @@ Initial conservative defaults:
 - PostgreSQL pool sized for a small deployment.
 - Redis memory policy that does not make it authoritative.
 
-Phase 1 starts one Dramatiq worker process with one thread. This deliberately
-bounds hashing, image decoding, and video transcode to one heavy operation at a
-time on the J4125. Later measured tuning must keep video transcode concurrency at
-one unless the NAS evidence supports a change.
+Production uses two isolated Dramatiq pools with one process and one thread each.
+The critical `system`/`media` pool cannot be occupied by scans, workflow backfills,
+registry synchronization, or exports; those run in the background pool. This
+keeps uploads and spatial validation responsive while still bounding each work
+class to one operation at a time on the J4125. Video validation/transcode
+concurrency remains one unless NAS measurements support a change.
 
-Phase 6 retained one process/one thread after a real 1,036-path J4125 scan.
 Configurable default container ceilings:
 
 - PostgreSQL: 1 GB and 1.5 CPU.
 - Redis: 256 MB and 0.5 CPU, with a 192 MB `noeviction` ceiling.
 - API: 768 MB and 1 CPU.
-- Worker: 2 GB and 3 CPU.
+- Critical media worker: 1 GB and 1 CPU.
+- Background worker: 2 GB and 2 CPU.
 - Backup: 256 MB and 0.5 CPU.
 - Web: 128 MB and 0.5 CPU.
 

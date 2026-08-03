@@ -26,7 +26,7 @@ DOCKERFILES = tuple(sorted((ROOT / "deploy/docker").glob("*.Dockerfile")))
 def test_release_version_is_consistent() -> None:
     release_version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
 
-    assert release_version == "0.1.0-rc.12"
+    assert release_version == "0.1.0-rc.13"
     assert {api_version, core_version, worker_version} == {release_version}
     for path in PYPROJECTS:
         with path.open("rb") as handle:

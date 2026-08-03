@@ -4,6 +4,14 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.13 — 2026-08-03
+
+- Isolate critical media imports and spatial-variant validation from scan,
+  workflow, registry, and maintenance work using two bounded Dramatiq worker
+  pools, preventing long registry reprocessing from starving uploads.
+- Give the background pool a separate runtime heartbeat path while retaining the
+  critical media worker as the readiness signal.
+
 ## 0.1.0-rc.12 — 2026-08-03
 
 - Upgrade the backend and worker runtime to FFmpeg 8.1.2 on Alpine 3.24 so

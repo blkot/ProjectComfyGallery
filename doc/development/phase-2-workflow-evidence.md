@@ -162,9 +162,11 @@ Existing Phase 1 media can be processed through:
 - Bulk `missing` backfill.
 - A duplicate import that encounters a ready media identity without a snapshot.
 
-The Dramatiq worker remains bounded to one process and one thread on the target NAS.
-Its async actors use Dramatiq's process-scoped event-loop middleware, so SQLAlchemy
-and `asyncpg` connections are never reused across short-lived event loops.
+At this phase the Dramatiq worker was bounded to one process and one thread on the
+target NAS. Production later split the same single-thread bound into critical
+media and background pools so long reprocessing cannot starve imports. Each pool's
+async actors use Dramatiq's process-scoped event-loop middleware, so SQLAlchemy and
+`asyncpg` connections are never reused across short-lived event loops.
 
 ## API surface
 
