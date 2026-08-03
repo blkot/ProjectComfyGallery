@@ -26,7 +26,7 @@ DOCKERFILES = tuple(sorted((ROOT / "deploy/docker").glob("*.Dockerfile")))
 def test_release_version_is_consistent() -> None:
     release_version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
 
-    assert release_version == "0.1.0-rc.11"
+    assert release_version == "0.1.0-rc.12"
     assert {api_version, core_version, worker_version} == {release_version}
     for path in PYPROJECTS:
         with path.open("rb") as handle:
@@ -55,6 +55,14 @@ def test_runtime_base_images_are_digest_pinned() -> None:
         assert 'org.opencontainers.image.version="$CG_PROJECT_VERSION"' in contents
         assert 'org.opencontainers.image.source="$CG_SOURCE_URL"' in contents
         assert 'org.opencontainers.image.revision="$CG_REVISION"' in contents
+
+
+def test_backend_runtime_accepts_extended_spatial_projection_metadata() -> None:
+    contents = (ROOT / "deploy/docker/backend.Dockerfile").read_text(encoding="utf-8")
+
+    assert "python:3.13-alpine3.24@sha256:" in contents
+    assert "testdata/synthetic/ffmpeg-extended-proj.mov.b64" in contents
+    assert "ffprobe -v error -show_format -show_streams -of json" in contents
 
 
 def release_version() -> str:

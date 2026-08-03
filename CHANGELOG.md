@@ -4,6 +4,18 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.12 — 2026-08-03
+
+- Upgrade the backend and worker runtime to FFmpeg 8.1.2 on Alpine 3.24 so
+  standards-compliant Apple spatial videos containing extended projection metadata
+  pass container inspection, with an image-build regression fixture for the exact
+  formerly rejected structure.
+- Add authenticated spatial-variant attachment from Media Detail, including
+  `.mov` selection, validation progress, failure details, and retry behavior.
+- Add a server-resolved, filter-preserving hands-off slideshow with randomized or
+  ordered playback, neighboring-media preloading, keyboard control, and fullscreen.
+- Improve Library workflows and preserve their filters and navigation context.
+
 ## 0.1.0-rc.11 — 2026-07-30
 
 - Add immutable source-bound media variants with a durable lifecycle, atomic
