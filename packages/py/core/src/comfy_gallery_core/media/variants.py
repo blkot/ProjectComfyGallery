@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -61,6 +62,18 @@ async def process_variant_import(
             message="The media variant import was not found.",
         )
     job = await load_job(session, job_id)
+    if variant.status == "duplicate":
+        with suppress(OSError):
+            await asyncio.to_thread(
+                variant_staging_path(settings, variant.id).unlink,
+                missing_ok=True,
+            )
+        await succeed_job(session, job)
+        return VariantImportOutcome(
+            media_id=variant.media_id,
+            variant_id=_duplicate_of_variant_id(variant),
+            replaced_variant_id=None,
+        )
     if not await begin_job(session, job):
         if variant.status == "ready" and variant.is_active:
             return VariantImportOutcome(
@@ -91,13 +104,24 @@ async def process_variant_import(
         if await _managed_variant_is_ready_to_activate(variant, settings):
             replaced = await _activate_variant(session, variant, job)
         else:
-            await _hash_probe_validate_store(
+            duplicate = await _hash_probe_validate_store(
                 session,
                 variant=variant,
                 job=job,
                 staged_path=staged_path,
                 settings=settings,
             )
+            if duplicate is not None:
+                # The successful content resolution must not become a failed
+                # import solely because best-effort staging cleanup failed.
+                with suppress(OSError):
+                    await asyncio.to_thread(staged_path.unlink, missing_ok=True)
+                await succeed_job(session, job)
+                return VariantImportOutcome(
+                    media_id=variant.media_id,
+                    variant_id=duplicate.id,
+                    replaced_variant_id=None,
+                )
             replaced = await _activate_variant(session, variant, job)
         await succeed_job(session, job)
         return VariantImportOutcome(
@@ -148,7 +172,7 @@ async def _hash_probe_validate_store(
     job: Job,
     staged_path: Path,
     settings: Settings,
-) -> None:
+) -> MediaVariant | None:
     if not await asyncio.to_thread(staged_path.is_file):
         raise IngestionError(
             code="VARIANT_STAGING_MISSING",
@@ -176,6 +200,18 @@ async def _hash_probe_validate_store(
         )
     )
     if duplicate is not None:
+        if (
+            duplicate.media_id == variant.media_id
+            and duplicate.role == variant.role
+            and duplicate.status == "ready"
+            and duplicate.is_active
+        ):
+            variant.status = "duplicate"
+            variant.last_error_code = None
+            variant.last_error_message = None
+            variant.validation_data = {"duplicate_of_variant_id": str(duplicate.id)}
+            await session.commit()
+            return duplicate
         raise IngestionError(
             code="VARIANT_DUPLICATE_CONFLICT",
             message="These exact variant bytes were already imported.",
@@ -242,6 +278,7 @@ async def _hash_probe_validate_store(
     except IngestionError as error:
         await fail_stage(session, store_attempt, error)
         raise
+    return None
 
 
 def _apply_probe_facts(
@@ -265,6 +302,14 @@ def _apply_probe_facts(
     variant.audio_codec = probe.audio_codec
     variant.probe_data = probe.raw or {}
     variant.validation_data = validation_data
+
+
+def _duplicate_of_variant_id(variant: MediaVariant) -> UUID:
+    value = variant.validation_data.get("duplicate_of_variant_id")
+    if isinstance(value, str):
+        with suppress(ValueError):
+            return UUID(value)
+    return variant.id
 
 
 async def _managed_variant_is_ready_to_activate(

@@ -173,6 +173,7 @@ status:
     staging
     processing
     ready
+    duplicate
     failed
 ```
 
@@ -191,6 +192,10 @@ Required constraints and indexes:
 
 `sha256`, file facts, `managed_path`, and `ready_at` may be null while a staged
 upload is being processed. They must all be complete before `status = 'ready'`.
+`duplicate` is a terminal audit outcome for a new command whose bytes resolve to
+the same media and role's existing active ready variant; its
+`validation_data.duplicate_of_variant_id` points to that retained variant and the
+new row owns no managed bytes.
 
 ### ORM relationships
 

@@ -24,6 +24,9 @@ produce a stored backend file.
   (`prefer_spatial_playback`) and from `favorite`.
 - Accept variants through a streamed, authenticated, idempotent command. Validate
   their bytes in the worker before managed placement and activation.
+- Resolve repeated bytes for the same media, role, and active ready variant as a
+  successful `duplicate` audit outcome; keep exact-byte conflicts across logical
+  media blocked by the global variant-content identity constraint.
 - Maintain at most one active variant for each media and role. Replacement becomes
   visible atomically only after the new file is ready.
 - Keep ordinary preview, original, and proxy endpoints unchanged. Full-fidelity

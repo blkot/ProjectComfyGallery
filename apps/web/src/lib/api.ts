@@ -164,7 +164,7 @@ export type MediaVariantImportStatus = {
   id: string;
   media_id: string;
   role: string;
-  status: "staging" | "processing" | "ready" | "failed";
+  status: "staging" | "processing" | "ready" | "failed" | "duplicate";
   is_active: boolean;
   sha256: string | null;
   byte_size: number | null;

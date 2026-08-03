@@ -4,6 +4,15 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.14 — 2026-08-03
+
+- Treat re-uploading the exact active spatial-video bytes to the same media as an
+  idempotent terminal duplicate outcome, without revalidating or storing a second
+  file, while retaining cross-media duplicate protection.
+- Present both new duplicate outcomes and historical duplicate-conflict audit rows
+  as already attached/imported in Media Detail instead of spatial validation
+  failures, and refresh affected media/job caches.
+
 ## 0.1.0-rc.13 — 2026-08-03
 
 - Isolate critical media imports and spatial-variant validation from scan,

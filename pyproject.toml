@@ -1,6 +1,6 @@
 [project]
 name = "project-comfy-gallery"
-version = "0.1.0-rc.13"
+version = "0.1.0-rc.14"
 description = "Self-hosted ComfyUI media intelligence and evaluation system"
 requires-python = ">=3.13,<3.14"
 dependencies = []

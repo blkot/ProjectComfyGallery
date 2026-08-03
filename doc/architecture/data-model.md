@@ -124,8 +124,9 @@ Key concepts:
 ### `media_variant`
 
 - An externally produced, non-regenerable alternate file for one logical media.
-- The first role is `spatial_video`; lifecycle is staging, processing, ready, or
-  failed.
+- The first role is `spatial_video`; lifecycle is staging, processing, ready,
+  duplicate, or failed. Duplicate is a successful audit outcome that resolves to
+  the same media and role's existing active ready variant and owns no bytes.
 - SHA-256, byte size, probe facts, validation evidence, converter provenance, and
   source-original hash are recorded independently from `media_asset`.
 - At most one active row exists per media and role, and only a ready row can be

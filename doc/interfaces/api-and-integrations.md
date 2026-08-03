@@ -184,6 +184,11 @@ creates a durable `process_variant_import` job, and returns `202` with the varia
 and job projections. The external converter never submits a server filesystem path.
 Repeating the same completed command key returns the original variant and job;
 reusing it for a different target or source returns `IDEMPOTENCY_KEY_REUSED`.
+If a new command uploads bytes that are already the active, ready variant for the
+same media and role, the worker completes successfully with variant status
+`duplicate`, preserves the existing active variant, and records its ID in
+`validation_data.duplicate_of_variant_id`. Exact bytes owned by another media
+remain a `VARIANT_DUPLICATE_CONFLICT`.
 
 The worker, not the converter's claims, is authoritative. It verifies the source
 hash, MP4/QuickTime family, HEVC decoding, Apple stereo metadata, a decodable second

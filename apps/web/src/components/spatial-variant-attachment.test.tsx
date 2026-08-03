@@ -157,6 +157,63 @@ describe("SpatialVariantAttachment", () => {
       "Idempotency-Key": "command-key-2",
     });
   });
+
+  it.each([
+    {
+      status: "duplicate" as const,
+      error: {},
+      heading: "Spatial video already attached",
+    },
+    {
+      status: "failed" as const,
+      error: {
+        last_error_code: "VARIANT_DUPLICATE_CONFLICT",
+        last_error_message: "These exact variant bytes were already imported.",
+      },
+      heading: "Spatial video already imported",
+    },
+  ])(
+    "treats $status duplicate outcome as terminal rather than a validation failure",
+    async ({ status, error, heading }) => {
+      apiRequestMock.mockImplementation((path: string, init?: RequestInit) => {
+        if (init?.method === "POST") {
+          return Promise.resolve(acceptedResponse("variant-duplicate"));
+        }
+        if (path.endsWith("/variant-imports/variant-duplicate")) {
+          return Promise.resolve(
+            importStatus(status, "variant-duplicate", {
+              validation_data:
+                status === "duplicate"
+                  ? { duplicate_of_variant_id: "ready-variant" }
+                  : {},
+              ...error,
+            }),
+          );
+        }
+        throw new Error(`Unexpected request: ${path}`);
+      });
+      const { queryClient } = renderAttachment({ pollInterval: 10 });
+      const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+
+      openAndSelectFile();
+      fireEvent.click(screen.getByRole("button", { name: "Confirm upload" }));
+
+      expect(await screen.findByText(heading)).toBeInTheDocument();
+      expect(
+        screen.queryByText("Spatial video validation failed"),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Retry upload" }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
+      await waitFor(() => {
+        expect(invalidate).toHaveBeenCalledWith({
+          queryKey: ["media-detail", "media-1"],
+        });
+        expect(invalidate).toHaveBeenCalledWith({ queryKey: ["media"] });
+      });
+    },
+  );
 });
 
 function renderAttachment({
@@ -214,7 +271,7 @@ function acceptedResponse(variantId: string) {
 }
 
 function importStatus(
-  status: "staging" | "processing" | "ready" | "failed",
+  status: "staging" | "processing" | "ready" | "failed" | "duplicate",
   id: string,
   overrides: Record<string, unknown> = {},
 ) {

@@ -16,7 +16,7 @@ type SpatialVariantAttachmentProps = {
   pollInterval?: number;
 };
 
-const terminalStatuses = new Set(["ready", "failed"]);
+const terminalStatuses = new Set(["ready", "failed", "duplicate"]);
 const manualConverterName = "ComfyGallery web manual upload";
 
 function defaultIdempotencyKey() {
@@ -103,9 +103,15 @@ export function SpatialVariantAttachment({
   });
 
   const status = importStatus.data?.status;
+  const lastErrorCode = importStatus.data?.last_error_code;
+  const duplicateImport = status === "duplicate";
+  const legacyDuplicateConflict =
+    status === "failed" && lastErrorCode === "VARIANT_DUPLICATE_CONFLICT";
+  const resolvedImport =
+    status === "ready" || duplicateImport || legacyDuplicateConflict;
   useEffect(() => {
     if (
-      status !== "ready" ||
+      !resolvedImport ||
       !variantId ||
       handledReadyVariant.current === variantId
     ) {
@@ -118,18 +124,21 @@ export function SpatialVariantAttachment({
       queryClient.invalidateQueries({ queryKey: ["media-navigation"] }),
       queryClient.invalidateQueries({ queryKey: ["jobs"] }),
     ]);
-  }, [media.id, queryClient, status, variantId]);
+  }, [media.id, queryClient, resolvedImport, variantId]);
 
   if (media.kind !== "video") return null;
 
   const replacement = media.variants.length > 0;
-  const failedImport = status === "failed";
+  const failedImport = status === "failed" && !legacyDuplicateConflict;
   const isProcessing =
     status === "staging" ||
     status === "processing" ||
     (Boolean(variantId) && importStatus.isPending);
   const canSubmit =
-    Boolean(selectedFile) && !upload.isPending && !isProcessing;
+    Boolean(selectedFile) &&
+    !upload.isPending &&
+    !isProcessing &&
+    !resolvedImport;
   const backendFailure = importStatus.data
     ? [importStatus.data.last_error_code, importStatus.data.last_error_message]
         .filter(Boolean)
@@ -196,7 +205,7 @@ export function SpatialVariantAttachment({
               ref={fileInputRef}
               type="file"
               accept=".mov,.mp4,.m4v,video/quicktime,video/mp4"
-              disabled={upload.isPending || isProcessing}
+              disabled={upload.isPending || isProcessing || resolvedImport}
               onChange={(event) => {
                 upload.reset();
                 setVariantId(null);
@@ -238,7 +247,25 @@ export function SpatialVariantAttachment({
               </span>
             </p>
           ) : null}
-          {uploadError || backendFailure || pollingError ? (
+          {duplicateImport ? (
+            <p className="notice spatial-variant-success" role="status">
+              <strong>Spatial video already attached</strong>
+              <span>
+                These exact bytes are already the active spatial variant. No
+                duplicate file was stored.
+              </span>
+            </p>
+          ) : null}
+          {legacyDuplicateConflict ? (
+            <p className="notice" role="status">
+              <strong>Spatial video already imported</strong>
+              <span>
+                The gallery already stores these exact bytes. No duplicate file
+                was created; the media record has been refreshed.
+              </span>
+            </p>
+          ) : null}
+          {!resolvedImport && (uploadError || backendFailure || pollingError) ? (
             <p className="notice error-notice" role="alert">
               <strong>
                 {failedImport ? "Spatial video validation failed" : "Upload failed"}
@@ -254,9 +281,9 @@ export function SpatialVariantAttachment({
               disabled={upload.isPending || isProcessing}
               onClick={resetPanel}
             >
-              {status === "ready" ? "Done" : "Cancel"}
+              {resolvedImport ? "Done" : "Cancel"}
             </button>
-            {status !== "ready" ? (
+            {!resolvedImport ? (
               <button
                 className="primary-button"
                 type="button"

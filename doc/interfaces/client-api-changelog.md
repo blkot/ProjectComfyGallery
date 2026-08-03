@@ -8,6 +8,18 @@ semantics and compatibility that a schema alone cannot express.
 
 **Database migration:** `0011_spatial_video_variants`
 
+### Duplicate retry semantics
+
+- Variant-import status now has a terminal `duplicate` value. It means a new
+  command submitted bytes that were already the active, ready variant for the same
+  media and role; the associated job succeeds and no second managed file is
+  created.
+- `validation_data.duplicate_of_variant_id` identifies the preserved active
+  variant. Clients should present this as already attached, refresh media detail,
+  and must not offer a validation retry.
+- Historical `failed` imports with `VARIANT_DUPLICATE_CONFLICT` remain valid audit
+  records. Exact bytes owned by another media still produce that conflict.
+
 ### Additive media fields
 
 List and detail media projections now return:
