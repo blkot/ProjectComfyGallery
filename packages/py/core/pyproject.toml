@@ -1,6 +1,6 @@
 [project]
 name = "comfy-gallery-core"
-version = "0.1.0-rc.14"
+version = "0.1.0-rc.15"
 description = "Shared domain, database, configuration, and security foundation"
 requires-python = ">=3.13,<3.14"
 dependencies = [

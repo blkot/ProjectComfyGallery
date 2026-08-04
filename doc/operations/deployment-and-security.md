@@ -4,7 +4,7 @@
 
 ## Target environment
 
-The current production release is locked as `0.1.0-rc.14`. Future milestone images
+The current production release is locked as `0.1.0-rc.15`. Future milestone images
 use the exact locked version as their registry tag and OCI version label, plus
 source-commit and repository labels. Every upstream runtime/build base is pinned
 by immutable SHA-256 digest; changing a base digest is an explicit upgrade

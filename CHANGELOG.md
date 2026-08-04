@@ -4,6 +4,23 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.15 — 2026-08-04
+
+- Add complete-library case-insensitive keyword search across current positive and
+  negative prompts, checkpoint and LoRA references, confirmed aliases, and resolved
+  model names, with the same URL-backed scope preserved through pagination, Media
+  Detail navigation, slideshows, saved filters, collections, tags, and review
+  sessions.
+- Add accessible copy controls for exact extracted prompts, including secure-context
+  Clipboard API support, a legacy browser fallback, and visible copied/failure
+  feedback.
+- Add automatic NAS deployment planning that selects no-op, isolated web-only, or
+  immutable full-release paths from the deployed image revisions and local changes,
+  with frontend verification, rollback, backup, migration, and health safeguards.
+- Add visionOS playback of stored Apple spatial MV-HEVC variants, including
+  preference-aware ordinary fallback, local variant caching, AVKit expanded spatial
+  presentation, and reversible ordinary/spatial switching in the existing viewer.
+
 ## 0.1.0-rc.14 — 2026-08-03
 
 - Treat re-uploading the exact active spatial-video bytes to the same media as an

@@ -7,7 +7,7 @@ COPY dist/ /usr/share/nginx/html/
 RUN find /usr/share/nginx/html -type d -exec chmod 0755 {} + && \
     find /usr/share/nginx/html -type f -exec chmod 0644 {} +
 
-ARG CG_PROJECT_VERSION=0.1.0-rc.14
+ARG CG_PROJECT_VERSION=0.1.0-rc.15
 ARG CG_SOURCE_URL=https://github.com/blkot/ProjectComfyGallery
 ARG CG_REVISION=unknown
 
