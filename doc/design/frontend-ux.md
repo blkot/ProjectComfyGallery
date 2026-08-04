@@ -120,14 +120,17 @@ keyword-specific failure and zero-result states.
 
 The Library header also opens a focused **Start slideshow** dialog. The user chooses
 the current filtered result or one collection, an image duration, and optional
-shuffle. Start requests browser fullscreen within the initiating click and opens a
-presentation-only route without the application navigation shell. Images advance on
-the chosen timer; videos autoplay muted and advance when playback ends, with a
-duration-based fallback if playback stalls. The playlist loops until Exit, while
-Pause and Exit controls fade after pointer inactivity and reappear on interaction.
-The browser receives at most 2,000 lightweight playlist records and loads media bytes
-only for the active and next item. Starting or leaving a slideshow does not create a
-Review Session or mutate evaluation/library state.
+shuffle. Start opens a presentation-only route inside the current browser window,
+without requesting browser fullscreen and without the application navigation shell.
+Images advance on the chosen timer; videos autoplay muted and advance when playback
+ends, with a duration-based fallback if playback stalls. The playlist loops until
+Exit. Previous and Next wrap through the playlist in either direction, while those
+controls, Pause/Resume, and Exit fade after pointer inactivity and reappear on
+interaction. The browser receives at most 2,000 lightweight playlist records and
+loads full-quality image/playback bytes only for the active and next item; generated
+preview derivatives remain limited to the Library grid and video posters. Starting
+or leaving a slideshow does not create a Review Session or mutate
+evaluation/library state.
 
 Filters include:
 
@@ -191,13 +194,16 @@ the same population and server-resolved scope actions preserve all conditions.
 The media record exposes:
 
 Media Detail is a fixed-height workstation on desktop. The original image/video stage
-occupies the complete left side below a dedicated control row containing library
-return, deterministic Previous/Next traversal, position, and download. Controls never
-overlay the media. The stage uses the dynamic browser viewport and a definite
-containment box so every edge of an image or video remains visible across browser
-sizes, zoom levels, and source aspect ratios. The right inspector scrolls
-independently, so the media never moves out of view while workflow evidence is
-inspected.
+occupies the complete left side below a persistent Media Action Bar. The bar contains
+library return, deterministic Previous/Next traversal and position, Download,
+low-saturation Favorite (yellow), spatial playback preference (neutral slate for
+standard playback and light blue for spatial playback), and reversible Trash/Restore
+(red). Permanent deletion is not exposed. On narrow media stages, the action group
+wraps within the same banner. Controls never overlay the media. The stage uses the
+dynamic browser viewport and a definite containment box so every edge of an image or
+video remains visible across browser sizes, zoom levels, and source aspect ratios.
+The right inspector scrolls independently, so the media never moves out of view
+while workflow evidence is inspected.
 
 Inspector information is deliberately ordered by practical recall value:
 
@@ -214,15 +220,15 @@ The right side has two mutually exclusive panels selected beside the filename:
 
 - **Info** contains the evidence inspector described above.
 - **Evaluate** contains the current media's core criteria, per-media optional-module
-  switches, exact prompts, save state, Trash/restore, and Undo.
+  switches, exact prompts, save state, and Undo.
 
 The selection is represented by `panel=evaluation` in the Media Detail URL. It is
 preserved across Previous/Next traversal and refresh, but removed when returning to
 the Library or requesting the server-side navigation population. The right pane
 remains independently scrollable in either mode.
 
-The heading also provides a canonical spatial-playback preference control for both
-images and videos. Video detail reports stored spatial availability and active
+The Media Action Bar provides the canonical spatial-playback preference control for
+both images and videos. Video detail reports stored spatial availability and active
 variant facts separately. The browser preview deliberately remains on the ordinary
 `playback_url`; it never attempts to silently replace browser-compatible media with
 MV-HEVC.

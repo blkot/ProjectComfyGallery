@@ -10,6 +10,7 @@ import {
 import { MediaFavoriteButton } from "../components/media-favorite-button";
 import { MediaEvaluationPanel } from "../components/media-evaluation-panel";
 import { MediaSpatialPreferenceButton } from "../components/media-spatial-preference-button";
+import { MediaTrashButton } from "../components/media-trash-button";
 import { SpatialVariantAttachment } from "../components/spatial-variant-attachment";
 import { WorkflowInspector } from "../components/workflow-inspector";
 import {
@@ -187,12 +188,29 @@ export function MediaDetailPage() {
               →
             </button>
           </nav>
-          <a
-            className="media-record-download"
-            href={`${item.original_url}?download=true`}
+          <div
+            className="media-record-actions"
+            role="group"
+            aria-label="Media actions"
           >
-            Download
-          </a>
+            <MediaFavoriteButton
+              mediaId={item.id}
+              favorite={item.favorite}
+              className="media-record-favorite"
+            />
+            <MediaSpatialPreferenceButton
+              mediaId={item.id}
+              preferred={item.prefer_spatial_playback}
+              className="media-record-spatial"
+            />
+            <a
+              className="media-record-download"
+              href={`${item.original_url}?download=true`}
+            >
+              Download
+            </a>
+            <MediaTrashButton mediaId={item.id} isTrash={item.is_trash} />
+          </div>
         </header>
         <div className="media-record-stage">
           {item.kind === "video" ? (
@@ -238,15 +256,6 @@ export function MediaDetailPage() {
             </div>
           </div>
           <div className="media-record-statuses">
-            <MediaFavoriteButton
-              mediaId={item.id}
-              favorite={item.favorite}
-              className="media-record-favorite"
-            />
-            <MediaSpatialPreferenceButton
-              mediaId={item.id}
-              preferred={item.prefer_spatial_playback}
-            />
             <span className="status-chip" data-status={item.status}>
               {titleCase(item.status)}
             </span>

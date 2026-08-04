@@ -81,26 +81,6 @@ export function MediaEvaluationPanel({ mediaId }: { mediaId: string }) {
       void _invalidateEvaluationViews(queryClient, mediaId);
     },
   });
-  const trash = useMutation({
-    mutationFn: ({
-      evaluation,
-      restore,
-    }: {
-      evaluation: Evaluation;
-      restore: boolean;
-    }) =>
-      apiRequest<Evaluation>(
-        `/api/v1/evaluations/${evaluation.id}/${restore ? "restore" : "trash"}`,
-        {
-          method: "POST",
-          body: JSON.stringify({ expected_version: evaluation.version }),
-        },
-      ),
-    onSuccess: (updated) => {
-      _replaceEvaluation(queryClient, queryKey, updated);
-      void _invalidateEvaluationViews(queryClient, mediaId);
-    },
-  });
   const toggleModule = useMutation({
     mutationFn: ({ module, enabled }: { module: string; enabled: boolean }) =>
       apiRequest<MediaEvaluationContext>(
@@ -118,8 +98,7 @@ export function MediaEvaluationPanel({ mediaId }: { mediaId: string }) {
   });
 
   const data = context.data;
-  const saving =
-    saveScore.isPending || trash.isPending || toggleModule.isPending;
+  const saving = saveScore.isPending || toggleModule.isPending;
   const baseEvaluation = data?.evaluations.find(
     (evaluation) => evaluation.evaluation_kind === "base",
   );
@@ -283,11 +262,9 @@ export function MediaEvaluationPanel({ mediaId }: { mediaId: string }) {
         />
       ))}
 
-      {saveScore.error || trash.error || toggleModule.error ? (
+      {saveScore.error || toggleModule.error ? (
         <p className="notice error-notice" role="alert">
-          {saveScore.error?.message ||
-            trash.error?.message ||
-            toggleModule.error?.message}
+          {saveScore.error?.message || toggleModule.error?.message}
         </p>
       ) : null}
 
@@ -300,21 +277,6 @@ export function MediaEvaluationPanel({ mediaId }: { mediaId: string }) {
         >
           Undo last score
         </button>
-        {baseEvaluation ? (
-          <button
-            className={data.is_trash ? "secondary-button" : "danger-button"}
-            type="button"
-            disabled={saving}
-            onClick={() =>
-              trash.mutate({
-                evaluation: baseEvaluation,
-                restore: data.is_trash,
-              })
-            }
-          >
-            {data.is_trash ? "Restore from Trash" : "Mark as Trash"}
-          </button>
-        ) : null}
       </section>
     </section>
   );

@@ -38,7 +38,9 @@ export function SlideshowPage() {
   const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const items = playlist.data?.items ?? [];
-  const currentIndex = items.length ? playhead % items.length : 0;
+  const currentIndex = items.length
+    ? ((playhead % items.length) + items.length) % items.length
+    : 0;
   const current = items[currentIndex];
   const next = items.length ? items[(currentIndex + 1) % items.length] : null;
   const intervalMilliseconds = slideshowInterval(searchParams) * 1_000;
@@ -46,6 +48,10 @@ export function SlideshowPage() {
 
   const advance = useCallback(() => {
     setPlayhead((value) => value + 1);
+  }, []);
+
+  const retreat = useCallback(() => {
+    setPlayhead((value) => value - 1);
   }, []);
 
   const revealControls = useCallback(() => {
@@ -93,15 +99,10 @@ export function SlideshowPage() {
   useEffect(() => {
     if (next?.kind !== "image") return;
     const image = new Image();
-    image.src = next.preview_url;
+    image.src = next.playback_url;
   }, [next]);
 
-  async function exitSlideshow() {
-    try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-    } catch {
-      // Navigation remains available when the browser owns fullscreen state.
-    }
+  function exitSlideshow() {
     navigate(returnTo, { replace: true });
   }
 
@@ -118,7 +119,7 @@ export function SlideshowPage() {
     return (
       <main className="slideshow-page slideshow-status-page">
         <strong>The slideshow could not be loaded.</strong>
-        <button className="secondary-button" onClick={() => void exitSlideshow()}>
+        <button className="secondary-button" onClick={exitSlideshow}>
           Return to Library
         </button>
       </main>
@@ -129,7 +130,7 @@ export function SlideshowPage() {
     return (
       <main className="slideshow-page slideshow-status-page">
         <strong>No media matches this slideshow source.</strong>
-        <button className="secondary-button" onClick={() => void exitSlideshow()}>
+        <button className="secondary-button" onClick={exitSlideshow}>
           Return to Library
         </button>
       </main>
@@ -161,7 +162,7 @@ export function SlideshowPage() {
           <img
             className="slideshow-media"
             key={`${current.id}-${playhead}`}
-            src={current.preview_url}
+            src={current.playback_url}
             alt=""
           />
         )}
@@ -191,7 +192,7 @@ export function SlideshowPage() {
           className="slideshow-control"
           type="button"
           tabIndex={controlsVisible ? 0 : -1}
-          onClick={() => void exitSlideshow()}
+          onClick={exitSlideshow}
         >
           Exit
         </button>
@@ -202,9 +203,25 @@ export function SlideshowPage() {
           className="slideshow-control"
           type="button"
           tabIndex={controlsVisible ? 0 : -1}
+          onClick={retreat}
+        >
+          Previous
+        </button>
+        <button
+          className="slideshow-control"
+          type="button"
+          tabIndex={controlsVisible ? 0 : -1}
           onClick={() => setPaused((value) => !value)}
         >
           {paused ? "Resume" : "Pause"}
+        </button>
+        <button
+          className="slideshow-control"
+          type="button"
+          tabIndex={controlsVisible ? 0 : -1}
+          onClick={advance}
+        >
+          Next
         </button>
       </div>
     </main>

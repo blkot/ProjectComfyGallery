@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router";
 
@@ -83,6 +83,100 @@ describe("MediaDetailPage spatial variant action", () => {
   });
 });
 
+describe("MediaDetailPage image viewer", () => {
+  it("groups media actions in the viewer toolbar", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/api/v1/media/media-1") {
+        return Promise.resolve(imageDetail);
+      }
+      if (path.startsWith("/api/v1/media/media-1/navigation?")) {
+        return Promise.resolve({
+          media_id: "media-1",
+          position: 1,
+          total: 1,
+          previous_id: null,
+          previous_position: null,
+          next_id: null,
+          next_position: null,
+        });
+      }
+      if (path.startsWith("/api/v1/media/media-1/workflow?")) {
+        return Promise.resolve({});
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    });
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const view = render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/media/media-1"]}>
+          <Routes>
+            <Route path="/media/:mediaId" element={<MediaDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText("original.png")).toBeInTheDocument();
+    const toolbar = view.container.querySelector(".media-record-toolbar");
+    expect(toolbar).not.toBeNull();
+    const actions = within(toolbar as HTMLElement);
+    expect(
+      actions.getByRole("button", { name: "Favorite" }),
+    ).toBeInTheDocument();
+    expect(
+      actions.getByRole("button", { name: "Spatial preference" }),
+    ).toBeInTheDocument();
+    expect(actions.getByRole("link", { name: "Download" })).toBeInTheDocument();
+    expect(
+      actions.getByRole("button", { name: "Move to Trash" }),
+    ).toBeInTheDocument();
+    expect(actions.queryByRole("button", { name: /delete/i })).toBeNull();
+  });
+
+  it("renders the immutable original instead of the generated preview", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/api/v1/media/media-1") {
+        return Promise.resolve(imageDetail);
+      }
+      if (path.startsWith("/api/v1/media/media-1/navigation?")) {
+        return Promise.resolve({
+          media_id: "media-1",
+          position: 1,
+          total: 1,
+          previous_id: null,
+          previous_position: null,
+          next_id: null,
+          next_position: null,
+        });
+      }
+      if (path.startsWith("/api/v1/media/media-1/workflow?")) {
+        return Promise.resolve({});
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    });
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/media/media-1"]}>
+          <Routes>
+            <Route path="/media/:mediaId" element={<MediaDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const image = await screen.findByRole("img", { name: "original.png" });
+    expect(image).toHaveAttribute("src", "/original-image");
+    expect(image).not.toHaveAttribute("src", "/preview-image");
+  });
+});
+
 const videoDetail: MediaDetail = {
   id: "media-1",
   kind: "video",
@@ -121,4 +215,19 @@ const videoDetail: MediaDetail = {
   derivatives: [],
   variants: [],
   sources: [],
+};
+
+const imageDetail: MediaDetail = {
+  ...videoDetail,
+  kind: "image",
+  detected_format: "png",
+  mime_type: "image/png",
+  duration_seconds: null,
+  container: null,
+  video_codec: null,
+  audio_codec: null,
+  original_filename: "original.png",
+  preview_url: "/preview-image",
+  playback_url: "/playback-image",
+  original_url: "/original-image",
 };

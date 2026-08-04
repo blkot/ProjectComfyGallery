@@ -77,6 +77,7 @@ export function MediaSpatialPreferenceButton({
       type="button"
       aria-label={action}
       aria-pressed={preferred}
+      data-preference={preferred ? "spatial" : "standard"}
       disabled={mutation.isPending}
       data-error={mutation.isError || undefined}
       title={mutation.isError ? `${action} — update failed` : action}

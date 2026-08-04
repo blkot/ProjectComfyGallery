@@ -15,12 +15,18 @@ import { LibraryPage } from "./library-page";
 const { apiRequestMock } = vi.hoisted(() => ({
   apiRequestMock: vi.fn(),
 }));
+const requestFullscreenMock = vi.fn();
 
 vi.mock("../lib/api", () => ({
   apiRequest: apiRequestMock,
 }));
 
 beforeEach(() => {
+  requestFullscreenMock.mockReset().mockResolvedValue(undefined);
+  Object.defineProperty(document.documentElement, "requestFullscreen", {
+    configurable: true,
+    value: requestFullscreenMock,
+  });
   const values = new Map<string, string>();
   Object.defineProperty(window, "localStorage", {
     configurable: true,
@@ -252,6 +258,9 @@ describe("LibraryPage controls sidebar", () => {
         name: "Shuffle this slideshow",
       }),
     ).not.toBeChecked();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Start" }));
+    expect(requestFullscreenMock).not.toHaveBeenCalled();
   });
 });
 

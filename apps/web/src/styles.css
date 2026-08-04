@@ -16,6 +16,10 @@
   --accent: #e2ff64;
   --accent-ink: #17190a;
   --danger: #ff8278;
+  --favorite-action: #c9b66f;
+  --standard-action: #999d99;
+  --spatial-action: #91b9c7;
+  --trash-action: #c97b74;
   --success: #9be375;
 }
 
@@ -1336,13 +1340,15 @@ textarea {
 }
 
 .media-favorite-button:hover {
-  color: #ffe18a;
-  border-color: rgba(255, 225, 138, 0.45);
+  color: #dac986;
+  border-color: color-mix(in srgb, var(--favorite-action) 48%, transparent);
+  background: color-mix(in srgb, var(--favorite-action) 9%, transparent);
 }
 
 .media-favorite-button[aria-pressed="true"] {
-  color: #ffd55f;
-  border-color: rgba(255, 213, 95, 0.5);
+  color: var(--favorite-action);
+  border-color: color-mix(in srgb, var(--favorite-action) 42%, transparent);
+  background: color-mix(in srgb, var(--favorite-action) 8%, transparent);
 }
 
 .media-favorite-button:disabled {
@@ -2468,6 +2474,8 @@ textarea {
 }
 
 .media-record-preview {
+  container-name: media-preview;
+  container-type: inline-size;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -2532,7 +2540,79 @@ textarea {
 }
 
 .media-record-download {
+  min-height: 32px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.025);
+  display: inline-flex;
+  align-items: center;
+}
+
+.media-record-actions {
+  min-width: 0;
   justify-self: end;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.media-record-actions .media-record-favorite {
+  width: 32px;
+  height: 32px;
+  color: var(--favorite-action);
+  border-color: color-mix(in srgb, var(--favorite-action) 24%, transparent);
+  background: color-mix(in srgb, var(--favorite-action) 6%, transparent);
+}
+
+.media-record-actions .media-record-spatial {
+  min-height: 32px;
+}
+
+.media-trash-action {
+  display: inline-flex;
+}
+
+.media-trash-button {
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, var(--trash-action) 28%, transparent);
+  border-radius: 6px;
+  color: var(--trash-action);
+  background: color-mix(in srgb, var(--trash-action) 6%, transparent);
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.media-trash-button:hover,
+.media-trash-button[data-trashed="true"] {
+  color: #dc928b;
+  border-color: color-mix(in srgb, var(--trash-action) 46%, transparent);
+  background: color-mix(in srgb, var(--trash-action) 11%, transparent);
+}
+
+.media-trash-button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+@container media-preview (max-width: 720px) {
+  .media-record-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .media-view-navigation {
+    justify-self: end;
+  }
+
+  .media-record-actions {
+    width: 100%;
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    flex-wrap: wrap;
+  }
 }
 
 .media-view-navigation {
@@ -2654,8 +2734,8 @@ textarea {
   padding: 4px 8px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  color: var(--muted);
-  background: transparent;
+  color: var(--standard-action);
+  background: color-mix(in srgb, var(--standard-action) 5%, transparent);
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -2665,10 +2745,26 @@ textarea {
   text-transform: uppercase;
 }
 
-.spatial-preference-button[aria-pressed="true"] {
-  color: #c5b9ff;
-  border-color: rgba(197, 185, 255, 0.36);
-  background: rgba(197, 185, 255, 0.06);
+.spatial-preference-button[data-preference="standard"] {
+  border-color: color-mix(in srgb, var(--standard-action) 24%, transparent);
+}
+
+.spatial-preference-button[data-preference="standard"]:hover {
+  color: #b6bab6;
+  border-color: color-mix(in srgb, var(--standard-action) 44%, transparent);
+  background: color-mix(in srgb, var(--standard-action) 10%, transparent);
+}
+
+.spatial-preference-button[data-preference="spatial"] {
+  color: #aed3df;
+  border-color: color-mix(in srgb, var(--spatial-action) 42%, transparent);
+  background: color-mix(in srgb, var(--spatial-action) 10%, transparent);
+}
+
+.spatial-preference-button[data-preference="spatial"]:hover {
+  color: #b8dbe5;
+  border-color: color-mix(in srgb, var(--spatial-action) 48%, transparent);
+  background: color-mix(in srgb, var(--spatial-action) 12%, transparent);
 }
 
 .spatial-preference-button:disabled {
@@ -5532,6 +5628,7 @@ textarea {
 .slideshow-controls {
   bottom: 28px;
   left: 50%;
+  gap: 10px;
   transform: translateX(-50%);
 }
 

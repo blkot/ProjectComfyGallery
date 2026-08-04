@@ -63,6 +63,54 @@ afterEach(() => {
 });
 
 describe("SlideshowPage", () => {
+  it("uses full-quality media for displayed and preloaded image slides", async () => {
+    const secondImage = {
+      id: "image-2",
+      kind: "image",
+      status: "ready",
+      original_filename: "two.png",
+      width: 200,
+      height: 200,
+      duration_seconds: null,
+      preview_url: "/api/v1/media/image-2/preview",
+      playback_url: "/api/v1/media/image-2/playback",
+    };
+    apiRequestMock.mockResolvedValueOnce({
+      items: [
+        {
+          id: "image-1",
+          kind: "image",
+          status: "ready",
+          original_filename: "one.png",
+          width: 100,
+          height: 100,
+          duration_seconds: null,
+          preview_url: "/api/v1/media/image-1/preview",
+          playback_url: "/api/v1/media/image-1/playback",
+        },
+        secondImage,
+      ],
+      total: 2,
+      limit: 2000,
+      truncated: false,
+      shuffle: false,
+      random_seed: null,
+    });
+    const imageSourceSetter = vi.spyOn(
+      HTMLImageElement.prototype,
+      "src",
+      "set",
+    );
+    const view = renderSlideshow("/slideshow?source=filter&interval=5");
+
+    expect(await screen.findByText("one.png")).toBeInTheDocument();
+    expect(view.container.querySelector("img.slideshow-media")).toHaveAttribute(
+      "src",
+      "/api/v1/media/image-1/playback",
+    );
+    expect(imageSourceSetter).toHaveBeenCalledWith(secondImage.playback_url);
+  });
+
   it("advances images on the interval and videos when playback ends", async () => {
     const timeoutSpy = vi.spyOn(globalThis, "setTimeout");
     const view = renderSlideshow(
@@ -98,6 +146,20 @@ describe("SlideshowPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Resume" }));
     act(() => vi.advanceTimersByTime(5_000));
+    expect(screen.getByText("two.mp4")).toBeInTheDocument();
+  });
+
+  it("moves to the previous and next items with wrapping controls", async () => {
+    renderSlideshow("/slideshow?source=filter&interval=5");
+    expect(await screen.findByText("one.png")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Previous" }));
+    expect(screen.getByText("two.mp4")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByText("one.png")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByText("two.mp4")).toBeInTheDocument();
   });
 });

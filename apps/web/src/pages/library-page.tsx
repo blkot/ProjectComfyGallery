@@ -321,18 +321,13 @@ export function LibraryPage() {
       : { media_ids: [...selected] };
   }
 
-  async function startSlideshow() {
+  function startSlideshow() {
     const href = slideshowHref(searchParams, {
       source: slideshowSource,
       collectionId: slideshowCollectionId,
       shuffle: slideshowShuffle,
       intervalSeconds: slideshowInterval,
     });
-    try {
-      await document.documentElement.requestFullscreen?.();
-    } catch {
-      // Presentation mode still fills the browser viewport when fullscreen is denied.
-    }
     navigate(href);
   }
 
@@ -393,7 +388,7 @@ export function LibraryPage() {
             <form
               onSubmit={(event) => {
                 event.preventDefault();
-                void startSlideshow();
+                startSlideshow();
               }}
             >
               <fieldset className="slideshow-source-options">
