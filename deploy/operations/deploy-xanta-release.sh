@@ -42,6 +42,7 @@ fi
 
 if [[ "$confirmation" != "--yes" ]]; then
   read -r -p "Deploy ${release_version} to the production Xanta NAS? Type the version: " answer
+  answer="${answer%$'\r'}"
   if [[ "$answer" != "$release_version" ]]; then
     echo "Deployment cancelled." >&2
     exit 1

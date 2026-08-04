@@ -64,6 +64,34 @@ def test_nas_deployment_pulls_without_building() -> None:
     assert "alembic -c packages/py/core/alembic.ini check" in deployment
 
 
+def test_nas_release_confirmation_accepts_crlf_terminal_input(tmp_path: Path) -> None:
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    fake_gh = fake_bin / "gh"
+    fake_gh.write_text(
+        "#!/usr/bin/env bash\nprintf 'completed\\tsuccess\\thttps://example.test/release-run\\n'\n",
+        encoding="utf-8",
+    )
+    fake_gh.chmod(0o755)
+
+    version = "0.1.0-rc.15"
+    environment = os.environ.copy()
+    environment["PATH"] = f"{fake_bin}:{environment['PATH']}"
+    environment["XANTA_NAS_HELPER"] = "/usr/bin/true"
+
+    result = subprocess.run(
+        [str(ROOT / "deploy/operations/deploy-xanta-release.sh"), version],
+        input=f"{version}\r\n",
+        text=True,
+        capture_output=True,
+        env=environment,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Deployment completed from https://example.test/release-run" in result.stdout
+
+
 def test_media_jobs_have_dedicated_worker_capacity() -> None:
     compose = yaml.safe_load((ROOT / "compose.yaml").read_text(encoding="utf-8"))
     services = compose["services"]
