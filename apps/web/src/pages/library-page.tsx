@@ -51,6 +51,7 @@ export function LibraryPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const galleryTopRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const restoredReturnRef = useRef<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [filteredSelection, setFilteredSelection] =
@@ -69,6 +70,7 @@ export function LibraryPage() {
   const [controlsCollapsed, setControlsCollapsed] = useState(
     readLibraryControlsCollapsed,
   );
+  const keywordQuery = searchParams.get("q")?.trim() ?? "";
   const kind = searchParams.get("kind") ?? "";
   const status = searchParams.get("status") ?? "";
   const workflowStatus = searchParams.get("workflow_status") ?? "";
@@ -528,6 +530,53 @@ export function LibraryPage() {
             hidden={controlsCollapsed}
           >
           <section className="toolbar" aria-label="Media filters">
+            <form
+              className="library-keyword-search"
+              role="search"
+              aria-label="Search media library"
+              aria-busy={media.isFetching}
+              onSubmit={(event) => {
+                event.preventDefault();
+                changeLibraryParameter(
+                  "q",
+                  searchInputRef.current?.value.trim() ?? "",
+                );
+              }}
+            >
+              <label htmlFor="library-keyword-query">
+                Search entire library
+                <input
+                  id="library-keyword-query"
+                  key={keywordQuery}
+                  ref={searchInputRef}
+                  type="search"
+                  name="q"
+                  maxLength={256}
+                  defaultValue={keywordQuery}
+                  placeholder="Checkpoint, LoRA, or prompt"
+                  autoComplete="off"
+                />
+              </label>
+              <div className="library-keyword-actions">
+                <button className="secondary-button" type="submit">
+                  Search
+                </button>
+                <button
+                  className="text-button"
+                  type="button"
+                  disabled={!keywordQuery}
+                  onClick={() => {
+                    if (searchInputRef.current) {
+                      searchInputRef.current.value = "";
+                      searchInputRef.current.focus();
+                    }
+                    changeLibraryParameter("q", "");
+                  }}
+                >
+                  Clear
+                </button>
+              </div>
+            </form>
             <label>
               Media type
               <select
@@ -689,8 +738,14 @@ export function LibraryPage() {
                 <option value="size_asc">File size · smallest</option>
               </select>
             </label>
-            <span className="result-count">
-              {media.isPending ? "Loading…" : `${media.data?.total ?? 0} media`}
+            <span className="result-count" aria-live="polite">
+              {media.isFetching
+                ? keywordQuery
+                  ? "Searching…"
+                  : "Loading…"
+                : keywordQuery
+                  ? `${media.data?.total ?? 0} matches for “${keywordQuery}”`
+                  : `${media.data?.total ?? 0} media`}
             </span>
           </section>
 
@@ -890,16 +945,23 @@ export function LibraryPage() {
         <div className="library-gallery" ref={galleryTopRef}>
           {media.isError ? (
             <p className="notice error-notice" role="alert">
-              The media library could not be loaded.
+              {keywordQuery
+                ? `Search for “${keywordQuery}” could not be completed.`
+                : "The media library could not be loaded."}
             </p>
           ) : null}
 
           {media.data?.items.length === 0 ? (
             <section className="empty-state large-empty">
-              <strong>No media matches these filters</strong>
+              <strong>
+                {keywordQuery
+                  ? `No media matches “${keywordQuery}”`
+                  : "No media matches these filters"}
+              </strong>
               <p>
-                Import files from the browser or register a NAS source
-                directory.
+                {keywordQuery
+                  ? "Try another keyword or clear filters to widen the search."
+                  : "Import files from the browser or register a NAS source directory."}
               </p>
             </section>
           ) : null}
@@ -913,7 +975,7 @@ export function LibraryPage() {
             />
           ) : null}
 
-          <section className="media-grid" aria-busy={media.isPending}>
+          <section className="media-grid" aria-busy={media.isFetching}>
             {media.data?.items.map((item) => (
               <article
                 className="media-card"

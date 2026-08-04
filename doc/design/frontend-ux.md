@@ -108,6 +108,16 @@ Previous/Next, a compact numbered window centered on the current page, first/las
 page access with ellipses for long ranges, and a direct one-based page jump. Every
 page change remains URL-backed and scrolls the gallery boundary into view.
 
+The first Library control is an explicit complete-library keyword search. It accepts
+checkpoint names and aliases, LoRA names and aliases, or positive/negative prompt
+text, then submits the trimmed term as `q`; it never filters only the downloaded
+gallery page. Search and Clear preserve unrelated filters and sort while resetting
+pagination and the prior return-card anchor. Because `q` remains in the URL-backed
+view context, refresh, copied links, numbered pagination, Media Detail traversal,
+saved filters, server-resolved scopes, and filtered slideshows reproduce the same
+population. The control announces searching and match counts, and distinguishes
+keyword-specific failure and zero-result states.
+
 The Library header also opens a focused **Start slideshow** dialog. The user chooses
 the current filtered result or one collection, an image duration, and optional
 shuffle. Start requests browser fullscreen within the initiating click and opens a

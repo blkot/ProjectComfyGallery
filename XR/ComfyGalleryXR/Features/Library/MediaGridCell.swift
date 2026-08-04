@@ -21,9 +21,20 @@ struct MediaGridCell: View {
                     Image(systemName: "trash.fill")
                         .accessibilityLabel("In Trash")
                 }
-                if media.spatialViewPreferred {
+                if media.kind == .video && media.spatialAvailable {
+                    Image(
+                        systemName: media.prefersSpatialPlayback
+                            ? "cube.transparent.fill"
+                            : "cube.transparent"
+                    )
+                    .accessibilityLabel(
+                        media.prefersSpatialPlayback
+                            ? "Spatial video preferred and available"
+                            : "Spatial video available"
+                    )
+                } else if media.prefersSpatialPlayback {
                     Image(systemName: "cube.transparent")
-                        .accessibilityLabel("Spatial")
+                        .accessibilityLabel("Spatial playback preferred")
                 }
             }
             .font(.caption)
@@ -31,8 +42,14 @@ struct MediaGridCell: View {
             .background(.regularMaterial, in: Capsule())
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .padding(8)
-            .opacity(media.isTrash || media.spatialViewPreferred ? 1 : 0)
-            .accessibilityHidden(!media.isTrash && !media.spatialViewPreferred)
+            .opacity(
+                media.isTrash || media.prefersSpatialPlayback || media.spatialAvailable
+                    ? 1
+                    : 0
+            )
+            .accessibilityHidden(
+                !media.isTrash && !media.prefersSpatialPlayback && !media.spatialAvailable
+            )
         }
         .aspectRatio(2.0 / 3.0, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -48,8 +65,11 @@ struct MediaGridCell: View {
         if media.favorite {
             labels.append("Favorite")
         }
-        if media.spatialViewPreferred {
-            labels.append("Spatial")
+        if media.prefersSpatialPlayback {
+            labels.append("Spatial playback preferred")
+        }
+        if media.kind == .video && media.spatialAvailable {
+            labels.append("Spatial video available")
         }
         return labels.joined(separator: ", ")
     }

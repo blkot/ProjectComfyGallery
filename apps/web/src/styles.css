@@ -1072,6 +1072,35 @@ code {
   margin: 0 4px 10px auto;
 }
 
+.library-keyword-search {
+  width: 100%;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.library-keyword-search label {
+  min-width: 0;
+}
+
+.library-keyword-search input {
+  height: 38px;
+}
+
+.library-keyword-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.library-keyword-actions .secondary-button {
+  min-height: 36px;
+}
+
+.library-keyword-actions .text-button {
+  margin: 0;
+}
+
 .library-page {
   width: min(1680px, 100%);
 }
@@ -3273,10 +3302,32 @@ textarea {
 
 .prompt-evidence .workflow-prompt {
   max-height: 260px;
+  min-width: 0;
+  margin: 0;
   padding: 12px;
   border: 1px solid var(--line-soft);
   border-radius: 6px;
   background: #0d0d0b;
+}
+
+.workflow-prompt-content {
+  margin-bottom: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+}
+
+.prompt-copy-button {
+  margin: 0;
+  padding: 4px 6px;
+  font-size: 8px;
+  white-space: nowrap;
+}
+
+.prompt-copy-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
 .workflow-inspector-disclosure {

@@ -61,6 +61,42 @@ The current NAS release remains active if image pulling or the migration
 preflight fails. A failed post-start health check is reported and must be
 investigated before another deployment.
 
+## Automatic deployment selection from the development Mac
+
+Use the deployment dispatcher when the correct scope is not obvious:
+
+```bash
+./deploy/operations/deploy-xanta-auto.sh plan
+```
+
+It reads the revisions embedded in the running NAS API and web images, compares
+them with local `HEAD` plus worktree changes, and chooses one of these paths:
+
+| Detected change | Action |
+| --- | --- |
+| Documentation, tests, operations scripts, mobile, or XR only | No NAS deployment |
+| `apps/web` and bundle/overlay inputs only | Verify/build locally and replace only `web` |
+| API, worker, shared Python, migrations, dependencies, Compose, Docker, or mixed changes | Immutable milestone release with backup and migration preflight |
+
+Planning is always read-only. To execute the selected path with its normal
+confirmation prompt:
+
+```bash
+./deploy/operations/deploy-xanta-auto.sh auto
+```
+
+To run verification and builds without changing the NAS:
+
+```bash
+./deploy/operations/deploy-xanta-auto.sh auto --dry-run
+```
+
+The dispatcher deliberately does not turn arbitrary backend worktree changes into
+an ad-hoc production image. A full-release plan requires `VERSION`, the matching
+tag, the GitHub-built immutable images, and a clean worktree. Database migrations
+are always a full-release case and therefore receive the existing mandatory backup.
+Use `--from REF` only when an older manual image lacks a usable revision label.
+
 ## Manual NAS recovery path
 
 Use this only when the Mac wrapper is unavailable. On the NAS, from the

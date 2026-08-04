@@ -80,6 +80,7 @@ struct ViewerFeatureState {
     var image: UIImage?
     var loadState: ViewerLoadState = .empty
     var videoIsPreparing = false
+    var videoPlaybackError: String?
 
     var positionText: String {
         guard let navigation else { return "— / —" }
@@ -94,6 +95,7 @@ final class AppModel {
         let profileID: UUID
         let kind: MediaKind
         let preferences: MediaPreferences
+        let fields: Set<MediaPreferenceField>
     }
 
     let environment: AppEnvironment
@@ -112,10 +114,12 @@ final class AppModel {
     @ObservationIgnored private var libraryGeneration = 0
     @ObservationIgnored private var viewerGeneration = 0
     @ObservationIgnored private var viewerLoadTask: Task<Void, Never>?
+    @ObservationIgnored private var videoSourceSwitchTask: Task<Void, Never>?
     @ObservationIgnored private var prefetchTasks: [Task<Void, Never>] = []
     @ObservationIgnored private var spatialPreparationTask: Task<Void, Never>?
     @ObservationIgnored private var pendingPreferenceMutations: [UUID: PendingPreferenceMutation] = [:]
     @ObservationIgnored private var preferenceSyncTasks: [UUID: Task<Void, Never>] = [:]
+    @ObservationIgnored private var videoSourceGeneration = 0
 
     init(environment: AppEnvironment) {
         self.environment = environment
@@ -342,6 +346,9 @@ final class AppModel {
     func closeViewer() {
         viewerLoadTask?.cancel()
         viewerLoadTask = nil
+        videoSourceGeneration += 1
+        videoSourceSwitchTask?.cancel()
+        videoSourceSwitchTask = nil
         prefetchTasks.forEach { $0.cancel() }
         prefetchTasks.removeAll()
         player.stop()
@@ -407,18 +414,19 @@ final class AppModel {
         guard
             let detail = viewer.detail,
             detail.kind == .image,
-            detail.spatialViewPreferred || spatial.hasGenerated
+            detail.prefersSpatialPlayback || spatial.hasGenerated
         else {
             return
         }
         spatial.show2D()
+        let mutation = MediaPreferenceMutationPlan.runtimeSpatialImage(
+            isEnabled: false
+        )
         queuePreferenceMutation(
             mediaID: detail.id,
             kind: detail.kind,
-            preferences: MediaPreferences(
-                favorite: false,
-                spatialViewPreferred: false
-            )
+            preferences: mutation.preferences,
+            fields: mutation.fields
         )
     }
 
@@ -431,14 +439,49 @@ final class AppModel {
             return
         }
         spatial.showSpatial()
+        let mutation = MediaPreferenceMutationPlan.runtimeSpatialImage(
+            isEnabled: true
+        )
         queuePreferenceMutation(
             mediaID: detail.id,
             kind: detail.kind,
-            preferences: MediaPreferences(
-                favorite: true,
-                spatialViewPreferred: true
-            )
+            preferences: mutation.preferences,
+            fields: mutation.fields
         )
+    }
+
+    func toggleSpatialPlaybackForCurrentVideo() {
+        guard
+            let detail = viewer.detail,
+            detail.kind == .video
+        else {
+            return
+        }
+        let enabling = !detail.prefersSpatialPlayback
+        guard !enabling || detail.activeSpatialVideoVariant != nil else {
+            return
+        }
+
+        let previousRepresentation = detail.selectedVideoPlaybackSource?.representation
+        let mutation = MediaPreferenceMutationPlan.playbackPreference(
+            isPreferred: enabling,
+            preserving: detail.preferences
+        )
+        queuePreferenceMutation(
+            mediaID: detail.id,
+            kind: detail.kind,
+            preferences: mutation.preferences,
+            fields: mutation.fields
+        )
+
+        guard
+            previousRepresentation != viewer.detail?.selectedVideoPlaybackSource?.representation,
+            let selection = viewer.selection,
+            selection.mediaID == detail.id
+        else {
+            return
+        }
+        startVideoSourceSwitch(mediaID: selection.mediaID)
     }
 
     func retryPreferenceSyncForCurrentMedia() {
@@ -490,6 +533,9 @@ final class AppModel {
 
     private func startViewerLoad(_ selection: ViewerSelection) {
         viewerLoadTask?.cancel()
+        videoSourceGeneration += 1
+        videoSourceSwitchTask?.cancel()
+        videoSourceSwitchTask = nil
         prefetchTasks.forEach { $0.cancel() }
         prefetchTasks.removeAll()
         spatialPreparationTask?.cancel()
@@ -501,8 +547,67 @@ final class AppModel {
         viewer.image = nil
         viewer.navigation = nil
         viewer.videoIsPreparing = false
+        viewer.videoPlaybackError = nil
         viewerLoadTask = Task {
             await loadViewer(selection, generation: generation)
+        }
+    }
+
+    private func startVideoSourceSwitch(mediaID: UUID) {
+        guard
+            let profile = activeProfile,
+            let detail = viewer.detail,
+            detail.id == mediaID,
+            detail.kind == .video,
+            let representation = detail.selectedVideoPlaybackSource?.representation
+        else {
+            return
+        }
+
+        videoSourceGeneration += 1
+        let generation = videoSourceGeneration
+        videoSourceSwitchTask?.cancel()
+        viewer.videoIsPreparing = true
+        viewer.videoPlaybackError = nil
+        videoSourceSwitchTask = Task {
+            defer {
+                if generation == videoSourceGeneration {
+                    viewer.videoIsPreparing = false
+                    videoSourceSwitchTask = nil
+                }
+            }
+
+            do {
+                let fileURL = try await environment.mediaRepository.videoFile(
+                    profileID: profile.id,
+                    media: detail
+                )
+                try Task.checkCancellation()
+                guard
+                    generation == videoSourceGeneration,
+                    viewer.selection?.mediaID == mediaID,
+                    viewer.detail?.selectedVideoPlaybackSource?.representation
+                        == representation
+                else {
+                    return
+                }
+
+                let presentation: VideoPlaybackPresentation =
+                    representation.isSpatial ? .expandedSpatial : .embedded
+                player.load(
+                    fileURL: fileURL,
+                    autoplay: true,
+                    presentation: presentation
+                )
+            } catch is CancellationError {
+                return
+            } catch {
+                guard generation == videoSourceGeneration else { return }
+                handle(error)
+                viewer.videoPlaybackError =
+                    "The requested video version could not be prepared: "
+                    + Redaction.safeErrorDescription(error)
+            }
         }
     }
 
@@ -521,11 +626,9 @@ final class AppModel {
             let navigation = try? await navigationRequest
             guard generation == viewerGeneration else { return }
             let serverPreferences = detail.preferences
-            let normalizedServerPreferences =
-                serverPreferences.enforcingSpatialFavoriteInvariant
             detail.preferences = effectivePreferences(
                 mediaID: detail.id,
-                serverPreferences: normalizedServerPreferences
+                serverPreferences: serverPreferences
             )
             viewer.detail = detail
             viewer.navigation = navigation
@@ -549,19 +652,21 @@ final class AppModel {
                     media: detail
                 )
                 guard generation == viewerGeneration else { return }
-                player.load(fileURL: fileURL, autoplay: true)
+                let presentation: VideoPlaybackPresentation =
+                    detail.selectedVideoPlaybackSource?.representation.isSpatial == true
+                    ? .expandedSpatial
+                    : .embedded
+                player.load(
+                    fileURL: fileURL,
+                    autoplay: true,
+                    presentation: presentation
+                )
                 viewer.videoIsPreparing = false
             }
             viewer.loadState = .ready
             schedulePrefetch(navigation: navigation, scope: selection.scope, profile: profile)
 
-            if normalizedServerPreferences != serverPreferences {
-                queuePreferenceMutation(
-                    mediaID: detail.id,
-                    kind: detail.kind,
-                    preferences: normalizedServerPreferences
-                )
-            } else if pendingPreferenceMutations[detail.id] != nil {
+            if pendingPreferenceMutations[detail.id] != nil {
                 startPreferenceSync(mediaID: detail.id)
             }
 
@@ -614,7 +719,8 @@ final class AppModel {
                 media: detail,
                 targetPixelSize: CGSize(width: 1_200, height: 1_200)
             )
-            if detail.byteSize <= 40 * 1_024 * 1_024 {
+            if (detail.selectedVideoPlaybackSource?.byteSize ?? detail.byteSize)
+                <= 40 * 1_024 * 1_024 {
                 _ = try? await environment.mediaRepository.videoFile(
                     profileID: profile.id,
                     media: detail
@@ -634,7 +740,7 @@ final class AppModel {
             var item = item
             item.preferences = effectivePreferences(
                 mediaID: item.id,
-                serverPreferences: item.preferences.enforcingSpatialFavoriteInvariant
+                serverPreferences: item.preferences
             )
             return item
         }
@@ -668,9 +774,9 @@ final class AppModel {
             let restored = spatial.configure(
                 profileID: profile.id,
                 mediaID: detail.id,
-                prefersSpatial: detail.spatialViewPreferred
+                prefersSpatial: detail.prefersSpatialPlayback
             )
-            return detail.spatialViewPreferred && !restored
+            return detail.prefersSpatialPlayback && !restored
         case .unavailable:
             spatial.setUnavailable()
             return false
@@ -684,21 +790,21 @@ final class AppModel {
         kind: MediaKind
     ) {
         guard let current = currentPreferences(mediaID: mediaID) else { return }
-
-        // Spatial is the stronger state. Its favorite may only be removed through
-        // Disable Spatial so the two flags cannot diverge.
-        guard isFavorite || !current.spatialViewPreferred else { return }
-        let desired = MediaPreferences(
-            favorite: isFavorite,
-            spatialViewPreferred: current.spatialViewPreferred
-        ).enforcingSpatialFavoriteInvariant
-        guard desired != current || pendingPreferenceMutations[mediaID] != nil else {
+        let mutation = MediaPreferenceMutationPlan.favorite(
+            isFavorite: isFavorite,
+            preserving: current
+        )
+        guard
+            mutation.preferences != current
+                || pendingPreferenceMutations[mediaID] != nil
+        else {
             return
         }
         queuePreferenceMutation(
             mediaID: mediaID,
             kind: kind,
-            preferences: desired
+            preferences: mutation.preferences,
+            fields: mutation.fields
         )
     }
 
@@ -709,35 +815,37 @@ final class AppModel {
         else {
             return
         }
-        let desired = MediaPreferences(
-            favorite: true,
-            spatialViewPreferred: true
+        let mutation = MediaPreferenceMutationPlan.runtimeSpatialImage(
+            isEnabled: true
         )
-        if detail.preferences == desired,
+        if detail.preferences == mutation.preferences,
            pendingPreferenceMutations[mediaID] == nil {
             return
         }
         queuePreferenceMutation(
             mediaID: mediaID,
             kind: detail.kind,
-            preferences: desired
+            preferences: mutation.preferences,
+            fields: mutation.fields
         )
     }
 
     private func queuePreferenceMutation(
         mediaID: UUID,
         kind: MediaKind,
-        preferences: MediaPreferences
+        preferences: MediaPreferences,
+        fields: Set<MediaPreferenceField>
     ) {
         guard let profile = activeProfile else { return }
-        let normalized = preferences.enforcingSpatialFavoriteInvariant
+        let mergedFields = fields.union(pendingPreferenceMutations[mediaID]?.fields ?? [])
         pendingPreferenceMutations[mediaID] = PendingPreferenceMutation(
             profileID: profile.id,
             kind: kind,
-            preferences: normalized
+            preferences: preferences,
+            fields: mergedFields
         )
         preferenceSyncErrors.removeValue(forKey: mediaID)
-        applyPreferencesLocally(mediaID: mediaID, preferences: normalized)
+        applyPreferencesLocally(mediaID: mediaID, preferences: preferences)
         startPreferenceSync(mediaID: mediaID)
     }
 
@@ -776,7 +884,7 @@ final class AppModel {
         mutation: PendingPreferenceMutation
     ) async throws {
         for write in MediaPreferenceMutationPlan.writes(
-            kind: mutation.kind,
+            fields: mutation.fields,
             desired: mutation.preferences
         ) {
             switch write {
@@ -788,12 +896,12 @@ final class AppModel {
                 guard favorite.favorite == value else {
                     throw APIClientError.invalidResponse
                 }
-            case .spatial(let value):
-                let spatial = try await environment.galleryRepository.updateSpatialPreference(
+            case .playbackPreference(let value):
+                let preference = try await environment.galleryRepository.updatePlaybackPreference(
                     id: mediaID,
                     isPreferred: value
                 )
-                guard spatial.spatialViewPreferred == value else {
+                guard preference.prefersSpatialPlayback == value else {
                     throw APIClientError.invalidResponse
                 }
             }
@@ -811,7 +919,8 @@ final class AppModel {
         guard
             let current = pendingPreferenceMutations[mediaID],
             current.profileID == attempted.profileID,
-            current.preferences == attempted.preferences
+            current.preferences == attempted.preferences,
+            current.fields == attempted.fields
         else {
             startPreferenceSync(mediaID: mediaID)
             return
@@ -831,7 +940,9 @@ final class AppModel {
         )
         reconcileLibraryMembership(mediaID: mediaID)
 
-        if !attempted.preferences.spatialViewPreferred {
+        if attempted.kind == .image,
+           attempted.fields.contains(.playbackPreference),
+           !attempted.preferences.prefersSpatialPlayback {
             spatial.discard(
                 profileID: attempted.profileID,
                 mediaID: mediaID
@@ -843,10 +954,8 @@ final class AppModel {
         mediaID: UUID,
         serverPreferences: MediaPreferences
     ) -> MediaPreferences {
-        (
-            pendingPreferenceMutations[mediaID]?.preferences
-                ?? serverPreferences
-        ).enforcingSpatialFavoriteInvariant
+        pendingPreferenceMutations[mediaID]?.preferences
+            ?? serverPreferences
     }
 
     private func currentPreferences(mediaID: UUID) -> MediaPreferences? {
@@ -874,7 +983,7 @@ final class AppModel {
             switch self.library.scope.preference {
             case .all: true
             case .favorites: preferences.favorite
-            case .spatial: preferences.spatialViewPreferred
+            case .spatial: preferences.prefersSpatialPlayback
             }
         }
 
@@ -916,6 +1025,9 @@ final class AppModel {
         viewerGeneration += 1
         viewerLoadTask?.cancel()
         viewerLoadTask = nil
+        videoSourceGeneration += 1
+        videoSourceSwitchTask?.cancel()
+        videoSourceSwitchTask = nil
         spatialPreparationTask?.cancel()
         spatialPreparationTask = nil
         prefetchTasks.forEach { $0.cancel() }

@@ -172,27 +172,56 @@ The XR MVP therefore focuses on generated spatial scenes from existing 2D images
 
 Apple recommends `AVPlayerViewController` for a windowed visionOS playback interface.
 It supplies standard transport controls, platform integration, and familiar behavior.
+The system player supports standard 2D and spatial/3D video without a custom stereo
+renderer. An Apple spatial video uses MV-HEVC in an MPEG-4 or QuickTime-family
+container plus spatial metadata; the metadata opts playback into Vision Pro's
+spatial presentation and comfort treatments.
+
 The Destination Video sample demonstrates a native media library and player; its
 immersive environment is useful reference material but outside this MVP.
 
 The gallery's media endpoints require bearer authentication. A plain player URL
-cannot safely contain the token. For the expected several-megabyte LAN files, the
-reliable V1 design is:
+cannot safely contain the token. The backend therefore exposes the active spatial
+variant as an authenticated `content_url` and leaves ordinary `playback_url`
+unchanged. The reliable first implementation is:
 
-1. Download `/playback` through authenticated `URLSession`.
-2. Write it atomically into a bounded media cache.
-3. Create `AVPlayerItem` from the local file URL.
-4. Present it in `AVPlayerViewController`.
-5. Call `play()` only when the card is active.
+1. Select the ready spatial variant only when both `prefer_spatial_playback` and
+   `spatial_available` are true; otherwise select ordinary `playback_url`.
+2. Download the selected path through authenticated `URLSession`.
+3. Write it atomically into a bounded media cache keyed by representation and
+   variant UUID.
+4. Preserve `video/quicktime` as a local `.mov` file.
+5. Create `AVPlayerItem` from the local file URL.
+6. Present it in `AVPlayerViewController` with monoscopic-only mode disabled.
+7. Configure `experienceController.allowedExperiences = .recommended()`.
+8. For spatial-video playback, transition the experience controller from
+   `.embedded` to `.expanded`, wait for `.completed`, and only then call `play()`.
+9. Reconcile back to `.embedded` before ordinary 2D playback and when the player is
+   dismantled.
+10. Keep the `AVPlayer` and `AVPlayerViewController` alive across ordinary/spatial
+    source changes; replace only the current item so AVKit owns the visible
+    embedded/expanded transition and Loop survives.
+11. Remove the poster layer after the AVKit surface exists rather than stacking a
+    differently sized video surface over the preview.
+
+Setting `requiresMonoscopicViewingMode = false` is necessary but does not itself
+request spatial presentation. The physical-device regression in issue #8 confirmed
+that a valid spatial MV-HEVC asset remains monoscopic in the embedded player until
+the AVKit experience transition occurs.
 
 Primary sources:
 
 - [Adopting the system player interface in visionOS](https://developer.apple.com/documentation/avkit/adopting-the-system-player-interface-in-visionos)
+- [Playing immersive media with AVKit](https://developer.apple.com/documentation/avkit/playing-immersive-media-with-avkit)
+- [Support immersive video playback in visionOS apps — WWDC25](https://developer.apple.com/videos/play/wwdc2025/296/)
+- [Converting side-by-side 3D video to multiview HEVC and spatial video](https://developer.apple.com/documentation/avfoundation/converting-side-by-side-3d-video-to-multiview-hevc-and-spatial-video)
 - [Destination Video](https://developer.apple.com/documentation/visionos/destination-video)
 - [`AVPlayerItem`](https://developer.apple.com/documentation/avfoundation/avplayeritem)
 
-If real files make full download unacceptable, the correct follow-up is an
-authenticated streaming/signed-URL backend contract, not a bearer token in the URL.
+The deployed backend also supports byte ranges. If physical-device measurements make
+full download unacceptable, a follow-up can implement an authenticated AVFoundation
+resource-loading path against that endpoint. Do not put a bearer token in a URL or
+depend on undocumented asset-header options.
 
 ## Spatial interaction findings
 

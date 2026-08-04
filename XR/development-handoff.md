@@ -175,6 +175,8 @@ Define narrow types:
 - `MediaPage`
 - `XRMediaSummary`
 - `XRMediaDetail`
+- `XRMediaVariant`
+- `VideoPlaybackSource`
 - `MediaNavigation`
 - `CachedResource`
 - `ViewerSelection`
@@ -235,20 +237,41 @@ Apple recommends `AVPlayerViewController` for windowed visionOS playback. Wrap i
 SwiftUI only where necessary.
 
 1. Display the cached poster immediately.
-2. Download `/playback` through authenticated URLSession.
-3. Atomically cache the local file.
-4. Create an `AVPlayerItem` and install it in the one Viewer player.
-5. Observe readiness and call `play()` only if selection/scene is still active.
-6. Pause and detach the old item before navigation commits.
-7. Remove time/status observers on replacement and deinit.
-8. Pause when scene phase becomes inactive.
+2. Decode canonical `spatial_available`, `prefer_spatial_playback`, and active ready
+   `variants[]`; use the legacy preference alias only as a decode fallback.
+3. Select a ready `spatial_video` `content_url` only when both preference and
+   availability are true. Any missing or inconsistent condition selects ordinary
+   `playback_url`.
+4. Download the selected path through authenticated URLSession.
+5. Atomically cache ordinary video by media UUID and spatial video by media plus
+   variant UUID. Map `video/quicktime` to `.mov`.
+6. Create an `AVPlayerItem` and install it in the one Viewer `AVPlayer`.
+7. Keep `AVPlayerViewController.requiresMonoscopicViewingMode` false so valid
+   MV-HEVC spatial metadata is permitted, but do not treat that property as an
+   instruction to present spatially.
+8. Configure `experienceController.allowedExperiences = .recommended()`.
+9. For a selected spatial variant, transition to `.expanded` and call `play()` only
+   after `.completed`; for ordinary video, reconcile to `.embedded` before play.
+10. For an ordinary/spatial preference switch, keep the Viewer `AVPlayer` and
+    `AVPlayerViewController`, replace only the current item, and preserve Loop.
+11. Serialize source/experience transitions and identity-check completions so an
+    obsolete transition cannot start the wrong current item.
+12. Remove the poster as soon as the AVKit surface exists and let that surface fill
+    the media region without an app-defined inset.
+13. Pause and detach the old item before navigation commits, and return the
+    experience to `.embedded` when dismantling the player.
+14. Implement infinite looping without replacing the `AVPlayer`, so toggling Loop
+    does not discard the active spatial experience.
+15. Remove time/status observers on replacement and deinit.
+16. Pause when scene phase becomes inactive.
 
 Only the active player has audio. Prefetch downloads never instantiate playing
-players.
+players. Use the selected source's byte size for the prefetch budget.
 
-If device testing proves full authenticated download too slow, stop and define a
-supported backend streaming contract. Do not inject tokens into URLs or rely on
-undocumented AVFoundation HTTP-header options.
+The deployed variant content endpoint supports byte ranges. If device testing proves
+full authenticated download too slow, add an authenticated AVFoundation resource
+loader against that contract. Do not inject tokens into URLs or rely on undocumented
+AVFoundation HTTP-header options.
 
 ## Viewer navigation and prefetch
 
@@ -346,8 +369,13 @@ Keep the generation `Task`. Cancel it on:
 Verify the selected media ID before applying completion. A late task may never
 replace a newly selected image.
 
-Offer Disable Spatial by setting `desiredViewingMode = .mono`, clearing both server
-preference flags, and evicting that generated object after the writes succeed.
+Offer Disable Spatial by setting `desiredViewingMode = .mono`, clearing both
+Favorite and `prefer_spatial_playback`, and evicting that generated object after
+both writes succeed. Successful generation or re-enabling a cached spatial image
+sets both fields to true. This coupling is an XR runtime-image interaction policy,
+not a backend storage invariant. Favorite remains independently editable between
+these actions; each spatial action overwrites both values regardless of their
+current state.
 Other generated objects may stay in a tiny in-memory LRU for the session, but no
 persistent/exportable representation is assumed.
 
@@ -396,6 +424,14 @@ Never log media IDs alongside private content in production diagnostics.
 - Prefetch priority/cancellation.
 - Drag threshold, velocity, direction, and single-commit behavior.
 - Cache LRU/budget and atomic failure cleanup.
+- Canonical preference decoding with legacy fallback.
+- Runtime spatial-image Favorite/preference coupling and spatial-video preference
+  independence.
+- Spatial-video selection truth table and ordinary fallback.
+- Spatial-video expanded transition before autoplay, embedded return for 2D, and
+  stale-transition cancellation across source replacement.
+- Loop toggling preserves the active `AVPlayer` and presentation request.
+- Variant-safe cache identity and QuickTime `.mov` mapping.
 - Spatial eligibility constraints.
 - Late spatial-generation result ignored after selection change.
 
@@ -429,6 +465,9 @@ Required:
 - gaze target comfort and hover behavior;
 - look-pinch-drag tuning;
 - AVKit controls and gesture conflict;
+- local MV-HEVC recognition and automatic spatial presentation;
+- ordinary/spatial preference switching and unavailable-variant fallback;
+- authenticated byte-range playback if the streaming follow-up is implemented;
 - surface snap/lock/restoration;
 - dynamic window scale and placement;
 - audio lifecycle;
@@ -492,6 +531,10 @@ Required:
 - No visible metadata inspector or token leakage.
 - Pagination and navigation cross boundaries without forcing a return to Library.
 - Videos auto-play only when active and stop reliably.
+- Ready preferred spatial videos use their variant while all inconsistent or
+  unavailable states fall back to ordinary playback.
+- Backend preference fields and spatial-video playback controls remain independent;
+  runtime spatial-image enable/disable intentionally updates both fields.
 - Neighbor prefetch remains bounded under a long session.
 - Spatial generation works on physical hardware and always retains 2D fallback.
 - Simulator and device test responsibilities are documented.

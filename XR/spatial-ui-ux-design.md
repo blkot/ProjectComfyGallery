@@ -97,6 +97,8 @@ Do not create floating custom 3D text or controls.
   least 60 points.
 - Aspect-fill preview clipped to a rounded rectangle.
 - Video glyph in one corner.
+- A compact cube badge distinguishes a video with a ready spatial variant; the
+  filled state also indicates that spatial playback is preferred.
 - Optional subtle Trash treatment.
 - No filename, UUID, hash, dimensions, prompt, or model/workflow text.
 - Use a system hover effect: slight lift/brightness, not a large scale jump.
@@ -144,11 +146,27 @@ second card.
 
 - Show poster/loading state immediately.
 - Present `AVPlayerViewController`.
-- Auto-play when ready and active.
+- When the active detail has a ready spatial variant and spatial playback is
+  preferred, load that MV-HEVC `.mov`; otherwise load ordinary `playback_url`.
+- Configure the player view controller's recommended AVKit experiences.
+- For a spatial variant, transition from `.embedded` to `.expanded` and auto-play
+  only after the transition completes.
+- For ordinary video, remain in or return to `.embedded` before auto-play.
+- Keep one `AVPlayer` and one `AVPlayerViewController` alive while switching
+  ordinary/spatial representations; replace only the current item and let AVKit
+  animate the embedded/expanded experience transition.
+- Preserve Loop across representation switches.
+- Remove the poster layer once the AVKit surface exists. Never leave a differently
+  sized preview visible behind the player.
 - Use system playback controls.
+- Leave monoscopic-only viewing disabled so Vision Pro can honor valid spatial
+  metadata; this flag permits spatial viewing but does not replace the explicit
+  experience transition.
 - Pause when the scene becomes inactive or navigation begins.
 - Do not auto-play neighbor videos during prefetch.
 - Do not place custom buttons over the player surface.
+- Let the AVKit surface fill the clean media region without an app-defined inset
+  frame; keep gallery actions in the separate controls region below it.
 
 ### Bottom ornament
 
@@ -160,10 +178,15 @@ second card.
 - Position updates from the navigation response.
 - Make Spatial appears only for compatible image media.
 - During generation it becomes **Making Spatial…** with progress activity and Cancel.
-- After generation it becomes **Disable Spatial**.
-- A Favorite control appears for all media. Spatial images remain favorited until
-  Disable Spatial is selected.
-- Video cards omit spatial conversion.
+- After successful generation it becomes **Disable Spatial**, and both Favorite and
+  playback preference are enabled.
+- A Favorite control appears for all media and remains independently editable.
+  Make Spatial forces Favorite on at that moment; Disable Spatial forces it off,
+  regardless of any Favorite changes made between those actions.
+- A video with a ready spatial variant shows **Play Spatial** while ordinary
+  playback is selected and **Play in 2D** while the variant is selected.
+- When a video preference remains true but its variant is unavailable, ordinary
+  playback is the fallback and **Disable Spatial Preference** remains available.
 
 Keep ornament width no wider than the card and use borderless system buttons on its
 glass background.

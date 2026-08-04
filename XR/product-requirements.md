@@ -21,6 +21,8 @@ scenes without altering the backend original.
 - Cross pagination boundaries without a visible mode switch.
 - Bound memory, disk, decoding, and network activity.
 - Provide a supported, reversible 2D-to-spatial-scene experience.
+- Play an imported Apple spatial MV-HEVC video variant when it is available and
+  preferred, while retaining an explicit ordinary-video choice and fallback.
 - Preserve privacy of the LAN URL and bearer token.
 
 ## Non-goals
@@ -82,12 +84,26 @@ scenes without altering the backend original.
 1. Open a compatible image.
 2. Air tap **Make Spatial**.
 3. Keep showing the 2D image while RealityKit generates.
-4. Transition to `.spatial3D` when generation succeeds.
+4. When generation succeeds, transition to `.spatial3D` and set both Favorite and
+   the spatial playback preference.
 5. Move the head slightly to experience parallax.
-6. Select **Disable Spatial** to return to 2D and clear both the spatial and
-   favorite preferences.
+6. Select **Disable Spatial** to return to 2D and clear both Favorite and the
+   spatial playback preference.
 7. Navigate away without altering the backend original; generated spatial scenes
    remain available in a bounded cache for the current app session.
+
+### Play a spatial video
+
+1. Open a video whose detail response exposes an active ready `spatial_video`
+   variant.
+2. When `prefer_spatial_playback` is true, download and play that variant through
+   the system AVKit player.
+3. Select **Play in 2D** to persist a false playback preference and replace the
+   active item with ordinary `playback_url` in the same AVKit player.
+4. Select **Play Spatial** to restore the preference and spatial variant without
+   rebuilding the player or clearing Loop.
+5. If the variant becomes unavailable while the preference remains true, play the
+   ordinary video and expose a way to disable the stale preference.
 
 ### Return later
 
@@ -157,6 +173,24 @@ scenes without altering the backend original.
 - **XR-VIEW-007:** Loading, offline, unsupported, missing, and retry states MUST fit
   within the card without opening another window.
 - **XR-VIEW-008:** Viewer MUST remain useful when Library is closed.
+- **XR-VIEW-009:** Video source selection MUST use a ready `spatial_video` variant
+  only when preference and availability are both true; all other states MUST use
+  ordinary `playback_url`.
+- **XR-VIEW-010:** Spatial and ordinary video MUST use the system AVKit interface;
+  the app MUST NOT split, reproject, or custom-render MV-HEVC eye views.
+- **XR-VIEW-011:** Changing video playback preference MUST reload the selected
+  representation without changing Favorite.
+- **XR-VIEW-012:** A missing, invalidated, or removed spatial variant MUST fall back
+  to ordinary video while preserving the stored user preference.
+- **XR-VIEW-013:** Before starting a selected spatial-video variant, the system
+  player MUST configure recommended AVKit experiences, transition to `.expanded`,
+  and wait for a completed transition.
+- **XR-VIEW-014:** Ordinary playback, navigation, source replacement, and Viewer
+  teardown MUST reconcile the player to `.embedded`; a stale asynchronous
+  transition MUST NOT start an obsolete player.
+- **XR-VIEW-015:** Switching between ordinary and spatial representations MUST
+  preserve the active `AVPlayer`, `AVPlayerViewController`, and Loop setting. The
+  poster MUST stop rendering beneath the player after the player surface exists.
 
 ### Navigation
 
@@ -189,6 +223,10 @@ scenes without altering the backend original.
   generated scenes, and players.
 - **XR-CACHE-009:** Cache identity MUST include server profile, media UUID, and
   resource kind.
+- **XR-CACHE-010:** A spatial-video cache entry MUST also include its variant UUID
+  so replacement can never reuse stale bytes.
+- **XR-CACHE-011:** QuickTime spatial variants MUST retain a `.mov` local extension
+  when served as `video/quicktime`.
 
 ### Spatial scene generation
 
@@ -200,9 +238,9 @@ scenes without altering the backend original.
 - **XR-3D-004:** Generation MUST be explicit and cancelable.
 - **XR-3D-005:** Viewer MUST remain in 2D until generation succeeds.
 - **XR-3D-006:** Successful generation MUST use `.spatial3D` in the existing Media
-  card.
+  card and MUST set both Favorite and playback preference to true.
 - **XR-3D-007:** Disable Spatial MUST remain available after generation and MUST
-  clear both the spatial and favorite preferences.
+  clear both Favorite and playback preference, regardless of their current values.
 - **XR-3D-008:** A generation error MUST leave ordinary 2D viewing intact.
 - **XR-3D-009:** Generated data MUST NOT overwrite, re-encode, or upload a replacement
   for the server original.
@@ -261,7 +299,11 @@ files. They are not permission to hide truthful loading states.
 10. Cancel spatial generation by navigating away and confirm no stuck task/UI.
 11. Attempt incompatible dimensions/aspect and confirm Make Spatial is unavailable
     or fails safely.
-12. Revoke the token, relaunch restored scenes, authenticate again, and recover the
+12. Open a validated MV-HEVC spatial video, verify the AVKit expanded experience
+    presents spatial depth, switch to embedded ordinary playback and back, then
+    remove or invalidate the variant and verify ordinary fallback without changing
+    Favorite or the stored preference.
+13. Revoke the token, relaunch restored scenes, authenticate again, and recover the
     same Library/Media context.
-13. Inspect UI and logs and confirm no bearer token, filename, UUID, model/workflow
+14. Inspect UI and logs and confirm no bearer token, filename, UUID, model/workflow
     data, or private gaze coordinate appears.

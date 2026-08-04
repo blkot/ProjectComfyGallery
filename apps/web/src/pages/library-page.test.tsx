@@ -132,6 +132,85 @@ describe("LibraryPage controls sidebar", () => {
     );
   });
 
+  it("submits and clears a URL-backed complete-library keyword", async () => {
+    const mediaRequests: string[] = [];
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path.startsWith("/api/v1/media?")) {
+        mediaRequests.push(path);
+        return Promise.resolve({ items: [], total: 0, limit: 48, offset: 0 });
+      }
+      return Promise.resolve([]);
+    });
+    renderLibrary(
+      "/library?q=old+term&favorite=true&offset=96&return_media=previous",
+    );
+
+    const search = screen.getByRole("search", {
+      name: "Search media library",
+    });
+    const input = within(search).getByRole("searchbox", {
+      name: "Search entire library",
+    });
+    expect(input).toHaveValue("old term");
+
+    fireEvent.change(input, { target: { value: "  new prompt  " } });
+    fireEvent.click(within(search).getByRole("button", { name: "Search" }));
+
+    await waitFor(() =>
+      expect(
+        mediaRequests.some((path) => {
+          const query = new URL(path, "http://gallery.test").searchParams;
+          return (
+            query.get("q") === "new prompt" &&
+            query.get("favorite") === "true" &&
+            query.get("offset") === "0" &&
+            !query.has("return_media")
+          );
+        }),
+      ).toBe(true),
+    );
+    expect(screen.getByRole("searchbox")).toHaveValue("new prompt");
+    expect(
+      await screen.findByText("No media matches “new prompt”"),
+    ).toBeInTheDocument();
+
+    fireEvent.click(within(search).getByRole("button", { name: "Clear" }));
+
+    await waitFor(() =>
+      expect(
+        mediaRequests.some((path) => {
+          const query = new URL(path, "http://gallery.test").searchParams;
+          return !query.has("q") && query.get("favorite") === "true";
+        }),
+      ).toBe(true),
+    );
+    expect(screen.getByRole("searchbox")).toHaveValue("");
+  });
+
+  it("includes the active keyword in saved filter scopes", async () => {
+    let savedPayload: { expression?: { q?: string | null } } | undefined;
+    apiRequestMock.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.startsWith("/api/v1/media?")) {
+        return Promise.resolve({ items: [], total: 0, limit: 48, offset: 0 });
+      }
+      if (path === "/api/v1/saved-filters" && init?.method === "POST") {
+        savedPayload = JSON.parse(String(init.body)) as typeof savedPayload;
+        return Promise.resolve({});
+      }
+      return Promise.resolve([]);
+    });
+    renderLibrary("/library?q=portrait&favorite=true");
+
+    fireEvent.change(screen.getByLabelText("Saved filter name"), {
+      target: { value: "Portrait search" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Save current filter" }),
+    );
+
+    await waitFor(() => expect(savedPayload?.expression?.q).toBe("portrait"));
+  });
+
   it("offers filtered or collection slideshow sources", async () => {
     apiRequestMock.mockImplementation((path: string) => {
       if (path.startsWith("/api/v1/media?")) {

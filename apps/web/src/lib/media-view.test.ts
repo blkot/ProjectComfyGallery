@@ -30,12 +30,13 @@ describe("media view context", () => {
 
   it("preserves filters and moves the library offset with neighbor positions", () => {
     const context = new URLSearchParams(
-      "kind=image&favorite=true&spatial_view_preferred=true&checkpoint_reference_id=checkpoint&lora_reference_id=lora&sort=filename_asc&offset=48",
+      "q=portrait&kind=image&favorite=true&spatial_view_preferred=true&checkpoint_reference_id=checkpoint&lora_reference_id=lora&sort=filename_asc&offset=48",
     );
     const href = mediaDetailHref("next-media", context, 97);
     const parsed = new URL(href, "http://example.test");
 
     expect(parsed.pathname).toBe("/library/next-media");
+    expect(parsed.searchParams.get("q")).toBe("portrait");
     expect(parsed.searchParams.get("checkpoint_reference_id")).toBe(
       "checkpoint",
     );
@@ -51,12 +52,12 @@ describe("media view context", () => {
 
   it("uses filters and sort for navigation while omitting page boundaries", () => {
     const context = new URLSearchParams(
-      "kind=video&sort=size_desc&offset=96&limit=48&panel=evaluation&return_media=current-media",
+      "q=motion&kind=video&sort=size_desc&offset=96&limit=48&panel=evaluation&return_media=current-media",
     );
     const navigation = mediaNavigationQuery(context);
     const library = new URL(mediaLibraryHref(context), "http://example.test");
 
-    expect(navigation.toString()).toBe("kind=video&sort=size_desc");
+    expect(navigation.toString()).toBe("q=motion&kind=video&sort=size_desc");
     expect(library.pathname).toBe("/library");
     expect(library.searchParams.get("offset")).toBe("96");
     expect(library.searchParams.has("limit")).toBe(false);
@@ -120,11 +121,12 @@ describe("media view context", () => {
   it("builds a reusable filter with multi-reference match semantics", () => {
     const expression = libraryFilterExpression(
       new URLSearchParams(
-        "kind=image&trash=false&favorite=true&prefer_spatial_playback=false&spatial_available=true&checkpoint_reference_id=checkpoint-a&checkpoint_reference_id=checkpoint-b&checkpoint_reference_match=any&lora_reference_id=lora-a&lora_reference_id=lora-b&lora_reference_match=all&sort=size_desc&offset=48",
+        "q=  character name  &kind=image&trash=false&favorite=true&prefer_spatial_playback=false&spatial_available=true&checkpoint_reference_id=checkpoint-a&checkpoint_reference_id=checkpoint-b&checkpoint_reference_match=any&lora_reference_id=lora-a&lora_reference_id=lora-b&lora_reference_match=all&sort=size_desc&offset=48",
       ),
     );
 
     expect(expression).toEqual({
+      q: "character name",
       kind: "image",
       status: null,
       workflow_status: null,
@@ -143,7 +145,7 @@ describe("media view context", () => {
   it("builds a filtered shuffled slideshow without page boundaries", () => {
     const href = slideshowHref(
       new URLSearchParams(
-        "kind=video&favorite=true&offset=96&return_media=selected&sort=size_desc",
+        "q=cinematic&kind=video&favorite=true&offset=96&return_media=selected&sort=size_desc",
       ),
       {
         source: "filter",
@@ -162,6 +164,7 @@ describe("media view context", () => {
       0,
     );
     expect(playlist.get("kind")).toBe("video");
+    expect(playlist.get("q")).toBe("cinematic");
     expect(playlist.get("favorite")).toBe("true");
     expect(playlist.get("sort")).toBe("size_desc");
     expect(playlist.get("shuffle")).toBe("true");
@@ -172,7 +175,7 @@ describe("media view context", () => {
 
   it("isolates collection slideshows from the current Library filters", () => {
     const href = slideshowHref(
-      new URLSearchParams("kind=image&favorite=true"),
+      new URLSearchParams("q=portrait&kind=image&favorite=true"),
       {
         source: "collection",
         collectionId: "collection-1",
@@ -186,6 +189,7 @@ describe("media view context", () => {
     expect(playlist.get("collection_id")).toBe("collection-1");
     expect(playlist.get("shuffle")).toBe("false");
     expect(playlist.has("kind")).toBe(false);
+    expect(playlist.has("q")).toBe(false);
     expect(playlist.has("favorite")).toBe(false);
     expect(playlist.has("random_seed")).toBe(false);
   });

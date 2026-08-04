@@ -14,6 +14,7 @@ export type SlideshowOptions = {
 };
 
 export type LibraryFilterExpression = {
+  q: string | null;
   kind: string | null;
   status: string | null;
   workflow_status: string | null;
@@ -51,6 +52,7 @@ export function libraryFilterExpression(
   search: URLSearchParams,
 ): LibraryFilterExpression {
   return {
+    q: search.get("q")?.trim() || null,
     kind: search.get("kind") || null,
     status: search.get("status") || null,
     workflow_status: search.get("workflow_status") || null,
@@ -209,6 +211,7 @@ function uniqueValues(values: string[]): string[] {
 }
 
 const slideshowFilterParameters = [
+  "q",
   "kind",
   "status",
   "workflow_status",

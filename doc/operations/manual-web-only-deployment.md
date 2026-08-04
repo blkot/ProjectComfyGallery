@@ -52,7 +52,49 @@ Use the full [upgrade runbook](upgrade-runbook.md) for those changes.
 - Web container: `comfy-gallery-web-1`
 - API container: `comfy-gallery-api-1`
 - Worker container: `comfy-gallery-worker-1`
+- Background worker container: `comfy-gallery-worker-background-1`
 - LAN health URL: `http://192.168.50.68:8181/healthz`
+
+## Automated path (recommended)
+
+The repository includes a script that automates the local build, isolated NAS
+staging, rollback capture, web-only replacement, health checks, and container
+identity verification described in this runbook:
+
+```bash
+cd /Users/wangshenhao/Documents/ProjectComfyGallery
+./deploy/operations/deploy-web-only.sh
+```
+
+The script asks for confirmation immediately before it changes the NAS. For an
+unattended run after reviewing the candidate frontend files:
+
+```bash
+./deploy/operations/deploy-web-only.sh --yes
+```
+
+To validate the local frontend without changing the NAS:
+
+```bash
+./deploy/operations/deploy-web-only.sh --dry-run
+```
+
+The automated path builds the static bundle on the Mac, then layers it and the
+checked-in Nginx configuration onto the exact web runtime image currently
+serving production. It retains a timestamped rollback image, recreates only the
+`web` service, automatically restores the old image if the replacement fails
+its NAS checks, and verifies that the API, workers, PostgreSQL, Redis, and backup
+container IDs did not change. Both `/healthz` and the main page are tested so a
+healthy nginx process cannot hide unreadable or missing frontend files.
+The QNAP legacy builder is also retried once because it can intermittently fail
+while exporting an otherwise valid cached layer. A second failure still aborts
+before replacement and restores the original image tag.
+
+Use `--keep-context` only when troubleshooting a failed build. The default is to
+remove the isolated NAS build context after the deployment while retaining the
+rollback image.
+
+The remaining steps document the manual fallback procedure.
 
 The current QNAP Docker installation does not provide `docker buildx`. The
 repository web Dockerfile uses BuildKit cache mounts, so this procedure creates

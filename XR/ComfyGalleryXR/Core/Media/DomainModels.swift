@@ -178,34 +178,73 @@ struct GalleryScope: Codable, Hashable, Sendable {
 
 struct MediaPreferences: Equatable, Sendable {
     var favorite: Bool
-    var spatialViewPreferred: Bool
-
-    var enforcingSpatialFavoriteInvariant: Self {
-        Self(
-            favorite: favorite || spatialViewPreferred,
-            spatialViewPreferred: spatialViewPreferred
-        )
-    }
+    var prefersSpatialPlayback: Bool
 }
 
 enum MediaPreferenceWrite: Equatable, Sendable {
     case favorite(Bool)
-    case spatial(Bool)
+    case playbackPreference(Bool)
+}
+
+enum MediaPreferenceField: Hashable, Sendable {
+    case favorite
+    case playbackPreference
+}
+
+struct MediaPreferenceMutation: Equatable, Sendable {
+    let preferences: MediaPreferences
+    let fields: Set<MediaPreferenceField>
 }
 
 enum MediaPreferenceMutationPlan {
+    static func runtimeSpatialImage(isEnabled: Bool) -> MediaPreferenceMutation {
+        MediaPreferenceMutation(
+            preferences: MediaPreferences(
+                favorite: isEnabled,
+                prefersSpatialPlayback: isEnabled
+            ),
+            fields: [.favorite, .playbackPreference]
+        )
+    }
+
+    static func playbackPreference(
+        isPreferred: Bool,
+        preserving current: MediaPreferences
+    ) -> MediaPreferenceMutation {
+        MediaPreferenceMutation(
+            preferences: MediaPreferences(
+                favorite: current.favorite,
+                prefersSpatialPlayback: isPreferred
+            ),
+            fields: [.playbackPreference]
+        )
+    }
+
+    static func favorite(
+        isFavorite: Bool,
+        preserving current: MediaPreferences
+    ) -> MediaPreferenceMutation {
+        MediaPreferenceMutation(
+            preferences: MediaPreferences(
+                favorite: isFavorite,
+                prefersSpatialPlayback: current.prefersSpatialPlayback
+            ),
+            fields: [.favorite]
+        )
+    }
+
     static func writes(
-        kind: MediaKind,
+        fields: Set<MediaPreferenceField>,
         desired: MediaPreferences
     ) -> [MediaPreferenceWrite] {
-        let desired = desired.enforcingSpatialFavoriteInvariant
-        guard kind == .image else {
-            return [.favorite(desired.favorite)]
+        var writes: [MediaPreferenceWrite] = []
+        if fields.contains(.favorite) {
+            writes.append(.favorite(desired.favorite))
         }
-        if desired.spatialViewPreferred {
-            return [.favorite(true), .spatial(true)]
+        if fields.contains(.playbackPreference) {
+            writes.append(.playbackPreference(desired.prefersSpatialPlayback))
         }
-        return [.spatial(false), .favorite(desired.favorite)]
+        return writes
     }
 }
 
@@ -227,7 +266,8 @@ struct XRMediaSummary: Decodable, Hashable, Identifiable, Sendable {
     let byteSize: Int64
     let isTrash: Bool
     let previewPath: String
-    var spatialViewPreferred: Bool
+    let spatialAvailable: Bool
+    var prefersSpatialPlayback: Bool
     var favorite: Bool
 
     enum CodingKeys: String, CodingKey {
@@ -237,7 +277,9 @@ struct XRMediaSummary: Decodable, Hashable, Identifiable, Sendable {
         case byteSize = "byte_size"
         case isTrash = "is_trash"
         case previewPath = "preview_url"
-        case spatialViewPreferred = "spatial_view_preferred"
+        case spatialAvailable = "spatial_available"
+        case prefersSpatialPlayback = "prefer_spatial_playback"
+        case legacySpatialViewPreferred = "spatial_view_preferred"
         case favorite
     }
 
@@ -252,7 +294,8 @@ struct XRMediaSummary: Decodable, Hashable, Identifiable, Sendable {
         byteSize: Int64,
         isTrash: Bool,
         previewPath: String,
-        spatialViewPreferred: Bool = false,
+        spatialAvailable: Bool = false,
+        prefersSpatialPlayback: Bool = false,
         favorite: Bool = false
     ) {
         self.id = id
@@ -265,7 +308,8 @@ struct XRMediaSummary: Decodable, Hashable, Identifiable, Sendable {
         self.byteSize = byteSize
         self.isTrash = isTrash
         self.previewPath = previewPath
-        self.spatialViewPreferred = spatialViewPreferred
+        self.spatialAvailable = spatialAvailable
+        self.prefersSpatialPlayback = prefersSpatialPlayback
         self.favorite = favorite
     }
 
@@ -281,10 +325,11 @@ struct XRMediaSummary: Decodable, Hashable, Identifiable, Sendable {
         byteSize = try container.decode(Int64.self, forKey: .byteSize)
         isTrash = try container.decode(Bool.self, forKey: .isTrash)
         previewPath = try container.decode(String.self, forKey: .previewPath)
-        spatialViewPreferred = try container.decodeIfPresent(
-            Bool.self,
-            forKey: .spatialViewPreferred
-        ) ?? false
+        spatialAvailable = try container.decodeIfPresent(Bool.self, forKey: .spatialAvailable) ?? false
+        prefersSpatialPlayback =
+            try container.decodeIfPresent(Bool.self, forKey: .prefersSpatialPlayback)
+            ?? container.decodeIfPresent(Bool.self, forKey: .legacySpatialViewPreferred)
+            ?? false
         favorite = try container.decodeIfPresent(Bool.self, forKey: .favorite) ?? false
     }
 
@@ -292,14 +337,72 @@ struct XRMediaSummary: Decodable, Hashable, Identifiable, Sendable {
         get {
             MediaPreferences(
                 favorite: favorite,
-                spatialViewPreferred: spatialViewPreferred
+                prefersSpatialPlayback: prefersSpatialPlayback
             )
         }
         set {
             favorite = newValue.favorite
-            spatialViewPreferred = newValue.spatialViewPreferred
+            prefersSpatialPlayback = newValue.prefersSpatialPlayback
         }
     }
+}
+
+enum MediaVariantRole: Hashable, Sendable {
+    case spatialVideo
+    case unsupported(String)
+}
+
+extension MediaVariantRole: Codable {
+    init(from decoder: Decoder) throws {
+        let value = try decoder.singleValueContainer().decode(String.self)
+        switch value {
+        case "spatial_video": self = .spatialVideo
+        default: self = .unsupported(value)
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .spatialVideo: try container.encode("spatial_video")
+        case .unsupported(let value): try container.encode(value)
+        }
+    }
+}
+
+struct XRMediaVariant: Decodable, Hashable, Identifiable, Sendable {
+    let id: UUID
+    let role: MediaVariantRole
+    let status: String
+    let mimeType: String
+    let byteSize: Int64
+    let contentPath: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, role, status
+        case mimeType = "mime_type"
+        case byteSize = "byte_size"
+        case contentPath = "content_url"
+    }
+}
+
+enum VideoPlaybackRepresentation: Equatable, Sendable {
+    case ordinary
+    case spatial(variantID: UUID)
+
+    var isSpatial: Bool {
+        if case .spatial = self {
+            return true
+        }
+        return false
+    }
+}
+
+struct VideoPlaybackSource: Equatable, Sendable {
+    let path: String
+    let mimeType: String?
+    let byteSize: Int64
+    let representation: VideoPlaybackRepresentation
 }
 
 struct XRMediaDetail: Decodable, Hashable, Identifiable, Sendable {
@@ -315,7 +418,9 @@ struct XRMediaDetail: Decodable, Hashable, Identifiable, Sendable {
     let previewPath: String
     let playbackPath: String
     let originalPath: String
-    var spatialViewPreferred: Bool
+    let spatialAvailable: Bool
+    let variants: [XRMediaVariant]
+    var prefersSpatialPlayback: Bool
     var favorite: Bool
 
     enum CodingKeys: String, CodingKey {
@@ -327,7 +432,10 @@ struct XRMediaDetail: Decodable, Hashable, Identifiable, Sendable {
         case previewPath = "preview_url"
         case playbackPath = "playback_url"
         case originalPath = "original_url"
-        case spatialViewPreferred = "spatial_view_preferred"
+        case spatialAvailable = "spatial_available"
+        case prefersSpatialPlayback = "prefer_spatial_playback"
+        case legacySpatialViewPreferred = "spatial_view_preferred"
+        case variants
         case favorite
     }
 
@@ -345,10 +453,12 @@ struct XRMediaDetail: Decodable, Hashable, Identifiable, Sendable {
         previewPath = try container.decode(String.self, forKey: .previewPath)
         playbackPath = try container.decode(String.self, forKey: .playbackPath)
         originalPath = try container.decode(String.self, forKey: .originalPath)
-        spatialViewPreferred = try container.decodeIfPresent(
-            Bool.self,
-            forKey: .spatialViewPreferred
-        ) ?? false
+        spatialAvailable = try container.decodeIfPresent(Bool.self, forKey: .spatialAvailable) ?? false
+        variants = try container.decodeIfPresent([XRMediaVariant].self, forKey: .variants) ?? []
+        prefersSpatialPlayback =
+            try container.decodeIfPresent(Bool.self, forKey: .prefersSpatialPlayback)
+            ?? container.decodeIfPresent(Bool.self, forKey: .legacySpatialViewPreferred)
+            ?? false
         favorite = try container.decodeIfPresent(Bool.self, forKey: .favorite) ?? false
     }
 
@@ -365,7 +475,9 @@ struct XRMediaDetail: Decodable, Hashable, Identifiable, Sendable {
         previewPath = summary.previewPath
         playbackPath = "/api/v1/media/\(summary.id.uuidString.lowercased())/playback"
         originalPath = "/api/v1/media/\(summary.id.uuidString.lowercased())/original"
-        spatialViewPreferred = summary.spatialViewPreferred
+        spatialAvailable = summary.spatialAvailable
+        variants = []
+        prefersSpatialPlayback = summary.prefersSpatialPlayback
         favorite = summary.favorite
     }
 
@@ -373,23 +485,59 @@ struct XRMediaDetail: Decodable, Hashable, Identifiable, Sendable {
         get {
             MediaPreferences(
                 favorite: favorite,
-                spatialViewPreferred: spatialViewPreferred
+                prefersSpatialPlayback: prefersSpatialPlayback
             )
         }
         set {
             favorite = newValue.favorite
-            spatialViewPreferred = newValue.spatialViewPreferred
+            prefersSpatialPlayback = newValue.prefersSpatialPlayback
         }
+    }
+
+    var activeSpatialVideoVariant: XRMediaVariant? {
+        guard kind == .video, spatialAvailable else { return nil }
+        return variants.first {
+            $0.role == .spatialVideo
+                && $0.status == "ready"
+                && !$0.contentPath.isEmpty
+        }
+    }
+
+    var selectedVideoPlaybackSource: VideoPlaybackSource? {
+        guard kind == .video else { return nil }
+        if prefersSpatialPlayback, let variant = activeSpatialVideoVariant {
+            return VideoPlaybackSource(
+                path: variant.contentPath,
+                mimeType: variant.mimeType,
+                byteSize: variant.byteSize,
+                representation: .spatial(variantID: variant.id)
+            )
+        }
+        return VideoPlaybackSource(
+            path: playbackPath,
+            mimeType: mimeType,
+            byteSize: byteSize,
+            representation: .ordinary
+        )
     }
 }
 
-struct MediaSpatialPreferenceResponse: Decodable, Sendable {
+struct MediaPlaybackPreferenceResponse: Decodable, Sendable {
     let mediaID: UUID
-    let spatialViewPreferred: Bool
+    let prefersSpatialPlayback: Bool
 
     enum CodingKeys: String, CodingKey {
         case mediaID = "media_id"
-        case spatialViewPreferred = "spatial_view_preferred"
+        case prefersSpatialPlayback = "prefer_spatial_playback"
+        case legacySpatialViewPreferred = "spatial_view_preferred"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        mediaID = try container.decode(UUID.self, forKey: .mediaID)
+        prefersSpatialPlayback =
+            try container.decodeIfPresent(Bool.self, forKey: .prefersSpatialPlayback)
+            ?? container.decode(Bool.self, forKey: .legacySpatialViewPreferred)
     }
 }
 

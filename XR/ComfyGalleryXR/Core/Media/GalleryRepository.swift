@@ -1,11 +1,11 @@
 import Foundation
 
 actor GalleryRepository {
-    private struct SpatialPreferenceBody: Encodable, Sendable {
-        let spatialViewPreferred: Bool
+    private struct PlaybackPreferenceBody: Encodable, Sendable {
+        let prefersSpatialPlayback: Bool
 
         enum CodingKeys: String, CodingKey {
-            case spatialViewPreferred = "spatial_view_preferred"
+            case prefersSpatialPlayback = "prefer_spatial_playback"
         }
     }
 
@@ -45,14 +45,14 @@ actor GalleryRepository {
         )
     }
 
-    func updateSpatialPreference(
+    func updatePlaybackPreference(
         id: UUID,
         isPreferred: Bool
-    ) async throws -> MediaSpatialPreferenceResponse {
+    ) async throws -> MediaPlaybackPreferenceResponse {
         try await api.put(
-            MediaSpatialPreferenceResponse.self,
-            path: "/api/v1/media/\(id.uuidString.lowercased())/spatial-preference",
-            body: SpatialPreferenceBody(spatialViewPreferred: isPreferred)
+            MediaPlaybackPreferenceResponse.self,
+            path: "/api/v1/media/\(id.uuidString.lowercased())/playback-preference",
+            body: PlaybackPreferenceBody(prefersSpatialPlayback: isPreferred)
         )
     }
 
@@ -81,7 +81,7 @@ actor GalleryRepository {
         case .favorites:
             items.append(URLQueryItem(name: "favorite", value: "true"))
         case .spatial:
-            items.append(URLQueryItem(name: "spatial_view_preferred", value: "true"))
+            items.append(URLQueryItem(name: "prefer_spatial_playback", value: "true"))
         }
         return items
     }

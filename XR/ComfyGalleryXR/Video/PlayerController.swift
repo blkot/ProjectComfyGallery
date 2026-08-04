@@ -9,34 +9,25 @@ final class PlayerController {
     private(set) var shouldAutoplay = false
     private(set) var isActive = true
     private(set) var isLooping = false
+    private(set) var presentation: VideoPlaybackPresentation = .embedded
 
-    @ObservationIgnored private var currentFileURL: URL?
-    @ObservationIgnored private var looper: AVPlayerLooper?
+    @ObservationIgnored private var playbackEndObserver: NSObjectProtocol?
 
-    func load(fileURL: URL, autoplay: Bool) {
-        stop()
-        currentFileURL = fileURL
+    func load(
+        fileURL: URL,
+        autoplay: Bool,
+        presentation: VideoPlaybackPresentation
+    ) {
+        player?.pause()
+        removePlaybackEndObserver()
         shouldAutoplay = autoplay
-        configurePlayer(
-            fileURL: fileURL,
-            startTime: .zero,
-            playWhenReady: autoplay && isActive
-        )
+        self.presentation = presentation
+        replaceCurrentItem(fileURL: fileURL)
     }
 
     func toggleLooping() {
-        guard let currentFileURL else { return }
-
-        let currentTime = player?.currentTime() ?? .zero
-        let wasPlaying = player?.timeControlStatus == .playing
-            || player?.timeControlStatus == .waitingToPlayAtSpecifiedRate
-
+        guard player != nil else { return }
         isLooping.toggle()
-        configurePlayer(
-            fileURL: currentFileURL,
-            startTime: currentTime,
-            playWhenReady: wasPlaying && isActive
-        )
     }
 
     func pause() {
@@ -46,59 +37,65 @@ final class PlayerController {
 
     func resumeIfAppropriate() {
         isActive = true
-        if shouldAutoplay {
-            player?.play()
-        }
+        // PlayerViewControllerRepresentable resumes only after its requested
+        // AVKit experience is ready. Playing here could bypass a pending
+        // embedded-to-expanded transition for spatial video.
     }
 
     func stop() {
         player?.pause()
-        looper?.disableLooping()
-        looper = nil
-        if let queuePlayer = player as? AVQueuePlayer {
-            queuePlayer.removeAllItems()
-        } else {
-            player?.replaceCurrentItem(with: nil)
-        }
+        removePlaybackEndObserver()
+        player?.replaceCurrentItem(with: nil)
         player = nil
-        currentFileURL = nil
         shouldAutoplay = false
         isLooping = false
+        presentation = .embedded
     }
 
-    private func configurePlayer(
-        fileURL: URL,
-        startTime: CMTime,
-        playWhenReady: Bool
-    ) {
-        player?.pause()
-        looper?.disableLooping()
-        looper = nil
-
+    private func replaceCurrentItem(fileURL: URL) {
         let item = AVPlayerItem(url: fileURL)
-        let queuePlayer = AVQueuePlayer()
-        queuePlayer.automaticallyWaitsToMinimizeStalling = true
-
-        if isLooping {
-            looper = AVPlayerLooper(player: queuePlayer, templateItem: item)
+        let player: AVPlayer
+        if let currentPlayer = self.player {
+            currentPlayer.replaceCurrentItem(with: item)
+            player = currentPlayer
         } else {
-            queuePlayer.insert(item, after: nil)
+            player = AVPlayer(playerItem: item)
+            self.player = player
         }
+        player.automaticallyWaitsToMinimizeStalling = true
 
-        player = queuePlayer
-
-        if startTime.isValid,
-           !startTime.isIndefinite,
-           CMTimeCompare(startTime, .zero) > 0 {
-            queuePlayer.seek(
-                to: startTime,
-                toleranceBefore: .zero,
-                toleranceAfter: .zero
-            )
+        playbackEndObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: item,
+            queue: .main
+        ) { [weak self, weak player] _ in
+            Task { @MainActor in
+                guard let self, let player else { return }
+                self.handlePlaybackEnded(player)
+            }
         }
+    }
 
-        if playWhenReady {
-            queuePlayer.play()
+    private func handlePlaybackEnded(_ endedPlayer: AVPlayer) {
+        guard
+            player === endedPlayer,
+            isLooping
+        else {
+            return
         }
+        endedPlayer.seek(
+            to: .zero,
+            toleranceBefore: .zero,
+            toleranceAfter: .zero
+        )
+        if shouldAutoplay, isActive {
+            endedPlayer.play()
+        }
+    }
+
+    private func removePlaybackEndObserver() {
+        guard let playbackEndObserver else { return }
+        NotificationCenter.default.removeObserver(playbackEndObserver)
+        self.playbackEndObserver = nil
     }
 }

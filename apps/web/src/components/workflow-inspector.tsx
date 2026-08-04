@@ -11,11 +11,17 @@ import {
   type WorkflowNode,
   type WorkflowRawEvidence,
 } from "../lib/api";
+import { copyText } from "../lib/clipboard";
 import { formatDate, titleCase } from "../lib/format";
 import { orderPrompts } from "../lib/prompts";
 
 type WorkflowInspectorProps = {
   mediaId: string;
+};
+
+type PromptCopyState = {
+  index: number;
+  status: "copying" | "copied" | "failed";
 };
 
 const terminalJobStatuses = new Set(["succeeded", "failed", "cancelled"]);
@@ -470,11 +476,23 @@ function PromptPanel({
 }: {
   observations: SemanticObservation[];
 }) {
+  const [copyState, setCopyState] = useState<PromptCopyState | null>(null);
   const prompts = orderPrompts(
     observations.filter(
       (observation) => observation.observation_type === "prompt",
     ),
   );
+
+  async function copyPrompt(index: number, text: string) {
+    setCopyState({ index, status: "copying" });
+    try {
+      await copyText(text);
+      setCopyState({ index, status: "copied" });
+    } catch {
+      setCopyState({ index, status: "failed" });
+    }
+  }
+
   return (
     <article className="workflow-priority-card prompt-evidence-card">
       <div className="section-heading">
@@ -484,17 +502,40 @@ function PromptPanel({
         </div>
         <span className="document-count">{prompts.length}</span>
       </div>
-      {prompts.map((prompt, index) => (
-        <details
-          className="prompt-evidence"
-          data-role={prompt.role ?? "unclassified"}
-          open={index === 0}
-          key={prompt.id}
-        >
-          <summary>{titleCase(prompt.role ?? `Prompt ${index + 1}`)}</summary>
-          <pre className="workflow-prompt">{displayValue(prompt.value)}</pre>
-        </details>
-      ))}
+      {prompts.map((prompt, index) => {
+        const label = titleCase(prompt.role ?? `Prompt ${index + 1}`);
+        const text = displayValue(prompt.value);
+        const status = copyState?.index === index ? copyState.status : null;
+        return (
+          <details
+            className="prompt-evidence"
+            data-role={prompt.role ?? "unclassified"}
+            open={index === 0}
+            key={prompt.id}
+          >
+            <summary>{label}</summary>
+            <div className="workflow-prompt-content">
+              <pre className="workflow-prompt">{text}</pre>
+              <button
+                aria-label={status === "copied" ? `${label} copied` : `Copy ${label}`}
+                aria-live="polite"
+                className="text-button prompt-copy-button"
+                type="button"
+                disabled={status === "copying"}
+                onClick={() => void copyPrompt(index, text)}
+              >
+                {status === "copying"
+                  ? "Copying…"
+                  : status === "copied"
+                    ? "Copied"
+                    : status === "failed"
+                      ? "Copy failed"
+                      : "Copy prompt"}
+              </button>
+            </div>
+          </details>
+        );
+      })}
       {prompts.length === 0 ? (
         <p className="muted">No prompt was extracted for this media.</p>
       ) : null}

@@ -7,15 +7,32 @@ enum CachedResourceKind: String, Codable, Sendable {
     case originalImage = "original-image"
     case spatialInput = "spatial-input"
     case videoPlayback = "video-playback"
+    case spatialVideoPlayback = "spatial-video-playback"
 }
 
 struct MediaCacheKey: Hashable, Sendable {
     let profileID: UUID
     let mediaID: UUID
     let kind: CachedResourceKind
+    let resourceID: UUID?
+
+    init(
+        profileID: UUID,
+        mediaID: UUID,
+        kind: CachedResourceKind,
+        resourceID: UUID? = nil
+    ) {
+        self.profileID = profileID
+        self.mediaID = mediaID
+        self.kind = kind
+        self.resourceID = resourceID
+    }
 
     var identifier: String {
-        "\(profileID.uuidString.lowercased())/\(mediaID.uuidString.lowercased())/\(kind.rawValue)"
+        let base =
+            "\(profileID.uuidString.lowercased())/\(mediaID.uuidString.lowercased())/\(kind.rawValue)"
+        guard let resourceID else { return base }
+        return "\(base)/\(resourceID.uuidString.lowercased())"
     }
 }
 
@@ -111,7 +128,10 @@ actor MediaCache {
         let profile = key.profileID.uuidString.lowercased()
         let media = key.mediaID.uuidString.lowercased()
         let extensionName = Self.fileExtension(for: mimeType)
-        return "\(profile)/\(media)/\(key.kind.rawValue).\(extensionName)"
+        let resourceSuffix = key.resourceID.map {
+            "-\($0.uuidString.lowercased())"
+        } ?? ""
+        return "\(profile)/\(media)/\(key.kind.rawValue)\(resourceSuffix).\(extensionName)"
     }
 
     private func evictIfNeeded(protecting protectedKey: String) async throws {
@@ -128,12 +148,13 @@ actor MediaCache {
         }
     }
 
-    private static func fileExtension(for mimeType: String?) -> String {
+    nonisolated static func fileExtension(for mimeType: String?) -> String {
         switch mimeType?.lowercased() {
         case "image/jpeg": "jpg"
         case "image/png": "png"
         case "image/webp": "webp"
         case "video/mp4": "mp4"
+        case "video/quicktime": "mov"
         case "video/webm": "webm"
         default: "bin"
         }

@@ -73,19 +73,34 @@ actor MediaRepository {
     }
 
     func videoFile(profileID: UUID, media: XRMediaDetail) async throws -> URL {
-        let key = MediaCacheKey(
-            profileID: profileID,
-            mediaID: media.id,
-            kind: .videoPlayback
-        )
+        guard let source = media.selectedVideoPlaybackSource else {
+            throw APIClientError.invalidResponse
+        }
+        let key: MediaCacheKey
+        switch source.representation {
+        case .ordinary:
+            key = MediaCacheKey(
+                profileID: profileID,
+                mediaID: media.id,
+                kind: .videoPlayback
+            )
+        case .spatial(let variantID):
+            key = MediaCacheKey(
+                profileID: profileID,
+                mediaID: media.id,
+                kind: .spatialVideoPlayback,
+                resourceID: variantID
+            )
+        }
         if let cached = await cache.file(for: key) {
             return cached
         }
-        let payload = try await api.download(path: media.playbackPath)
-        guard payload.mimeType?.hasPrefix("video/") == true else {
+        let payload = try await api.download(path: source.path)
+        let mimeType = payload.mimeType ?? source.mimeType
+        guard mimeType?.hasPrefix("video/") == true else {
             throw APIClientError.invalidContentType
         }
-        return try await cache.store(payload.data, for: key, mimeType: payload.mimeType)
+        return try await cache.store(payload.data, for: key, mimeType: mimeType)
     }
 
     func clearMemory() async {

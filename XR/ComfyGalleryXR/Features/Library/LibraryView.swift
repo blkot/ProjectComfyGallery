@@ -188,13 +188,7 @@ struct LibraryView: View {
                             }
                         }
                         .buttonStyle(.plain)
-                        .disabled(
-                            (
-                                media.spatialViewPreferred
-                                    && model.preferenceSyncError(mediaID: media.id) == nil
-                            )
-                                || model.isPreferenceSyncing(mediaID: media.id)
-                        )
+                        .disabled(model.isPreferenceSyncing(mediaID: media.id))
                         .padding(10)
                         .accessibilityLabel(
                             model.preferenceSyncError(mediaID: media.id) != nil
@@ -204,11 +198,7 @@ struct LibraryView: View {
                         .accessibilityHint(
                             model.preferenceSyncError(mediaID: media.id) != nil
                                 ? "Retries the pending change on the gallery server."
-                                : (
-                                    media.spatialViewPreferred
-                                        ? "Disable Spatial in the media viewer to remove this favorite."
-                                        : "Updates this media on the gallery server."
-                                )
+                                : "Updates this media on the gallery server."
                         )
                     }
                     .id(media.id)

@@ -1,5 +1,11 @@
 import SwiftUI
 
+enum VideoSurfaceLayerPolicy {
+    static func showsPreview(hasPlayer: Bool) -> Bool {
+        !hasPlayer
+    }
+}
+
 struct MediaViewerView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openWindow) private var openWindow
@@ -102,17 +108,24 @@ struct MediaViewerView: View {
             }
         } else if model.viewer.detail?.kind == .video {
             ZStack {
-                if let image = model.viewer.image {
+                if
+                    VideoSurfaceLayerPolicy.showsPreview(
+                        hasPlayer: model.player.player != nil
+                    ),
+                    let image = model.viewer.image
+                {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFit()
                         .accessibilityLabel(mediaAccessibilityLabel)
                 }
                 if let player = model.player.player {
-                    PlayerViewControllerRepresentable(player: player)
-                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
+                    PlayerViewControllerRepresentable(
+                        player: player,
+                        presentation: model.player.presentation,
+                        shouldAutoplay: model.player.shouldAutoplay,
+                        isActive: model.player.isActive
+                    )
                         .accessibilityLabel(mediaAccessibilityLabel)
                 }
                 if model.viewer.videoIsPreparing || model.viewer.image == nil {
@@ -121,6 +134,16 @@ struct MediaViewerView: View {
                         .foregroundStyle(.white)
                         .padding()
                         .background(.ultraThinMaterial, in: Capsule())
+                }
+                if let message = model.viewer.videoPlaybackError {
+                    VStack {
+                        Spacer()
+                        Label(message, systemImage: "exclamationmark.triangle")
+                            .font(.callout)
+                            .padding(12)
+                            .background(.regularMaterial, in: Capsule())
+                            .padding(.bottom, 20)
+                    }
                 }
             }
         } else if let image = model.viewer.image {
@@ -259,17 +282,10 @@ struct MediaViewerView: View {
                 )
             }
             .foregroundStyle(detail.favorite ? .pink : .primary)
-            .disabled(
-                detail.spatialViewPreferred
-                    || model.isPreferenceSyncing(mediaID: detail.id)
-            )
+            .disabled(model.isPreferenceSyncing(mediaID: detail.id))
             .frame(minHeight: 60)
             .accessibilityValue(detail.favorite ? "On" : "Off")
-            .accessibilityHint(
-                detail.spatialViewPreferred
-                    ? "Spatial images remain favorites until Disable Spatial is selected."
-                    : "Updates the favorite flag on the gallery server."
-            )
+            .accessibilityHint("Updates the favorite flag on the gallery server.")
             .accessibilityIdentifier("viewer.favorite")
         }
     }
@@ -288,6 +304,8 @@ struct MediaViewerView: View {
                 }
             }
             .frame(minHeight: 60)
+        } else if model.viewer.detail?.kind == .video {
+            videoSpatialAction(compact: compact)
         } else {
             switch model.spatial.state {
             case .unavailable:
@@ -344,6 +362,45 @@ struct MediaViewerView: View {
                 }
                 .frame(minHeight: 60)
                 .accessibilityIdentifier("viewer.makeSpatial")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func videoSpatialAction(compact: Bool) -> some View {
+        if let detail = model.viewer.detail {
+            if detail.prefersSpatialPlayback {
+                Button {
+                    model.toggleSpatialPlaybackForCurrentVideo()
+                } label: {
+                    controlLabel(
+                        detail.activeSpatialVideoVariant == nil
+                            ? "Disable Spatial Preference"
+                            : "Play in 2D",
+                        systemImage: "rectangle",
+                        compact: compact
+                    )
+                }
+                .frame(minHeight: 60)
+                .accessibilityHint(
+                    detail.activeSpatialVideoVariant == nil
+                        ? "The spatial variant is unavailable, so ordinary video is playing."
+                        : "Switches this media to its ordinary video."
+                )
+                .accessibilityIdentifier("viewer.disableSpatialVideo")
+            } else if detail.activeSpatialVideoVariant != nil {
+                Button {
+                    model.toggleSpatialPlaybackForCurrentVideo()
+                } label: {
+                    controlLabel(
+                        "Play Spatial",
+                        systemImage: "cube.transparent.fill",
+                        compact: compact
+                    )
+                }
+                .frame(minHeight: 60)
+                .accessibilityHint("Switches this media to its spatial video variant.")
+                .accessibilityIdentifier("viewer.enableSpatialVideo")
             }
         }
     }

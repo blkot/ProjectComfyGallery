@@ -20,6 +20,8 @@ self-hosted gallery. Its first MVP is intentionally focused:
 5. Navigate with explicit controls or an indirect look-pinch-drag gesture.
 6. Preload neighboring media and cross pagination boundaries without visible stalls.
 7. Optionally convert a compatible 2D image into an on-device spatial scene.
+8. Play a stored Apple spatial MV-HEVC variant when the backend reports it ready
+   and the user prefers spatial playback, with explicit ordinary-video fallback.
 
 Evaluation, workflow metadata, model information, imports, administration, and
 analytics are outside the first XR milestone.
@@ -110,6 +112,17 @@ The current server implementation remains authoritative:
 - Default grid cell aspect ratio is 2:3.
 - Air tap opens or updates the single Media card.
 - Video auto-plays only after it becomes the active card item.
+- Stored spatial video is selected only when `prefer_spatial_playback` and
+  `spatial_available` are both true and a ready `spatial_video` variant is present.
+- Stored spatial video uses AVKit's recommended experiences and transitions to the
+  expanded experience before playback begins. Ordinary video remains in, or returns
+  to, the embedded experience.
+- Ordinary/spatial switching keeps the same AVPlayer and AVPlayerViewController,
+  replaces only the current item, preserves Loop, and removes the poster before the
+  system player surface is shown.
+- The backend stores Favorite and playback preference independently. XR runtime
+  spatial-image enable/disable actions intentionally update both; spatial-video
+  playback controls update only playback preference.
 - Navigation uses buttons and a standard indirect horizontal drag.
 - No custom hand tracking or private gaze data.
 - Current and immediate neighbors are preloaded within strict memory/disk budgets.
@@ -129,6 +142,11 @@ The first useful build can:
 - page a large mixed image/video library smoothly;
 - open one resizable Media card beside the Library;
 - contain images and play videos with system controls;
+- select and locally cache an active spatial MV-HEVC variant without changing the
+  logical media item or ordinary playback endpoint;
+- transition the system player to AVKit's expanded experience before starting a
+  selected spatial-video variant;
+- let the user switch a spatial-capable video between spatial and ordinary playback;
 - auto-play the newly selected video and stop the previous one;
 - navigate through page boundaries with buttons and look-pinch-drag;
 - show the current position and recover from deleted/unavailable media;
