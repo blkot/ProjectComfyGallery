@@ -20,7 +20,17 @@ PACKAGE_JSON_FILES = (
     ROOT / "package.json",
     ROOT / "apps/web/package.json",
 )
-DOCKERFILES = tuple(sorted((ROOT / "deploy/docker").glob("*.Dockerfile")))
+RELEASE_DOCKERFILES = tuple(
+    ROOT / "deploy/docker" / name
+    for name in (
+        "backend.Dockerfile",
+        "backup.Dockerfile",
+        "database.Dockerfile",
+        "redis.Dockerfile",
+        "web.Dockerfile",
+    )
+)
+WEB_OVERLAY_DOCKERFILE = ROOT / "deploy/docker/web-overlay.Dockerfile"
 
 
 def test_release_version_is_consistent() -> None:
@@ -45,8 +55,8 @@ def test_release_version_is_consistent() -> None:
 def test_runtime_base_images_are_digest_pinned() -> None:
     digest_pattern = re.compile(r"^FROM\s+\S+@sha256:[0-9a-f]{64}(?:\s+AS\s+\S+)?$")
 
-    assert len(DOCKERFILES) == 5
-    for dockerfile in DOCKERFILES:
+    assert len(RELEASE_DOCKERFILES) == 5
+    for dockerfile in RELEASE_DOCKERFILES:
         contents = dockerfile.read_text(encoding="utf-8")
         from_lines = [line for line in contents.splitlines() if line.startswith("FROM ")]
         assert from_lines
@@ -55,6 +65,16 @@ def test_runtime_base_images_are_digest_pinned() -> None:
         assert 'org.opencontainers.image.version="$CG_PROJECT_VERSION"' in contents
         assert 'org.opencontainers.image.source="$CG_SOURCE_URL"' in contents
         assert 'org.opencontainers.image.revision="$CG_REVISION"' in contents
+
+
+def test_web_overlay_uses_the_injected_running_image() -> None:
+    contents = WEB_OVERLAY_DOCKERFILE.read_text(encoding="utf-8")
+
+    assert "ARG BASE_IMAGE\nFROM ${BASE_IMAGE}" in contents
+    assert f"ARG CG_PROJECT_VERSION={release_version()}" in contents
+    assert 'org.opencontainers.image.version="$CG_PROJECT_VERSION"' in contents
+    assert 'org.opencontainers.image.source="$CG_SOURCE_URL"' in contents
+    assert 'org.opencontainers.image.revision="$CG_REVISION"' in contents
 
 
 def test_backend_runtime_accepts_extended_spatial_projection_metadata() -> None:

@@ -31,6 +31,8 @@ def test_development_and_release_shell_scripts_parse_and_are_executable() -> Non
         ROOT / "deploy/operations/login-ghcr-xanta.sh",
         ROOT / "deploy/operations/deploy-release.sh",
         ROOT / "deploy/operations/deploy-xanta-release.sh",
+        ROOT / "deploy/operations/deploy-web-only.sh",
+        ROOT / "deploy/operations/deploy-xanta-auto.sh",
     )
 
     for script in scripts:
