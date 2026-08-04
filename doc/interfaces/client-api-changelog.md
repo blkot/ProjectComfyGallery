@@ -4,6 +4,26 @@ This file is the cross-agent handoff for backend contract changes. Consumers sho
 also use the committed [OpenAPI snapshot](openapi.json); prose here explains
 semantics and compatibility that a schema alone cannot express.
 
+## Unreleased: library keyword search
+
+**Database migration:** none
+
+`GET /api/v1/media`, `GET /api/v1/media/{media_id}/navigation`, and
+`GET /api/v1/media/slideshow` now accept optional `q` text with a maximum length of
+256 characters. Search is case-insensitive and partial. Leading and trailing
+whitespace is ignored; blank input behaves as no search filter.
+
+Search covers current checkpoint and LoRA raw/normalized references, confirmed
+alias display names, resolved artifact display/file names, and current successfully
+extracted positive/negative prompts. Fields use OR; `q` combines with all other
+filters using AND. Totals, pagination, sorting, navigation, and slideshow scope all
+resolve from the same matching population.
+
+Reusable `MediaFilterRequest` expressions now include `q`, so saved filters,
+server-filtered collection/tag membership, selection scopes, and review sessions can
+preserve the same query. Prompt search intentionally excludes stale, superseded,
+failed, or unclassified observations.
+
 ## Unreleased: spatial-video variants
 
 **Database migration:** `0011_spatial_video_variants`

@@ -181,6 +181,12 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
   completion, and recoverable controls that fade while idle. Playlist resolution
   MUST be read-only, bounded to 2,000 lightweight entries, and MUST NOT create or
   mutate review sessions, evaluations, selections, collections, or media records.
+- **LIB-019:** Complete-library keyword search MUST use case-insensitive partial
+  matching over current positive/negative prompt extraction and current checkpoint/
+  LoRA reference identity, including raw and normalized names, confirmed aliases,
+  and resolved artifact display/file names. Search MUST compose with existing filters,
+  sorting, pagination, navigation, slideshows, saved filters, and server-resolved
+  scopes without duplicating media rows. Blank search text MUST behave as omitted.
 
 ## Manual evaluation
 

@@ -4,7 +4,12 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+from comfy_gallery_api.media_filters import (
+    MEDIA_SEARCH_QUERY_MAX_LENGTH,
+    normalize_media_search_query,
+)
 
 
 class CriterionResponse(BaseModel):
@@ -99,6 +104,7 @@ class EvaluationRevisionsResponse(BaseModel):
 
 
 class MediaFilterRequest(BaseModel):
+    q: str | None = Field(default=None, max_length=MEDIA_SEARCH_QUERY_MAX_LENGTH)
     kind: Literal["image", "video"] | None = None
     status: str | None = None
     workflow_status: str | None = None
@@ -118,6 +124,13 @@ class MediaFilterRequest(BaseModel):
     lora_reference_match: Literal["any", "all"] = "any"
     collection_id: UUID | None = None
     tag_id: UUID | None = None
+
+    @field_validator("q", mode="before")
+    @classmethod
+    def normalize_query(cls, value: object) -> object:
+        if value is None or isinstance(value, str):
+            return normalize_media_search_query(value)
+        return value
 
     @model_validator(mode="after")
     def reject_conflicting_spatial_preference_aliases(self) -> MediaFilterRequest:

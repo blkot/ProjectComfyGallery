@@ -29,13 +29,16 @@ from comfy_gallery_api.routes.media import (
 from comfy_gallery_core.db.base import Base
 from comfy_gallery_core.db.models import (
     CollectionItem,
+    ExtractionRun,
     Media,
     MediaAsset,
     MediaCollection,
+    ModelArtifact,
     ModelReference,
     ModelReferenceGroup,
     ModelUsage,
     ScanBatch,
+    SemanticObservation,
     SourceOccurrence,
     SourceRoot,
     User,
@@ -258,6 +261,7 @@ async def test_media_library_sorts_by_source_time_and_filters_model_usages() -> 
             media_id=middle.id,
             _principal=None,  # type: ignore[arg-type]
             session=session,
+            q=None,
             kind=None,
             media_status=None,
             workflow_status=None,
@@ -276,6 +280,221 @@ async def test_media_library_sorts_by_source_time_and_filters_model_usages() -> 
         assert navigation.previous_position == 2
         assert navigation.next_id == oldest.id
         assert navigation.next_position == 4
+
+    await engine.dispose()
+
+
+async def test_media_library_keyword_search_uses_current_prompts_and_model_identity() -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
+    async with session_factory() as session:
+        checkpoint_media = await _media_without_source(
+            session,
+            kind="image",
+            filename="checkpoint.png",
+            sha256="1" * 64,
+        )
+        lora_media = await _media_without_source(
+            session,
+            kind="image",
+            filename="lora.png",
+            sha256="2" * 64,
+        )
+        alias_media = await _media_without_source(
+            session,
+            kind="image",
+            filename="alias.png",
+            sha256="3" * 64,
+        )
+        artifact_media = await _media_without_source(
+            session,
+            kind="video",
+            filename="artifact.mp4",
+            sha256="4" * 64,
+        )
+        prompt_media = await _media_without_source(
+            session,
+            kind="image",
+            filename="prompt.png",
+            sha256="5" * 64,
+        )
+        stale_prompt_media = await _media_without_source(
+            session,
+            kind="image",
+            filename="stale-prompt.png",
+            sha256="6" * 64,
+        )
+        unrelated_media = await _media_without_source(
+            session,
+            kind="image",
+            filename="unrelated.png",
+            sha256="7" * 64,
+        )
+
+        alias_group = ModelReferenceGroup(
+            reference_type="lora",
+            canonical_key="golden-character",
+            display_name="Golden Character Alias",
+            source="manual",
+            confidence=1,
+            status="confirmed",
+        )
+        artifact = ModelArtifact(
+            artifact_type="checkpoint",
+            display_name="Moody RedCraft Turbo",
+            file_name="moody_redcraft_v4.safetensors",
+            provider="local",
+            identity_state="identified",
+            availability="present",
+            enrichment_state="complete",
+        )
+        session.add_all([alias_group, artifact])
+        await session.flush()
+        checkpoint = ModelReference(
+            reference_type="checkpoint",
+            raw_value="models/Krea2Cinema.safetensors",
+            normalized_value="krea2cinema.safetensors",
+            availability="present",
+            resolution_state="unresolved",
+        )
+        lora = ModelReference(
+            reference_type="lora",
+            raw_value=r"adapters\PortraitHero.safetensors",
+            normalized_value="portrait/portraithero.safetensors",
+            availability="present",
+            resolution_state="unresolved",
+        )
+        alias_reference = ModelReference(
+            identity_group_id=alias_group.id,
+            reference_type="lora",
+            raw_value="opaque_adapter.safetensors",
+            normalized_value="opaque_adapter.safetensors",
+            availability="missing",
+            resolution_state="unresolved",
+        )
+        artifact_reference = ModelReference(
+            artifact_id=artifact.id,
+            reference_type="checkpoint",
+            raw_value="inventory/model-v4.gguf",
+            normalized_value="model-v4.gguf",
+            availability="present",
+            resolution_state="resolved",
+        )
+        session.add_all([checkpoint, lora, alias_reference, artifact_reference])
+        await session.flush()
+
+        checkpoint_snapshot = await _snapshot(session, checkpoint_media, "a")
+        lora_snapshot = await _snapshot(session, lora_media, "b")
+        alias_snapshot = await _snapshot(session, alias_media, "c")
+        artifact_snapshot = await _snapshot(session, artifact_media, "d")
+        prompt_snapshot = await _snapshot(session, prompt_media, "e")
+        stale_snapshot = await _snapshot(session, stale_prompt_media, "f")
+        await _snapshot(session, unrelated_media, "0")
+        session.add_all(
+            [
+                _usage(checkpoint_snapshot.id, checkpoint.id, "checkpoint_reference", 0),
+                _usage(lora_snapshot.id, lora.id, "lora_reference", 0),
+                _usage(alias_snapshot.id, alias_reference.id, "lora_reference", 0),
+                _usage(
+                    artifact_snapshot.id,
+                    artifact_reference.id,
+                    "checkpoint_reference",
+                    0,
+                    artifact_id=artifact.id,
+                ),
+            ]
+        )
+        await _prompt_run(
+            session,
+            prompt_snapshot,
+            positive="Cinematic Moonlit Harbor",
+            negative="JPEG artifacts, warped hands",
+        )
+        await _prompt_run(
+            session,
+            stale_snapshot,
+            positive="Hidden Dragon in the mist",
+            negative=None,
+            is_current=False,
+        )
+        await _prompt_run(
+            session,
+            stale_snapshot,
+            positive="Ordinary orchard",
+            negative=None,
+            is_current=True,
+            configuration_hash="2" * 64,
+        )
+        await session.commit()
+
+        cases = {
+            "kReA2cInEmA": checkpoint_media.id,
+            "portraithero": lora_media.id,
+            "character alias": alias_media.id,
+            "redcraft turbo": artifact_media.id,
+            "redcraft_v4": artifact_media.id,
+            "moonLIT": prompt_media.id,
+            "warped HANDS": prompt_media.id,
+        }
+        for query, expected_media_id in cases.items():
+            page = await _library_page(session, sort="file_created_desc", q=query)
+            assert page.total == 1
+            assert [item.id for item in page.items] == [expected_media_id]
+
+        combined = await _library_page(
+            session,
+            sort="file_created_desc",
+            q="krea2",
+            kind="video",
+        )
+        assert combined.total == 0
+        assert (await _library_page(session, sort="file_created_desc", q=" dragon ")).total == 0
+        assert (await _library_page(session, sort="file_created_desc", q="no match")).total == 0
+
+        blank = await _library_page(session, sort="file_created_desc", q="   ")
+        assert blank.total == 7
+        paged = await _library_page(
+            session,
+            sort="file_created_desc",
+            q="safetensors",
+            limit=1,
+            offset=1,
+        )
+        assert paged.total == 4
+        assert len(paged.items) == 1
+
+        normalized_filter = MediaFilterRequest(q="  moonLIT  ")
+        assert normalized_filter.q == "moonLIT"
+        scoped_ids = list(
+            await session.scalars(_media_scope_query(normalized_filter, reviewable_only=False))
+        )
+        assert scoped_ids == [prompt_media.id]
+        assert MediaFilterRequest(q="   ").q is None
+
+        navigation = await get_media_navigation(
+            media_id=artifact_media.id,
+            _principal=None,  # type: ignore[arg-type]
+            session=session,
+            q="redcraft",
+            kind=None,
+            media_status=None,
+            workflow_status=None,
+            evaluation_state=None,
+            trash=None,
+            source_root_id=None,
+            checkpoint_reference_id=None,
+            checkpoint_reference_match="any",
+            lora_reference_id=None,
+            lora_reference_match="any",
+            sort="file_created_desc",
+        )
+        assert navigation.total == 1
+        playlist = await _slideshow_playlist(session, q="redcraft")
+        assert playlist.total == 1
+        assert [item.id for item in playlist.items] == [artifact_media.id]
 
     await engine.dispose()
 
@@ -548,6 +767,7 @@ async def _slideshow_playlist(
     parameters: dict[str, object] = {
         "_principal": None,
         "session": session,
+        "q": None,
         "kind": None,
         "media_status": None,
         "workflow_status": None,
@@ -639,10 +859,75 @@ async def _media_without_source(
     return media
 
 
+async def _snapshot(
+    session: AsyncSession,
+    media: Media,
+    evidence_character: str,
+) -> WorkflowSnapshot:
+    snapshot = WorkflowSnapshot(
+        media_id=media.id,
+        reader_name="test",
+        reader_version="1",
+        source_carrier="test",
+        evidence_sha256=evidence_character * 64,
+        api_prompt_status="present",
+        visual_workflow_status="missing",
+        parse_status="parsed",
+    )
+    session.add(snapshot)
+    await session.flush()
+    return snapshot
+
+
+async def _prompt_run(
+    session: AsyncSession,
+    snapshot: WorkflowSnapshot,
+    *,
+    positive: str,
+    negative: str | None,
+    is_current: bool = True,
+    configuration_hash: str = "1" * 64,
+) -> None:
+    run = ExtractionRun(
+        snapshot_id=snapshot.id,
+        extractor_name="test",
+        extractor_version="1",
+        graph_version="generic-graph-v1",
+        configuration_hash=configuration_hash,
+        reason="test",
+        status="succeeded",
+        is_current=is_current,
+    )
+    session.add(run)
+    await session.flush()
+    observations = [
+        SemanticObservation(
+            run_id=run.id,
+            observation_type="prompt",
+            role="positive",
+            value=positive,
+            confidence=1,
+        )
+    ]
+    if negative is not None:
+        observations.append(
+            SemanticObservation(
+                run_id=run.id,
+                observation_type="prompt",
+                role="negative",
+                value=negative,
+                confidence=1,
+            )
+        )
+    session.add_all(observations)
+
+
 async def _library_page(
     session: AsyncSession,
     *,
     sort: MediaSort,
+    q: str | None = None,
+    kind: str | None = None,
     checkpoint_reference_ids: list[UUID] | None = None,
     checkpoint_reference_match: ReferenceMatch = "any",
     lora_reference_ids: list[UUID] | None = None,
@@ -651,11 +936,14 @@ async def _library_page(
     spatial_view_preferred: bool | None = None,
     spatial_available: bool | None = None,
     favorite: bool | None = None,
+    limit: int = 48,
+    offset: int = 0,
 ) -> MediaPageResponse:
     return await list_media(
         _principal=None,  # type: ignore[arg-type]
         session=session,
-        kind=None,
+        q=q,
+        kind=kind,
         media_status=None,
         workflow_status=None,
         evaluation_state=None,
@@ -670,8 +958,8 @@ async def _library_page(
         lora_reference_id=lora_reference_ids,
         lora_reference_match=lora_reference_match,
         sort=sort,
-        limit=48,
-        offset=0,
+        limit=limit,
+        offset=offset,
     )
 
 
@@ -680,10 +968,12 @@ def _usage(
     reference_id: UUID,
     observation_type: str,
     order: int,
+    artifact_id: UUID | None = None,
 ) -> ModelUsage:
     return ModelUsage(
         snapshot_id=snapshot_id,
         model_reference_id=reference_id,
+        artifact_id=artifact_id,
         observation_type=observation_type,
         pipeline_pattern="single_pass",
         slot="single",

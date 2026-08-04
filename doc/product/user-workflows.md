@@ -51,6 +51,11 @@ The user can:
 - Save the current filter as a dynamic reusable view.
 - Open the original or download it instead of a proxy.
 
+Keyword search can narrow the complete library by checkpoint/LoRA references,
+confirmed aliases, resolved model names, or current positive/negative prompts. It
+combines with the visible filters and can be saved or passed directly into a review,
+collection, or tag scope without selecting every matching card.
+
 ## 4. Correct parser knowledge
 
 1. Open the unknown-node inbox, ordered by affected media count.

@@ -13,6 +13,7 @@ from sqlalchemy.sql import ColumnElement, Select
 
 from comfy_gallery_api.dependencies import CsrfPrincipalDep, DbSessionDep, PrincipalDep, SettingsDep
 from comfy_gallery_api.errors import ApiError
+from comfy_gallery_api.media_filters import MEDIA_SEARCH_QUERY_MAX_LENGTH, media_keyword_filter
 from comfy_gallery_api.media_schemas import (
     DerivativeResponse,
     MediaDetailResponse,
@@ -63,6 +64,7 @@ ReferenceMatch = Literal["any", "all"]
 async def list_media(
     _principal: PrincipalDep,
     session: DbSessionDep,
+    q: str | None = Query(default=None, max_length=MEDIA_SEARCH_QUERY_MAX_LENGTH),
     kind: str | None = None,
     media_status: str | None = Query(default=None, alias="status"),
     workflow_status: str | None = None,
@@ -86,6 +88,7 @@ async def list_media(
         legacy=spatial_view_preferred,
     )
     id_query = _media_id_query(
+        q=q,
         kind=kind,
         media_status=media_status,
         workflow_status=workflow_status,
@@ -153,6 +156,7 @@ async def list_media(
 async def get_slideshow_playlist(
     _principal: PrincipalDep,
     session: DbSessionDep,
+    q: str | None = Query(default=None, max_length=MEDIA_SEARCH_QUERY_MAX_LENGTH),
     kind: str | None = None,
     media_status: str | None = Query(default=None, alias="status"),
     workflow_status: str | None = None,
@@ -184,6 +188,7 @@ async def get_slideshow_playlist(
         legacy=spatial_view_preferred,
     )
     id_query = _media_id_query(
+        q=q,
         kind=kind,
         media_status=media_status,
         workflow_status=workflow_status,
@@ -235,6 +240,7 @@ async def get_media_navigation(
     media_id: UUID,
     _principal: PrincipalDep,
     session: DbSessionDep,
+    q: str | None = Query(default=None, max_length=MEDIA_SEARCH_QUERY_MAX_LENGTH),
     kind: str | None = None,
     media_status: str | None = Query(default=None, alias="status"),
     workflow_status: str | None = None,
@@ -256,6 +262,7 @@ async def get_media_navigation(
         legacy=spatial_view_preferred,
     )
     id_query = _media_id_query(
+        q=q,
         kind=kind,
         media_status=media_status,
         workflow_status=workflow_status,
@@ -642,6 +649,7 @@ def _slideshow_item(media: Media) -> SlideshowItemResponse:
 
 def _media_id_query(
     *,
+    q: str | None,
     kind: str | None,
     media_status: str | None,
     workflow_status: str | None,
@@ -658,6 +666,9 @@ def _media_id_query(
     lora_reference_match: ReferenceMatch,
 ) -> Select[tuple[UUID]]:
     filters: list[ColumnElement[bool]] = []
+    keyword_filter = media_keyword_filter(q)
+    if keyword_filter is not None:
+        filters.append(keyword_filter)
     if kind:
         filters.append(Media.kind == kind)
     if media_status:

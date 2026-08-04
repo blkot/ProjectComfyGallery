@@ -124,7 +124,24 @@ command changes Favorite, availability, variants, or workflow state.
 spatial-video variant exists. It is false for images; runtime spatial-image
 presentation remains client-owned.
 
-The media list and navigation endpoints accept optional `favorite`,
+The media list, navigation, and slideshow endpoints accept an optional `q` keyword
+query. It is trimmed, limited to 256 characters, and uses case-insensitive partial
+matching across these fields:
+
+- checkpoint and LoRA raw embedded references;
+- their normalized references;
+- confirmed reference-alias display names;
+- resolved artifact display names and filenames;
+- positive and negative prompts from the current successful extraction run.
+
+The fields are combined with OR. `q` is combined with every other active filter
+using AND. Blank or whitespace-only `q` behaves as omitted. Historical prompt
+observations from superseded or failed extraction runs are not searched. Matching
+is media-based, so one media is returned once even when several fields match.
+Totals, sorting, pagination, navigation, and slideshow resolution all use the same
+search population.
+
+The media list and navigation endpoints also accept optional `favorite`,
 `prefer_spatial_playback`, `spatial_available`, and deprecated
 `spatial_view_preferred` Boolean filters and repeated
 `checkpoint_reference_id` and `lora_reference_id` parameters. Their corresponding
@@ -157,9 +174,9 @@ bounded, sorted candidate window. The response reports the full matching total a
 whether that window was truncated. Resolving a slideshow never creates a Review
 Session or changes user/media state.
 
-The same preference filters are part of the validated reusable media-filter
-expression used by saved filters, server-resolved selection, collections, tags,
-and review sessions.
+The same keyword and preference filters are part of the validated reusable
+media-filter expression used by saved filters, server-resolved selection,
+collections, tags, and review sessions.
 
 The workflow summary endpoint uses bounded node/edge limits and never appears in a
 gallery list response. The raw endpoint returns preserved decoded carrier metadata,
