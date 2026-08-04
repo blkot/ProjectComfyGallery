@@ -117,8 +117,8 @@ fi
 
 if [[ "$confirmation" != true ]]; then
   echo
-  read -r -p "Deploy this frontend bundle to the Xanta NAS? Type deploy: " answer
-  if [[ "$answer" != "deploy" ]]; then
+  read -r -p "Deploy this frontend bundle to the Xanta NAS? [y/N]: " answer
+  if [[ "${answer,,}" != "y" ]]; then
     echo "Deployment cancelled."
     exit 1
   fi
@@ -257,15 +257,31 @@ for container_id in \
   fi
 done
 
-if [[ "$(container_health "$web_before")" != healthy ||
-  "$(container_health "$api_before")" != healthy ||
-  "$(container_health "$postgres_before")" != healthy ||
-  "$(container_health "$redis_before")" != healthy ||
-  "$(container_health "$backup_before")" != healthy ||
-  "$(container_health "$worker_before")" != running ||
-  "$(container_health "$worker_background_before")" != running ]]; then
+web_health_before="$(container_health "$web_before")"
+api_health_before="$(container_health "$api_before")"
+worker_health_before="$(container_health "$worker_before")"
+worker_background_health_before="$(container_health "$worker_background_before")"
+postgres_health_before="$(container_health "$postgres_before")"
+redis_health_before="$(container_health "$redis_before")"
+backup_health_before="$(container_health "$backup_before")"
+
+printf '%s\n' \
+  "Pre-deploy health: web=$web_health_before api=$api_health_before" \
+  "  worker=$worker_health_before worker-background=$worker_background_health_before" \
+  "  postgres=$postgres_health_before redis=$redis_health_before backup=$backup_health_before"
+
+if [[ "$backup_health_before" != healthy ]]; then
+  echo "Warning: backup health is $backup_health_before; continuing because this deployment does not change the backup service." >&2
+fi
+
+if [[ "$web_health_before" != healthy ||
+  "$api_health_before" != healthy ||
+  "$postgres_health_before" != healthy ||
+  "$redis_health_before" != healthy ||
+  "$worker_health_before" != running ||
+  "$worker_background_health_before" != running ]]; then
   docker compose "${compose_files[@]}" ps
-  echo "Production is not healthy before deployment; refusing to continue." >&2
+  echo "A service required for safe frontend deployment is not healthy; refusing to continue." >&2
   exit 1
 fi
 

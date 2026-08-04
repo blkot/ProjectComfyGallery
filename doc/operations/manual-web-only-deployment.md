@@ -67,7 +67,8 @@ cd /Users/wangshenhao/Documents/ProjectComfyGallery
 ```
 
 The script asks for confirmation immediately before it changes the NAS. For an
-unattended run after reviewing the candidate frontend files:
+interactive deployment, enter `y` at the `[y/N]` prompt. Any other response
+cancels. For an unattended run after reviewing the candidate frontend files:
 
 ```bash
 ./deploy/operations/deploy-web-only.sh --yes
@@ -86,6 +87,10 @@ serving production. It retains a timestamped rollback image, recreates only the
 its NAS checks, and verifies that the API, workers, PostgreSQL, Redis, and backup
 container IDs did not change. Both `/healthz` and the main page are tested so a
 healthy nginx process cannot hide unreadable or missing frontend files.
+Pre-deploy health failures in web, API, PostgreSQL, Redis, or either worker remain
+hard blockers. An unhealthy but running backup container is reported as a warning
+because a web-only deployment does not touch it; its container identity is still
+verified after deployment.
 The QNAP legacy builder is also retried once because it can intermittently fail
 while exporting an otherwise valid cached layer. A second failure still aborts
 before replacement and restores the original image tag.
