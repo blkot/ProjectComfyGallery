@@ -42,6 +42,7 @@ export function mediaListQuery(search: URLSearchParams): URLSearchParams {
   }
   result.delete("spatial_view_preferred");
   result.delete(mediaReturnParam);
+  normalizeTrashQuery(result);
   result.set("limit", String(mediaPageSize));
   result.set("offset", String(parseOffset(result.get("offset"))));
   result.set("sort", result.get("sort") || defaultMediaSort);
@@ -57,7 +58,7 @@ export function libraryFilterExpression(
     status: search.get("status") || null,
     workflow_status: search.get("workflow_status") || null,
     evaluation_state: search.get("evaluation_state") || null,
-    trash: search.has("trash") ? search.get("trash") === "true" : null,
+    trash: trashFilter(search),
     prefer_spatial_playback:
       booleanFilter(search, "prefer_spatial_playback") ??
       booleanFilter(search, "spatial_view_preferred"),
@@ -90,6 +91,7 @@ export function slideshowHref(
     options.source === "filter"
       ? mediaNavigationQuery(librarySearch)
       : new URLSearchParams();
+  preserveTrashContext(librarySearch, result);
   result.set("source", options.source);
   if (options.source === "collection") {
     result.set("collection_id", options.collectionId);
@@ -114,6 +116,7 @@ export function slideshowPlaylistQuery(
   const source = slideshowSearch.get("source");
   if (source === "collection") {
     copySingle(slideshowSearch, result, "collection_id");
+    copySingle(slideshowSearch, result, "trash");
   } else {
     for (const name of slideshowFilterParameters) {
       copyAll(slideshowSearch, result, name);
@@ -122,6 +125,7 @@ export function slideshowPlaylistQuery(
   copySingle(slideshowSearch, result, "sort");
   copySingle(slideshowSearch, result, "shuffle");
   copySingle(slideshowSearch, result, "random_seed");
+  normalizeTrashQuery(result);
   result.set("limit", "2000");
   return result;
 }
@@ -132,6 +136,7 @@ export function mediaDetailHref(
   position?: number | null,
 ): string {
   const result = mediaListQuery(search);
+  preserveTrashContext(search, result);
   result.set(mediaReturnParam, mediaId);
   if (position && position > 0) {
     const pageOffset =
@@ -144,6 +149,7 @@ export function mediaDetailHref(
 export function mediaLibraryHref(search: URLSearchParams): string {
   const returnMediaId = search.get(mediaReturnParam);
   const result = mediaListQuery(search);
+  preserveTrashContext(search, result);
   result.delete("limit");
   result.delete("panel");
   if (returnMediaId) result.set(mediaReturnParam, returnMediaId);
@@ -200,6 +206,31 @@ export function parseOffset(value: string | null): number {
 
 function referenceMatch(value: string | null): ReferenceMatch {
   return value === "all" ? "all" : "any";
+}
+
+function trashFilter(search: URLSearchParams): boolean | null {
+  const value = search.get("trash");
+  if (value === "all") return null;
+  return value === "true" ? true : false;
+}
+
+function normalizeTrashQuery(search: URLSearchParams): void {
+  if (search.get("trash") === "all") {
+    search.delete("trash");
+    return;
+  }
+  search.set("trash", search.get("trash") === "true" ? "true" : "false");
+}
+
+function preserveTrashContext(
+  source: URLSearchParams,
+  destination: URLSearchParams,
+): void {
+  const value = source.get("trash");
+  destination.set(
+    "trash",
+    value === "all" || value === "true" ? value : "false",
+  );
 }
 
 function booleanFilter(search: URLSearchParams, name: string): boolean | null {

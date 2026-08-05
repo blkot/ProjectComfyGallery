@@ -138,6 +138,52 @@ describe("LibraryPage controls sidebar", () => {
     );
   });
 
+  it("excludes trash by default and supports explicit include or trash-only modes", async () => {
+    const mediaRequests: string[] = [];
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path.startsWith("/api/v1/media?")) {
+        mediaRequests.push(path);
+        return Promise.resolve({ items: [], total: 0, limit: 48, offset: 0 });
+      }
+      return Promise.resolve([]);
+    });
+
+    renderLibrary();
+
+    const trashFilter = await screen.findByLabelText("Trash");
+    expect(trashFilter).toHaveValue("false");
+    await waitFor(() =>
+      expect(
+        mediaRequests.some(
+          (path) =>
+            new URL(path, "http://gallery.test").searchParams.get("trash") ===
+            "false",
+        ),
+      ).toBe(true),
+    );
+
+    fireEvent.change(trashFilter, { target: { value: "all" } });
+    await waitFor(() =>
+      expect(
+        mediaRequests.some(
+          (path) =>
+            !new URL(path, "http://gallery.test").searchParams.has("trash"),
+        ),
+      ).toBe(true),
+    );
+
+    fireEvent.change(trashFilter, { target: { value: "true" } });
+    await waitFor(() =>
+      expect(
+        mediaRequests.some(
+          (path) =>
+            new URL(path, "http://gallery.test").searchParams.get("trash") ===
+            "true",
+        ),
+      ).toBe(true),
+    );
+  });
+
   it("submits and clears a URL-backed complete-library keyword", async () => {
     const mediaRequests: string[] = [];
     apiRequestMock.mockImplementation((path: string) => {

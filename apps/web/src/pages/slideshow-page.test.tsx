@@ -119,7 +119,7 @@ describe("SlideshowPage", () => {
 
     expect(await screen.findByText("one.png")).toBeInTheDocument();
     expect(apiRequestMock).toHaveBeenCalledWith(
-      "/api/v1/media/slideshow?kind=image&shuffle=true&random_seed=42&limit=2000",
+      "/api/v1/media/slideshow?kind=image&shuffle=true&random_seed=42&trash=false&limit=2000",
     );
 
     const advanceImage = timeoutSpy.mock.calls.find(

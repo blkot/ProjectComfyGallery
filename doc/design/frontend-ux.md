@@ -136,7 +136,8 @@ Filters include:
 
 - Media type.
 - Processing/readiness state.
-- Evaluation state and Trash.
+- Evaluation state and Trash. The Library excludes Trash by default; users must
+  explicitly choose Include Trash or Trash only to show trashed media.
 - Favorite, spatial playback preference, and stored spatial-video availability.
 - Source root/path.
 - Collection/tag.

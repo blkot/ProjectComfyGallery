@@ -75,7 +75,11 @@ export function LibraryPage() {
   const status = searchParams.get("status") ?? "";
   const workflowStatus = searchParams.get("workflow_status") ?? "";
   const evaluationState = searchParams.get("evaluation_state") ?? "";
-  const trash = searchParams.get("trash") ?? "";
+  const trashParam = searchParams.get("trash");
+  const trash =
+    trashParam === "all" || trashParam === "true" || trashParam === "false"
+      ? trashParam
+      : "false";
   const favorite = searchParams.get("favorite") ?? "";
   const preferSpatialPlayback =
     searchParams.get("prefer_spatial_playback") ??
@@ -607,8 +611,8 @@ export function LibraryPage() {
                   changeLibraryParameter("trash", event.target.value)
                 }
               >
-                <option value="">Any disposition</option>
                 <option value="false">Exclude Trash</option>
+                <option value="all">Include Trash</option>
                 <option value="true">Trash only</option>
               </select>
             </label>

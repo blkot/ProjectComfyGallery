@@ -26,6 +26,22 @@ describe("media view context", () => {
     expect(result.get("offset")).toBe("0");
     expect(result.get("limit")).toBe("48");
     expect(result.get("sort")).toBe(defaultMediaSort);
+    expect(result.get("trash")).toBe("false");
+  });
+
+  it("keeps an explicit include-trash filter distinct from the default", () => {
+    expect(mediaListQuery(new URLSearchParams("trash=all")).has("trash")).toBe(
+      false,
+    );
+    expect(mediaListQuery(new URLSearchParams("trash=true")).get("trash")).toBe(
+      "true",
+    );
+
+    const detail = new URL(
+      mediaDetailHref("included-media", new URLSearchParams("trash=all")),
+      "http://example.test",
+    );
+    expect(detail.searchParams.get("trash")).toBe("all");
   });
 
   it("preserves filters and moves the library offset with neighbor positions", () => {
@@ -57,7 +73,9 @@ describe("media view context", () => {
     const navigation = mediaNavigationQuery(context);
     const library = new URL(mediaLibraryHref(context), "http://example.test");
 
-    expect(navigation.toString()).toBe("q=motion&kind=video&sort=size_desc");
+    expect(navigation.toString()).toBe(
+      "q=motion&kind=video&sort=size_desc&trash=false",
+    );
     expect(library.pathname).toBe("/library");
     expect(library.searchParams.get("offset")).toBe("96");
     expect(library.searchParams.has("limit")).toBe(false);
@@ -142,6 +160,16 @@ describe("media view context", () => {
     });
   });
 
+  it("excludes trash by default while allowing an explicit include-all filter", () => {
+    expect(libraryFilterExpression(new URLSearchParams()).trash).toBe(false);
+    expect(libraryFilterExpression(new URLSearchParams("trash=all")).trash).toBe(
+      null,
+    );
+    expect(libraryFilterExpression(new URLSearchParams("trash=true")).trash).toBe(
+      true,
+    );
+  });
+
   it("builds a filtered shuffled slideshow without page boundaries", () => {
     const href = slideshowHref(
       new URLSearchParams(
@@ -168,6 +196,7 @@ describe("media view context", () => {
     expect(playlist.get("favorite")).toBe("true");
     expect(playlist.get("sort")).toBe("size_desc");
     expect(playlist.get("shuffle")).toBe("true");
+    expect(playlist.get("trash")).toBe("false");
     expect(playlist.get("limit")).toBe("2000");
     expect(playlist.has("offset")).toBe(false);
     expect(playlist.has("return_to")).toBe(false);
@@ -188,9 +217,11 @@ describe("media view context", () => {
 
     expect(playlist.get("collection_id")).toBe("collection-1");
     expect(playlist.get("shuffle")).toBe("false");
+    expect(playlist.get("trash")).toBe("false");
     expect(playlist.has("kind")).toBe(false);
     expect(playlist.has("q")).toBe(false);
     expect(playlist.has("favorite")).toBe(false);
+    expect(playlist.get("trash")).toBe("false");
     expect(playlist.has("random_seed")).toBe(false);
   });
 });
