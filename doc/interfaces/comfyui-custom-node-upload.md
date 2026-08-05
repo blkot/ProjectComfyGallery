@@ -2,7 +2,7 @@
 
 **Status:** Gallery server contract implemented; ComfyUI node package deferred
 
-**Last verified:** 2026-07-25
+**Last verified:** 2026-08-05
 
 **Gallery endpoint:** `POST /api/v1/media/imports`
 
@@ -120,6 +120,7 @@ Typical response:
 ```json
 {
   "id": "019f...",
+  "status_url": "/api/v1/imports/019f...",
   "status": "processing",
   "total_count": 1,
   "queued_count": 1,
@@ -133,6 +134,8 @@ Typical response:
       "id": "019f...",
       "batch_id": "019f...",
       "media_id": null,
+      "media_url": null,
+      "variant_import_url": null,
       "original_filename": "ComfyUI_00001_.png",
       "byte_size": 5242880,
       "status": "queued",
@@ -145,13 +148,16 @@ Typical response:
 }
 ```
 
-The exact status returned immediately can advance while the response is prepared.
-Client code must treat status strings as workflow state, not assume the example is
-the only possible initial value.
+The top-level `id` is an import-batch ID, not a media ID. `status_url` makes that
+distinction explicit. The exact status returned immediately can advance while the
+response is prepared. Client code must treat status strings as workflow state, not
+assume the example is the only possible initial value.
 
 ## Polling a durable result
 
-Polling is optional. If the node offers a `wait_for_gallery` option, poll:
+Polling is optional for fire-and-forget uploads and required when the client needs
+the resulting media ID, including when it will attach a spatial-video variant.
+Poll the returned `status_url`:
 
 ```text
 GET /api/v1/imports/{batch_id}
@@ -169,6 +175,26 @@ Item terminal states:
 - `duplicate` — identical bytes already existed; `media_id` identifies the
   existing gallery record.
 - `failed` — inspect `error_code` and `error_message`.
+
+For `completed` and `duplicate`, the item also returns:
+
+```json
+{
+  "media_id": "019f...",
+  "media_url": "/api/v1/media/019f...",
+  "variant_import_url": "/api/v1/media/019f.../variant-imports"
+}
+```
+
+To attach a spatial-video variant after importing its original video:
+
+1. Poll `status_url` until the matching item is `completed` or `duplicate`.
+2. Fetch `media_url` and read its `sha256`.
+3. Submit the spatial file to `variant_import_url` with that SHA-256 as
+   `source_asset_sha256` and a stable `Idempotency-Key`.
+4. Poll the returned variant/job projection separately until validation completes.
+
+Do not use the upload-item `id` or batch `id` as a media ID.
 
 Use a modest interval such as two seconds and a bounded wait. A polling timeout
 must not turn an accepted upload into a failure or delete the local file.

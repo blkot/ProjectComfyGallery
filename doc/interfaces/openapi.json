@@ -6809,6 +6809,7 @@
             "type": "integer"
           },
           "id": {
+            "description": "Import batch ID; poll status_url for processing results.",
             "format": "uuid",
             "title": "Id",
             "type": "string"
@@ -6828,6 +6829,12 @@
             "title": "Status",
             "type": "string"
           },
+          "status_url": {
+            "description": "URL to poll until every upload item reaches a terminal state.",
+            "readOnly": true,
+            "title": "Status Url",
+            "type": "string"
+          },
           "total_count": {
             "title": "Total Count",
             "type": "integer"
@@ -6842,7 +6849,8 @@
           "duplicate_count",
           "failed_count",
           "created_at",
-          "completed_at"
+          "completed_at",
+          "status_url"
         ],
         "title": "UploadBatchResponse",
         "type": "object"
@@ -6850,6 +6858,7 @@
       "UploadItemResponse": {
         "properties": {
           "batch_id": {
+            "description": "Import batch containing this upload item.",
             "format": "uuid",
             "title": "Batch Id",
             "type": "string"
@@ -6898,6 +6907,7 @@
             "title": "Error Message"
           },
           "id": {
+            "description": "Upload-item tracking ID; this is not a media ID.",
             "format": "uuid",
             "title": "Id",
             "type": "string"
@@ -6912,7 +6922,21 @@
                 "type": "null"
               }
             ],
+            "description": "Resolved logical media ID. It remains null while processing and is populated for completed and duplicate items.",
             "title": "Media Id"
+          },
+          "media_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Media-detail URL once media_id has been resolved.",
+            "readOnly": true,
+            "title": "Media Url"
           },
           "original_filename": {
             "title": "Original Filename",
@@ -6921,6 +6945,19 @@
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "variant_import_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Spatial-variant import URL once media_id has been resolved.",
+            "readOnly": true,
+            "title": "Variant Import Url"
           }
         },
         "required": [
@@ -6933,7 +6970,9 @@
           "error_code",
           "error_message",
           "created_at",
-          "completed_at"
+          "completed_at",
+          "media_url",
+          "variant_import_url"
         ],
         "title": "UploadItemResponse",
         "type": "object"

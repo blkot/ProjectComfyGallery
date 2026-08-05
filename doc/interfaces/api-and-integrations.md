@@ -100,7 +100,12 @@ Phase 3 includes current model usages in the workflow summary response.
 `POST /api/v1/media/imports` accepts session-authenticated browser requests and
 bearer-authenticated machine clients. It streams repeated multipart `files` fields
 to staging, returns `202 Accepted` with a durable batch, and enqueues the ordinary
-processing pipeline. The future ComfyUI node client contract is documented in
+processing pipeline. The response's top-level `id` is the batch ID, not a media
+ID, and `status_url` is the canonical polling target. Each item keeps `media_id`,
+`media_url`, and `variant_import_url` null until hashing and deduplication resolve
+the logical media. Terminal `completed` and `duplicate` items expose all three;
+clients can fetch `media_url` for the original `sha256` required by variant import.
+The future ComfyUI node client contract is documented in
 [ComfyUI custom-node upload integration](comfyui-custom-node-upload.md).
 
 Media list and detail responses expose independent `favorite`,

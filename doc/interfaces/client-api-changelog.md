@@ -4,6 +4,38 @@ This file is the cross-agent handoff for backend contract changes. Consumers sho
 also use the committed [OpenAPI snapshot](openapi.json); prose here explains
 semantics and compatibility that a schema alone cannot express.
 
+## Unreleased: import result discovery
+
+**Database migration:** none
+
+Ordinary upload-batch responses now expose explicit follow-up links:
+
+```json
+{
+  "id": "<batch-id>",
+  "status_url": "/api/v1/imports/<batch-id>",
+  "items": [
+    {
+      "id": "<upload-item-id>",
+      "media_id": null,
+      "media_url": null,
+      "variant_import_url": null
+    }
+  ]
+}
+```
+
+`POST /api/v1/media/imports` remains asynchronous. Its top-level `id` is an
+import-batch ID, not a media ID. Poll `status_url` until the item is `completed`,
+`duplicate`, or `failed`. Completed and duplicate items contain the resolved
+`media_id`, `media_url`, and `variant_import_url`; processing and failed items do
+not invent media links.
+
+To attach a spatial-video variant, fetch `media_url` after resolution, copy its
+`sha256` as `source_asset_sha256`, then submit the variant to
+`variant_import_url`. Existing clients that use only `id` and `media_id` remain
+compatible.
+
 ## Unreleased: library keyword search
 
 **Database migration:** none

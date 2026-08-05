@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 
 class SourceRootCreateRequest(BaseModel):
@@ -71,9 +71,14 @@ class JobResponse(BaseModel):
 class UploadItemResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: UUID
-    batch_id: UUID
-    media_id: UUID | None
+    id: UUID = Field(description="Upload-item tracking ID; this is not a media ID.")
+    batch_id: UUID = Field(description="Import batch containing this upload item.")
+    media_id: UUID | None = Field(
+        description=(
+            "Resolved logical media ID. It remains null while processing and is populated for "
+            "completed and duplicate items."
+        )
+    )
     original_filename: str
     byte_size: int
     status: str
@@ -82,11 +87,23 @@ class UploadItemResponse(BaseModel):
     created_at: datetime
     completed_at: datetime | None
 
+    @computed_field(description="Media-detail URL once media_id has been resolved.")
+    def media_url(self) -> str | None:
+        if self.media_id is None:
+            return None
+        return f"/api/v1/media/{self.media_id}"
+
+    @computed_field(description="Spatial-variant import URL once media_id has been resolved.")
+    def variant_import_url(self) -> str | None:
+        if self.media_id is None:
+            return None
+        return f"/api/v1/media/{self.media_id}/variant-imports"
+
 
 class UploadBatchResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: UUID
+    id: UUID = Field(description="Import batch ID; poll status_url for processing results.")
     status: str
     total_count: int
     queued_count: int
@@ -96,6 +113,10 @@ class UploadBatchResponse(BaseModel):
     created_at: datetime
     completed_at: datetime | None
     items: list[UploadItemResponse] = Field(default_factory=list)
+
+    @computed_field(description="URL to poll until every upload item reaches a terminal state.")
+    def status_url(self) -> str:
+        return f"/api/v1/imports/{self.id}"
 
 
 class DerivativeResponse(BaseModel):
