@@ -110,7 +110,7 @@ Contract:
 - Body: multipart form with repeated field name `files`.
 - Result: HTTP `202 Accepted` and an upload-batch document.
 - Maximum: 200 files per request.
-- Per-file limit: `CG_MAX_UPLOAD_BYTES`, 128 MiB by default.
+- Per-file limit: `CG_MAX_UPLOAD_BYTES`, 256 MiB by default.
 - Supported MVP files: PNG, JPEG, WebP, MP4, and WebM.
 - Trace response: the gallery returns `X-Request-ID`; retain it with any error.
 - Do not send a browser CSRF token when using bearer authentication.

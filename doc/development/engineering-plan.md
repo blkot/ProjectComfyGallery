@@ -2,7 +2,7 @@
 
 **Status:** MVP phases 0–6 implemented and verified
 
-**Locked release candidate:** `0.1.0-rc.15`
+**Locked release candidate:** `0.1.0-rc.16`
 
 ## Delivery strategy
 
