@@ -4,6 +4,10 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.17 — 2026-08-06
+
+- Add Hash-Search.
+
 ## 0.1.0-rc.16 — 2026-08-05
 
 - Increase the ordinary media import limit from 128 MiB to 256 MiB.
