@@ -102,10 +102,15 @@ final class AppModel {
     let player = PlayerController()
     let spatial = SpatialImageController()
 
+    /// Viewer-wide video playback preference. This is intentionally not stored
+    /// on a Gallery media record and survives navigation between media items.
+    private(set) var isVideoLooping = false
+
     var connectionPhase: ConnectionPhase = .bootstrapping
     var activeProfile: ServerProfile?
     var library = LibraryFeatureState()
     var viewer = ViewerFeatureState()
+    private(set) var ordinaryVideoOverrideMediaID: UUID?
     var hasBootstrapped = false
     var hasPresentedConnection = false
     private(set) var preferenceSyncingIDs: Set<UUID> = []
@@ -212,6 +217,7 @@ final class AppModel {
         preferenceSyncingIDs.removeAll()
         preferenceSyncErrors.removeAll()
         spatial.clearAll()
+        ordinaryVideoOverrideMediaID = nil
         if let profile = activeProfile {
             try? environment.credentials.deleteToken(for: profile.id)
         }
@@ -312,6 +318,7 @@ final class AppModel {
 
     func select(_ summary: XRMediaSummary) {
         let selection = ViewerSelection(mediaID: summary.id, scope: library.scope)
+        ordinaryVideoOverrideMediaID = nil
         viewer.selection = selection
         var detail = XRMediaDetail(summary: summary)
         detail.preferences = effectivePreferences(
@@ -332,10 +339,16 @@ final class AppModel {
         }
         guard let target else { return }
         let newSelection = ViewerSelection(mediaID: target, scope: selection.scope)
+        ordinaryVideoOverrideMediaID = nil
         viewer.selection = newSelection
         viewer.detail = nil
         persistSelection(newSelection)
         startViewerLoad(newSelection)
+    }
+
+    func toggleVideoLooping() {
+        isVideoLooping.toggle()
+        player.setLooping(isVideoLooping)
     }
 
     func retryViewer() {
@@ -352,6 +365,7 @@ final class AppModel {
         prefetchTasks.forEach { $0.cancel() }
         prefetchTasks.removeAll()
         player.stop()
+        ordinaryVideoOverrideMediaID = nil
         cancelSpatial()
         spatial.deactivate()
     }
@@ -457,31 +471,37 @@ final class AppModel {
         else {
             return
         }
-        let enabling = !detail.prefersSpatialPlayback
-        guard !enabling || detail.activeSpatialVideoVariant != nil else {
-            return
+        let previousRepresentation = currentVideoPlaybackSource?.representation
+        if ordinaryVideoOverrideMediaID == detail.id {
+            ordinaryVideoOverrideMediaID = nil
+        } else {
+            guard detail.activeSpatialVideoVariant != nil else {
+                return
+            }
+            ordinaryVideoOverrideMediaID = detail.id
         }
 
-        let previousRepresentation = detail.selectedVideoPlaybackSource?.representation
-        let mutation = MediaPreferenceMutationPlan.playbackPreference(
-            isPreferred: enabling,
-            preserving: detail.preferences
-        )
-        queuePreferenceMutation(
-            mediaID: detail.id,
-            kind: detail.kind,
-            preferences: mutation.preferences,
-            fields: mutation.fields
-        )
-
         guard
-            previousRepresentation != viewer.detail?.selectedVideoPlaybackSource?.representation,
+            previousRepresentation != currentVideoPlaybackSource?.representation,
             let selection = viewer.selection,
             selection.mediaID == detail.id
         else {
             return
         }
         startVideoSourceSwitch(mediaID: selection.mediaID)
+    }
+
+    var currentVideoPlaybackSource: VideoPlaybackSource? {
+        guard let detail = viewer.detail, detail.kind == .video else {
+            return nil
+        }
+        return detail.videoPlaybackSource(
+            forceOrdinary: ordinaryVideoOverrideMediaID == detail.id
+        )
+    }
+
+    var isCurrentVideoPlayingSpatial: Bool {
+        currentVideoPlaybackSource?.representation.isSpatial == true
     }
 
     func retryPreferenceSyncForCurrentMedia() {
@@ -559,13 +579,14 @@ final class AppModel {
             let detail = viewer.detail,
             detail.id == mediaID,
             detail.kind == .video,
-            let representation = detail.selectedVideoPlaybackSource?.representation
+            let representation = currentVideoPlaybackSource?.representation
         else {
             return
         }
 
         videoSourceGeneration += 1
         let generation = videoSourceGeneration
+        let forceOrdinary = ordinaryVideoOverrideMediaID == mediaID
         videoSourceSwitchTask?.cancel()
         viewer.videoIsPreparing = true
         viewer.videoPlaybackError = nil
@@ -580,20 +601,21 @@ final class AppModel {
             do {
                 let fileURL = try await environment.mediaRepository.videoFile(
                     profileID: profile.id,
-                    media: detail
+                    media: detail,
+                    forceOrdinary: forceOrdinary
                 )
                 try Task.checkCancellation()
                 guard
                     generation == videoSourceGeneration,
                     viewer.selection?.mediaID == mediaID,
-                    viewer.detail?.selectedVideoPlaybackSource?.representation
-                        == representation
+                    currentVideoPlaybackSource?.representation == representation
                 else {
                     return
                 }
 
-                let presentation: VideoPlaybackPresentation =
-                    representation.isSpatial ? .expandedSpatial : .embedded
+                let presentation: VideoPlaybackPresentation = representation.isSpatial
+                    ? .expandedSpatial
+                    : .embedded
                 player.load(
                     fileURL: fileURL,
                     autoplay: true,
@@ -649,11 +671,12 @@ final class AppModel {
                 viewer.videoIsPreparing = true
                 let fileURL = try await environment.mediaRepository.videoFile(
                     profileID: profile.id,
-                    media: detail
+                    media: detail,
+                    forceOrdinary: ordinaryVideoOverrideMediaID == detail.id
                 )
                 guard generation == viewerGeneration else { return }
                 let presentation: VideoPlaybackPresentation =
-                    detail.selectedVideoPlaybackSource?.representation.isSpatial == true
+                    currentVideoPlaybackSource?.representation.isSpatial == true
                     ? .expandedSpatial
                     : .embedded
                 player.load(

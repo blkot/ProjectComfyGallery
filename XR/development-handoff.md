@@ -238,10 +238,11 @@ SwiftUI only where necessary.
 
 1. Display the cached poster immediately.
 2. Decode canonical `spatial_available`, `prefer_spatial_playback`, and active ready
-   `variants[]`; use the legacy preference alias only as a decode fallback.
-3. Select a ready `spatial_video` `content_url` only when both preference and
-   availability are true. Any missing or inconsistent condition selects ordinary
-   `playback_url`.
+   `variants[]`; use the legacy preference alias only as a decode fallback. Keep
+   the preference field for compatibility, but do not use it for video defaults.
+3. Select a ready `spatial_video` `content_url` whenever availability and the
+   ready variant agree. Any missing or inconsistent condition selects ordinary
+   `playback_url`; a temporary in-viewer 2D override may also select ordinary.
 4. Download the selected path through authenticated URLSession.
 5. Atomically cache ordinary video by media UUID and spatial video by media plus
    variant UUID. Map `video/quicktime` to `.mov`.
@@ -252,18 +253,24 @@ SwiftUI only where necessary.
 8. Configure `experienceController.allowedExperiences = .recommended()`.
 9. For a selected spatial variant, transition to `.expanded` and call `play()` only
    after `.completed`; for ordinary video, reconcile to `.embedded` before play.
-10. For an ordinary/spatial preference switch, keep the Viewer `AVPlayer` and
-    `AVPlayerViewController`, replace only the current item, and preserve Loop.
+10. For the temporary ordinary/spatial representation switch, keep the Viewer
+    `AVPlayer` and `AVPlayerViewController`, replace only the current item, and
+    preserve the viewer-wide Loop setting. Do not write `prefer_spatial_playback`
+    for this interaction.
 11. Serialize source/experience transitions and identity-check completions so an
     obsolete transition cannot start the wrong current item.
 12. Remove the poster as soon as the AVKit surface exists and let that surface fill
     the media region without an app-defined inset.
-13. Pause and detach the old item before navigation commits, and return the
+13. Populate visionOS `contextualActions` from the current navigation, Favorite,
+    Loop, and spatial-variant representation state. Their handlers must call the
+    same viewer model actions used by the embedded controls.
+14. Pause and detach the old item before navigation commits, and return the
     experience to `.embedded` when dismantling the player.
-14. Implement infinite looping without replacing the `AVPlayer`, so toggling Loop
-    does not discard the active spatial experience.
-15. Remove time/status observers on replacement and deinit.
-16. Pause when scene phase becomes inactive.
+15. Implement infinite looping without replacing the `AVPlayer`, so toggling the
+    viewer-wide Loop setting does not discard the active spatial experience or
+    reset when the user navigates to another video.
+16. Remove time/status observers on replacement and deinit.
+17. Pause when scene phase becomes inactive.
 
 Only the active player has audio. Prefetch downloads never instantiate playing
 players. Use the selected source's byte size for the prefetch budget.
@@ -430,7 +437,8 @@ Never log media IDs alongside private content in production diagnostics.
 - Spatial-video selection truth table and ordinary fallback.
 - Spatial-video expanded transition before autoplay, embedded return for 2D, and
   stale-transition cancellation across source replacement.
-- Loop toggling preserves the active `AVPlayer` and presentation request.
+- Loop toggling updates one viewer-wide setting and preserves it across the
+  active `AVPlayer`, presentation requests, and subsequent media navigation.
 - Variant-safe cache identity and QuickTime `.mov` mapping.
 - Spatial eligibility constraints.
 - Late spatial-generation result ignored after selection change.
@@ -466,7 +474,7 @@ Required:
 - look-pinch-drag tuning;
 - AVKit controls and gesture conflict;
 - local MV-HEVC recognition and automatic spatial presentation;
-- ordinary/spatial preference switching and unavailable-variant fallback;
+- ordinary/spatial session override switching and unavailable-variant fallback;
 - authenticated byte-range playback if the streaming follow-up is implemented;
 - surface snap/lock/restoration;
 - dynamic window scale and placement;
@@ -531,10 +539,11 @@ Required:
 - No visible metadata inspector or token leakage.
 - Pagination and navigation cross boundaries without forcing a return to Library.
 - Videos auto-play only when active and stop reliably.
-- Ready preferred spatial videos use their variant while all inconsistent or
-  unavailable states fall back to ordinary playback.
-- Backend preference fields and spatial-video playback controls remain independent;
-  runtime spatial-image enable/disable intentionally updates both fields.
+- Ready spatial videos use their variant by default while all inconsistent or
+  unavailable states fall back to ordinary playback. Play in 2D is session-only.
+- Backend preference fields remain available for compatibility and image behavior;
+  current XR spatial-video controls do not write them. Runtime spatial-image
+  enable/disable intentionally continues to update both image fields.
 - Neighbor prefetch remains bounded under a long session.
 - Spatial generation works on physical hardware and always retains 2D fallback.
 - Simulator and device test responsibilities are documented.

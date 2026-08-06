@@ -112,17 +112,26 @@ The current server implementation remains authoritative:
 - Default grid cell aspect ratio is 2:3.
 - Air tap opens or updates the single Media card.
 - Video auto-plays only after it becomes the active card item.
-- Stored spatial video is selected only when `prefer_spatial_playback` and
-  `spatial_available` are both true and a ready `spatial_video` variant is present.
+- Stored spatial video is selected by default whenever `spatial_available` and a
+  ready `spatial_video` variant are present; XR currently ignores
+  `prefer_spatial_playback` for video selection.
 - Stored spatial video uses AVKit's recommended experiences and transitions to the
   expanded experience before playback begins. Ordinary video remains in, or returns
   to, the embedded experience.
 - Ordinary/spatial switching keeps the same AVPlayer and AVPlayerViewController,
-  replaces only the current item, preserves Loop, and removes the poster before the
-  system player surface is shown.
-- The backend stores Favorite and playback preference independently. XR runtime
-  spatial-image enable/disable actions intentionally update both; spatial-video
-  playback controls update only playback preference.
+  replaces only the current item, preserves the viewer-wide Loop setting, and
+  removes the poster before the system player surface is shown. Loop is local XR
+  playback state, not a media/backend field, and survives navigation to another
+  video during the app session.
+- Expanded spatial playback carries Previous, Next, Loop, Favorite, and spatial/2D
+  actions through AVKit's visionOS contextual controls, so the viewer does not need
+  to collapse before navigating.
+- **Play in 2D** is a temporary in-viewer override; revisiting a media defaults back
+  to its valid spatial variant and no playback-preference field is written.
+- The backend still stores Favorite and playback preference independently for
+  compatibility. XR runtime spatial-image enable/disable actions intentionally
+  update both; spatial-video representation controls currently update only local
+  session state.
 - Navigation uses buttons and a standard indirect horizontal drag.
 - No custom hand tracking or private gaze data.
 - Current and immediate neighbors are preloaded within strict memory/disk budgets.

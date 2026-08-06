@@ -118,7 +118,7 @@ final class DomainContractTests: XCTestCase {
         XCTAssertFalse(item.favorite)
     }
 
-    func testSpatialVideoSelectionRequiresPreferenceAvailabilityAndReadyVariant() throws {
+    func testSpatialVideoSelectionDefaultsToReadyVariantWithoutPreference() throws {
         let variantID = UUID()
         let spatial = try videoDetail(
             prefersSpatial: true,
@@ -141,7 +141,14 @@ final class DomainContractTests: XCTestCase {
             variantID: variantID,
             variantStatus: "ready"
         )
-        XCTAssertEqual(preferenceOff.selectedVideoPlaybackSource?.representation, .ordinary)
+        XCTAssertEqual(
+            preferenceOff.selectedVideoPlaybackSource?.representation,
+            .spatial(variantID: variantID)
+        )
+        XCTAssertEqual(
+            preferenceOff.videoPlaybackSource(forceOrdinary: true)?.representation,
+            .ordinary
+        )
 
         let unavailable = try videoDetail(
             prefersSpatial: true,
@@ -490,12 +497,80 @@ final class VideoPlaybackExperienceTests: XCTestCase {
         controller.stop()
     }
 
+    func testViewerLoopPreferenceIsGlobalAcrossMediaLoads() throws {
+        let environment = try AppEnvironment(
+            container: PersistenceFactory.makeContainer(inMemory: true)
+        )
+        let model = AppModel(environment: environment)
+
+        model.player.load(
+            fileURL: URL(fileURLWithPath: "/tmp/first-video.mp4"),
+            autoplay: false,
+            presentation: .embedded
+        )
+        model.toggleVideoLooping()
+        XCTAssertTrue(model.isVideoLooping)
+
+        model.player.stop()
+        model.player.load(
+            fileURL: URL(fileURLWithPath: "/tmp/next-video.mp4"),
+            autoplay: false,
+            presentation: .embedded
+        )
+
+        XCTAssertTrue(model.isVideoLooping)
+        XCTAssertTrue(model.player.isLooping)
+        model.player.stop()
+    }
+
     func testVideoPreviewIsRemovedOnceAVKitPlayerExists() {
         XCTAssertTrue(VideoSurfaceLayerPolicy.showsPreview(hasPlayer: false))
         XCTAssertFalse(VideoSurfaceLayerPolicy.showsPreview(hasPlayer: true))
     }
 
-    func testSpatialPreferenceToggleKeepsTheActivePlayerSessionAlive() async throws {
+    func testExpandedPlayerOffersGalleryNavigationAndLoopActions() {
+        let state = VideoPlaybackContextActionState(
+            canGoPrevious: false,
+            canGoNext: true,
+            isLooping: true,
+            isFavorite: true,
+            isSpatialPlaybackActive: true,
+            spatialVariantAvailable: true,
+            isPreferenceSyncing: false
+        )
+
+        let descriptors = VideoPlaybackContextActionCatalog.descriptors(for: state)
+
+        XCTAssertEqual(
+            descriptors.map(\.id),
+            [.previous, .next, .loop, .favorite, .spatial]
+        )
+        XCTAssertFalse(descriptors[0].isEnabled)
+        XCTAssertTrue(descriptors[1].isEnabled)
+        XCTAssertEqual(descriptors[2].title, "Looping")
+        XCTAssertEqual(descriptors[3].title, "Favorite")
+        XCTAssertEqual(descriptors[4].title, "Play in 2D")
+    }
+
+    func testExpandedPlayerOffersPlaySpatialWhenNotAlreadySpatial() {
+        let state = VideoPlaybackContextActionState(
+            canGoPrevious: true,
+            canGoNext: true,
+            isLooping: false,
+            isFavorite: false,
+            isSpatialPlaybackActive: false,
+            spatialVariantAvailable: true,
+            isPreferenceSyncing: false
+        )
+
+        let spatial = VideoPlaybackContextActionCatalog.descriptors(for: state)
+            .first(where: { $0.id == .spatial })
+
+        XCTAssertEqual(spatial?.title, "Play Spatial")
+        XCTAssertTrue(spatial?.isEnabled == true)
+    }
+
+    func testSpatialVideoOverrideKeepsPlayerAliveWithoutWritingPreference() async throws {
         let container = try PersistenceFactory.makeContainer(inMemory: true)
         let environment = try AppEnvironment(container: container)
         let model = AppModel(environment: environment)
@@ -542,17 +617,20 @@ final class VideoPlaybackExperienceTests: XCTestCase {
             scope: GalleryScope()
         )
         model.player.load(
-            fileURL: URL(fileURLWithPath: "/tmp/current-ordinary.mp4"),
+            fileURL: URL(fileURLWithPath: "/tmp/current-spatial.mov"),
             autoplay: false,
-            presentation: .embedded
+            presentation: .expandedSpatial
         )
-        model.player.toggleLooping()
+        model.toggleVideoLooping()
         let activePlayer = model.player.player
+        XCTAssertTrue(model.isCurrentVideoPlayingSpatial)
 
         model.toggleSpatialPlaybackForCurrentVideo()
 
         XCTAssertTrue(model.player.player === activePlayer)
         XCTAssertTrue(model.player.isLooping)
+        XCTAssertFalse(model.isCurrentVideoPlayingSpatial)
+        XCTAssertFalse(model.viewer.detail?.prefersSpatialPlayback ?? true)
         await model.disconnect()
     }
 

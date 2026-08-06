@@ -503,9 +503,16 @@ struct XRMediaDetail: Decodable, Hashable, Identifiable, Sendable {
         }
     }
 
+    /// The default XR source: a valid stored spatial variant wins over ordinary
+    /// playback. The backend playback-preference field is intentionally not part
+    /// of this default selection yet.
     var selectedVideoPlaybackSource: VideoPlaybackSource? {
+        videoPlaybackSource(forceOrdinary: false)
+    }
+
+    func videoPlaybackSource(forceOrdinary: Bool) -> VideoPlaybackSource? {
         guard kind == .video else { return nil }
-        if prefersSpatialPlayback, let variant = activeSpatialVideoVariant {
+        if !forceOrdinary, let variant = activeSpatialVideoVariant {
             return VideoPlaybackSource(
                 path: variant.contentPath,
                 mimeType: variant.mimeType,

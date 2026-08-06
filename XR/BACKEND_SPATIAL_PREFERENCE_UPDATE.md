@@ -35,7 +35,9 @@ Current media projections expose independent fields:
 The backend does not couple these fields. The XR client deliberately composes two
 writes for runtime spatial-image actions: Make Spatial/Enable Cached Spatial sets
 Favorite and playback preference to true, while Disable Spatial sets both false.
-Spatial-video playback controls continue to change only playback preference.
+For spatial videos, the current XR client defaults to a valid ready variant and
+keeps Play in 2D/Play Spatial as a temporary viewer-session override; those
+controls do not write playback preference or Favorite.
 
 Authoritative references:
 

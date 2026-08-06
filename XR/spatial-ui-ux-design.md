@@ -97,8 +97,8 @@ Do not create floating custom 3D text or controls.
   least 60 points.
 - Aspect-fill preview clipped to a rounded rectangle.
 - Video glyph in one corner.
-- A compact cube badge distinguishes a video with a ready spatial variant; the
-  filled state also indicates that spatial playback is preferred.
+- A compact cube badge distinguishes a video with a ready spatial variant; it
+  indicates availability, not the backend playback-preference field.
 - Optional subtle Trash treatment.
 - No filename, UUID, hash, dimensions, prompt, or model/workflow text.
 - Use a system hover effect: slight lift/brightness, not a large scale jump.
@@ -146,8 +146,9 @@ second card.
 
 - Show poster/loading state immediately.
 - Present `AVPlayerViewController`.
-- When the active detail has a ready spatial variant and spatial playback is
-  preferred, load that MV-HEVC `.mov`; otherwise load ordinary `playback_url`.
+- When the active detail has a ready spatial variant, load that MV-HEVC `.mov` by
+  default; the backend playback-preference field is not consulted for video yet.
+  A temporary in-viewer 2D override may select ordinary `playback_url`.
 - Configure the player view controller's recommended AVKit experiences.
 - For a spatial variant, transition from `.embedded` to `.expanded` and auto-play
   only after the transition completes.
@@ -155,7 +156,9 @@ second card.
 - Keep one `AVPlayer` and one `AVPlayerViewController` alive while switching
   ordinary/spatial representations; replace only the current item and let AVKit
   animate the embedded/expanded experience transition.
-- Preserve Loop across representation switches.
+- Treat Loop as one viewer-wide playback setting, not media metadata. Preserve
+  it across media navigation, representation switches, and embedded/expanded
+  AVKit transitions for the current app session.
 - Remove the poster layer once the AVKit surface exists. Never leave a differently
   sized preview visible behind the player.
 - Use system playback controls.
@@ -167,6 +170,10 @@ second card.
 - Do not place custom buttons over the player surface.
 - Let the AVKit surface fill the clean media region without an app-defined inset
   frame; keep gallery actions in the separate controls region below it.
+- When AVKit enters `.expanded`, expose the same gallery actions through its
+  visionOS contextual action surface: Previous, Next, Loop, Favorite, and the
+  spatial/2D representation action. These actions must remain backed by the same
+  `AppModel` and active `AVPlayer` session.
 
 ### Bottom ornament
 
@@ -183,10 +190,10 @@ second card.
 - A Favorite control appears for all media and remains independently editable.
   Make Spatial forces Favorite on at that moment; Disable Spatial forces it off,
   regardless of any Favorite changes made between those actions.
-- A video with a ready spatial variant shows **Play Spatial** while ordinary
-  playback is selected and **Play in 2D** while the variant is selected.
-- When a video preference remains true but its variant is unavailable, ordinary
-  playback is the fallback and **Disable Spatial Preference** remains available.
+- A video with a ready spatial variant starts spatial and shows **Play in 2D**;
+  after the temporary override it shows **Play Spatial**.
+- When no valid spatial variant is available, ordinary playback is used and the
+  spatial action is hidden until the variant becomes available.
 
 Keep ornament width no wider than the card and use borderless system buttons on its
 glass background.

@@ -185,8 +185,10 @@ cannot safely contain the token. The backend therefore exposes the active spatia
 variant as an authenticated `content_url` and leaves ordinary `playback_url`
 unchanged. The reliable first implementation is:
 
-1. Select the ready spatial variant only when both `prefer_spatial_playback` and
-   `spatial_available` are true; otherwise select ordinary `playback_url`.
+1. Select the ready spatial variant whenever `spatial_available` and a ready
+   `spatial_video` entry with a nonempty `content_url` are present; otherwise
+   select ordinary `playback_url`. XR currently ignores `prefer_spatial_playback`
+   for video defaults and uses a session-only 2D override.
 2. Download the selected path through authenticated `URLSession`.
 3. Write it atomically into a bounded media cache keyed by representation and
    variant UUID.
@@ -200,9 +202,13 @@ unchanged. The reliable first implementation is:
    dismantled.
 10. Keep the `AVPlayer` and `AVPlayerViewController` alive across ordinary/spatial
     source changes; replace only the current item so AVKit owns the visible
-    embedded/expanded transition and Loop survives.
+    embedded/expanded transition. Loop is a viewer-wide XR setting, not media
+    metadata, and survives navigation and source changes.
 11. Remove the poster layer after the AVKit surface exists rather than stacking a
     differently sized video surface over the preview.
+12. Use `AVPlayerViewController.contextualActions` for app actions that must remain
+    reachable while `.expanded` consumes the window scene; a SwiftUI toolbar
+    outside the controller cannot remain visible in that experience.
 
 Setting `requiresMonoscopicViewingMode = false` is necessary but does not itself
 request spatial presentation. The physical-device regression in issue #8 confirmed

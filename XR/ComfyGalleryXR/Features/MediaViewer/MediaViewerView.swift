@@ -124,7 +124,9 @@ struct MediaViewerView: View {
                         player: player,
                         presentation: model.player.presentation,
                         shouldAutoplay: model.player.shouldAutoplay,
-                        isActive: model.player.isActive
+                        isActive: model.player.isActive,
+                        contextualActionState: videoContextualActionState,
+                        contextualActionHandlers: videoContextualActionHandlers
                     )
                         .accessibilityLabel(mediaAccessibilityLabel)
                 }
@@ -222,6 +224,42 @@ struct MediaViewerView: View {
         .background(.regularMaterial)
     }
 
+    private var videoContextualActionState: VideoPlaybackContextActionState {
+        guard let detail = model.viewer.detail, detail.kind == .video else {
+            return .empty
+        }
+        return VideoPlaybackContextActionState(
+            canGoPrevious: model.viewer.navigation?.previousID != nil,
+            canGoNext: model.viewer.navigation?.nextID != nil,
+            isLooping: model.isVideoLooping,
+            isFavorite: detail.favorite,
+            isSpatialPlaybackActive: model.isCurrentVideoPlayingSpatial,
+            spatialVariantAvailable: detail.activeSpatialVideoVariant != nil,
+            isPreferenceSyncing: model.isPreferenceSyncing(mediaID: detail.id)
+        )
+    }
+
+    private var videoContextualActionHandlers: VideoPlaybackContextActionHandlers {
+        let appModel = model
+        return VideoPlaybackContextActionHandlers(
+            previous: {
+                appModel.navigate(.previous)
+            },
+            next: {
+                appModel.navigate(.next)
+            },
+            loop: {
+                appModel.toggleVideoLooping()
+            },
+            favorite: {
+                appModel.toggleFavoriteForCurrentMedia()
+            },
+            spatial: {
+                appModel.toggleSpatialPlaybackForCurrentVideo()
+            }
+        )
+    }
+
     private func controlRow(compact: Bool) -> some View {
         HStack(spacing: compact ? 10 : 16) {
             Button {
@@ -251,16 +289,16 @@ struct MediaViewerView: View {
 
             if model.viewer.detail?.kind == .video {
                 Button {
-                    model.player.toggleLooping()
+                    model.toggleVideoLooping()
                 } label: {
                     controlLabel(
-                        model.player.isLooping ? "Looping" : "Loop",
-                        systemImage: model.player.isLooping ? "repeat.circle.fill" : "repeat",
+                        model.isVideoLooping ? "Looping" : "Loop",
+                        systemImage: model.isVideoLooping ? "repeat.circle.fill" : "repeat",
                         compact: compact
                     )
                 }
                 .frame(minHeight: 60)
-                .accessibilityValue(model.player.isLooping ? "On" : "Off")
+                .accessibilityValue(model.isVideoLooping ? "On" : "Off")
                 .accessibilityIdentifier("viewer.loop")
             }
 
@@ -369,24 +407,18 @@ struct MediaViewerView: View {
     @ViewBuilder
     private func videoSpatialAction(compact: Bool) -> some View {
         if let detail = model.viewer.detail {
-            if detail.prefersSpatialPlayback {
+            if model.isCurrentVideoPlayingSpatial {
                 Button {
                     model.toggleSpatialPlaybackForCurrentVideo()
                 } label: {
                     controlLabel(
-                        detail.activeSpatialVideoVariant == nil
-                            ? "Disable Spatial Preference"
-                            : "Play in 2D",
+                        "Play in 2D",
                         systemImage: "rectangle",
                         compact: compact
                     )
                 }
                 .frame(minHeight: 60)
-                .accessibilityHint(
-                    detail.activeSpatialVideoVariant == nil
-                        ? "The spatial variant is unavailable, so ordinary video is playing."
-                        : "Switches this media to its ordinary video."
-                )
+                .accessibilityHint("Temporarily switches this viewer to the ordinary video.")
                 .accessibilityIdentifier("viewer.disableSpatialVideo")
             } else if detail.activeSpatialVideoVariant != nil {
                 Button {
@@ -399,7 +431,7 @@ struct MediaViewerView: View {
                     )
                 }
                 .frame(minHeight: 60)
-                .accessibilityHint("Switches this media to its spatial video variant.")
+                .accessibilityHint("Plays the valid spatial video variant for this media.")
                 .accessibilityIdentifier("viewer.enableSpatialVideo")
             }
         }

@@ -7,6 +7,112 @@ enum VideoPlaybackPresentation: Equatable, Sendable {
     case expandedSpatial
 }
 
+enum VideoPlaybackContextActionID: String, CaseIterable, Equatable, Sendable {
+    case previous
+    case next
+    case loop
+    case favorite
+    case spatial
+}
+
+struct VideoPlaybackContextActionState: Equatable, Sendable {
+    static let empty = Self(
+        canGoPrevious: false,
+        canGoNext: false,
+        isLooping: false,
+        isFavorite: false,
+        isSpatialPlaybackActive: false,
+        spatialVariantAvailable: false,
+        isPreferenceSyncing: false
+    )
+
+    let canGoPrevious: Bool
+    let canGoNext: Bool
+    let isLooping: Bool
+    let isFavorite: Bool
+    let isSpatialPlaybackActive: Bool
+    let spatialVariantAvailable: Bool
+    let isPreferenceSyncing: Bool
+}
+
+struct VideoPlaybackContextActionDescriptor: Equatable, Sendable {
+    let id: VideoPlaybackContextActionID
+    let title: String
+    let systemImage: String
+    let isEnabled: Bool
+}
+
+enum VideoPlaybackContextActionCatalog {
+    static func descriptors(
+        for state: VideoPlaybackContextActionState
+    ) -> [VideoPlaybackContextActionDescriptor] {
+        let spatialTitle: String
+        if state.isSpatialPlaybackActive {
+            spatialTitle = "Play in 2D"
+        } else {
+            spatialTitle = "Play Spatial"
+        }
+
+        return [
+            VideoPlaybackContextActionDescriptor(
+                id: .previous,
+                title: "Previous",
+                systemImage: "chevron.left",
+                isEnabled: state.canGoPrevious
+            ),
+            VideoPlaybackContextActionDescriptor(
+                id: .next,
+                title: "Next",
+                systemImage: "chevron.right",
+                isEnabled: state.canGoNext
+            ),
+            VideoPlaybackContextActionDescriptor(
+                id: .loop,
+                title: state.isLooping ? "Looping" : "Loop",
+                systemImage: state.isLooping ? "repeat.circle.fill" : "repeat",
+                isEnabled: true
+            ),
+            VideoPlaybackContextActionDescriptor(
+                id: .favorite,
+                title: state.isFavorite ? "Favorite" : "Add Favorite",
+                systemImage: state.isFavorite ? "heart.fill" : "heart",
+                isEnabled: !state.isPreferenceSyncing
+            ),
+            VideoPlaybackContextActionDescriptor(
+                id: .spatial,
+                title: spatialTitle,
+                systemImage: state.isSpatialPlaybackActive
+                    ? "rectangle"
+                    : "cube.transparent.fill",
+                isEnabled: !state.isPreferenceSyncing
+                    && (state.isSpatialPlaybackActive || state.spatialVariantAvailable)
+            )
+        ]
+    }
+}
+
+struct VideoPlaybackContextActionHandlers {
+    var previous: (@MainActor () -> Void)?
+    var next: (@MainActor () -> Void)?
+    var loop: (@MainActor () -> Void)?
+    var favorite: (@MainActor () -> Void)?
+    var spatial: (@MainActor () -> Void)?
+
+    init(
+        previous: (@MainActor () -> Void)? = nil,
+        next: (@MainActor () -> Void)? = nil,
+        loop: (@MainActor () -> Void)? = nil,
+        favorite: (@MainActor () -> Void)? = nil,
+        spatial: (@MainActor () -> Void)? = nil
+    ) {
+        self.previous = previous
+        self.next = next
+        self.loop = loop
+        self.favorite = favorite
+        self.spatial = spatial
+    }
+}
+
 @MainActor
 protocol VideoPlaybackControlling: AnyObject {
     func play()
@@ -180,6 +286,8 @@ struct PlayerViewControllerRepresentable: UIViewControllerRepresentable {
     let presentation: VideoPlaybackPresentation
     let shouldAutoplay: Bool
     let isActive: Bool
+    var contextualActionState: VideoPlaybackContextActionState = .empty
+    var contextualActionHandlers = VideoPlaybackContextActionHandlers()
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -198,7 +306,9 @@ struct PlayerViewControllerRepresentable: UIViewControllerRepresentable {
             player: player,
             presentation: presentation,
             shouldAutoplay: shouldAutoplay,
-            isActive: isActive
+            isActive: isActive,
+            contextualActionState: contextualActionState,
+            contextualActionHandlers: contextualActionHandlers
         )
         return controller
     }
@@ -212,7 +322,9 @@ struct PlayerViewControllerRepresentable: UIViewControllerRepresentable {
             player: player,
             presentation: presentation,
             shouldAutoplay: shouldAutoplay,
-            isActive: isActive
+            isActive: isActive,
+            contextualActionState: contextualActionState,
+            contextualActionHandlers: contextualActionHandlers
         )
     }
 
@@ -229,6 +341,8 @@ struct PlayerViewControllerRepresentable: UIViewControllerRepresentable {
         AVExperienceController.Delegate
     {
         private weak var controller: AVPlayerViewController?
+        private var contextualActionState = VideoPlaybackContextActionState.empty
+        private var contextualActionHandlers = VideoPlaybackContextActionHandlers()
         private lazy var playbackExperience =
             VideoPlaybackExperienceCoordinator(experience: self)
 
@@ -254,14 +368,50 @@ struct PlayerViewControllerRepresentable: UIViewControllerRepresentable {
             player: AVPlayer?,
             presentation: VideoPlaybackPresentation,
             shouldAutoplay: Bool,
-            isActive: Bool
+            isActive: Bool,
+            contextualActionState: VideoPlaybackContextActionState,
+            contextualActionHandlers: VideoPlaybackContextActionHandlers
         ) {
+            self.contextualActionState = contextualActionState
+            self.contextualActionHandlers = contextualActionHandlers
+            configureContextualActions()
             playbackExperience.update(
                 player: player,
                 presentation: presentation,
                 shouldAutoplay: shouldAutoplay,
                 isActive: isActive
             )
+        }
+
+        private func configureContextualActions() {
+            guard let controller else { return }
+            controller.contextualActions = VideoPlaybackContextActionCatalog
+                .descriptors(for: contextualActionState)
+                .map { descriptor in
+                    UIAction(
+                        title: descriptor.title,
+                        image: UIImage(systemName: descriptor.systemImage),
+                        identifier: UIAction.Identifier(descriptor.id.rawValue),
+                        attributes: descriptor.isEnabled ? [] : [.disabled]
+                    ) { [weak self] _ in
+                        self?.invokeContextualAction(descriptor.id)
+                    }
+                }
+        }
+
+        private func invokeContextualAction(_ id: VideoPlaybackContextActionID) {
+            switch id {
+            case .previous:
+                contextualActionHandlers.previous?()
+            case .next:
+                contextualActionHandlers.next?()
+            case .loop:
+                contextualActionHandlers.loop?()
+            case .favorite:
+                contextualActionHandlers.favorite?()
+            case .spatial:
+                contextualActionHandlers.spatial?()
+            }
         }
 
         func setViewVisible(_ isVisible: Bool) {

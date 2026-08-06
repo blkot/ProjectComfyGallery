@@ -174,12 +174,11 @@ URLSession and downsample to the display target.
 Ordinary `playback_url` may return a browser-compatible proxy or the original when
 no proxy exists. It never switches to MV-HEVC automatically.
 
-The detail response's `variants[]` contains active ready variants only. For a
-video, select its source with this fail-safe rule:
+The detail response's `variants[]` contains active ready variants only. For XR
+video playback, select its source with this fail-safe rule:
 
 ```text
-prefer_spatial_playback
-&& spatial_available
+spatial_available
 && variants contains role=spatial_video, status=ready, nonempty content_url
     -> selected variant content_url
 otherwise
@@ -188,8 +187,9 @@ otherwise
 
 Do not construct a variant URL. Ignore unknown roles and use the server-provided
 `content_url`. If the availability projection and variant list ever disagree, the
-ordinary source wins. Preserve a true user preference across this fallback so a
-later valid replacement becomes eligible again.
+ordinary source wins. XR currently decodes `prefer_spatial_playback` for API
+compatibility but does not use it to choose a video by default. **Play in 2D** is a
+session-only local override; **Play Spatial** clears it.
 
 For MVP:
 
@@ -203,8 +203,12 @@ For MVP:
 7. Configure recommended AVKit experiences. For a stored spatial-video source,
    transition to `.expanded` and wait for completion before playing; for an
    ordinary source, reconcile to `.embedded`.
-8. When the preference changes, replace the current item in the existing
-   `AVPlayer`; do not destroy the player/controller or reset Loop.
+8. When the temporary representation override changes, replace the current item in
+   the existing `AVPlayer`; do not destroy the player/controller or reset the
+   viewer-wide Loop setting. The override is not sent to or stored by the backend.
+9. Configure the visionOS `AVPlayerViewController.contextualActions` with the
+   current navigation, Favorite, Loop, and spatial-variant representation state so
+   expanded playback does not strand the viewer in a system-only control path.
 
 Do not auto-play prefetched neighbors.
 
@@ -255,8 +259,8 @@ One XR image interaction intentionally writes both independent user fields:
   playback preference `true`;
 - Disable Spatial writes Favorite `false` and playback preference `false`;
 - Favorite remains independently editable between those image actions;
-- spatial-video Play Spatial / Play in 2D writes only playback preference and never
-  changes Favorite.
+- spatial-video Play Spatial / Play in 2D changes only the XR session’s temporary
+  representation override and never writes playback preference or Favorite.
 
 The client optimistically retains failed preference writes as retryable session
 intent, but it must write only the field or fields defined by the interaction. The

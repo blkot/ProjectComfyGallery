@@ -8,6 +8,8 @@ final class PlayerController {
     private(set) var player: AVPlayer?
     private(set) var shouldAutoplay = false
     private(set) var isActive = true
+    // This mirrors AppModel's viewer-wide preference. It is deliberately not
+    // reset when the current item is released or replaced.
     private(set) var isLooping = false
     private(set) var presentation: VideoPlaybackPresentation = .embedded
 
@@ -25,9 +27,12 @@ final class PlayerController {
         replaceCurrentItem(fileURL: fileURL)
     }
 
+    func setLooping(_ enabled: Bool) {
+        isLooping = enabled
+    }
+
     func toggleLooping() {
-        guard player != nil else { return }
-        isLooping.toggle()
+        setLooping(!isLooping)
     }
 
     func pause() {
@@ -48,7 +53,6 @@ final class PlayerController {
         player?.replaceCurrentItem(with: nil)
         player = nil
         shouldAutoplay = false
-        isLooping = false
         presentation = .embedded
     }
 
