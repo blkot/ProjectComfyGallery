@@ -498,9 +498,7 @@ async def test_media_library_keyword_search_uses_current_prompts_and_model_ident
         exact_hash_filter = MediaFilterRequest(sha256="  " + ("ABCD" * 16) + "  ")
         assert exact_hash_filter.sha256 == "abcd" * 16
         hash_scoped_ids = list(
-            await session.scalars(
-                _media_scope_query(exact_hash_filter, reviewable_only=False)
-            )
+            await session.scalars(_media_scope_query(exact_hash_filter, reviewable_only=False))
         )
         assert hash_scoped_ids == [artifact_media.id]
 

@@ -1,3 +1,3 @@
 """Project Comfy Gallery background worker."""
 
-__version__ = "0.1.0-rc.16"
+__version__ = "0.1.0-rc.17"
