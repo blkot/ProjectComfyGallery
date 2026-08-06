@@ -6,6 +6,8 @@ from sqlalchemy.sql import ColumnElement
 from comfy_gallery_core.db.models import (
     ExtractionRun,
     Media,
+    MediaAsset,
+    MediaVariant,
     ModelArtifact,
     ModelReference,
     ModelReferenceGroup,
@@ -15,6 +17,15 @@ from comfy_gallery_core.db.models import (
 )
 
 MEDIA_SEARCH_QUERY_MAX_LENGTH = 256
+MEDIA_SHA256_QUERY_LENGTH = 64
+MEDIA_SHA256_QUERY_PATTERN = r"^[0-9a-fA-F]{64}$"
+MEDIA_SEARCH_QUERY_DESCRIPTION = (
+    "Case-insensitive partial search across model references, prompts, and original or "
+    "attached-variant SHA-256 hashes."
+)
+MEDIA_SHA256_QUERY_DESCRIPTION = (
+    "Case-insensitive exact SHA-256 match against an original media asset or attached variant."
+)
 SUCCESSFUL_EXTRACTION_STATUSES = ("succeeded", "completed_with_warnings")
 
 
@@ -22,6 +33,13 @@ def normalize_media_search_query(value: str | None) -> str | None:
     if value is None:
         return None
     normalized = value.strip()
+    return normalized or None
+
+
+def normalize_media_sha256_query(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip().lower()
     return normalized or None
 
 
@@ -75,7 +93,53 @@ def media_keyword_filter(query: str | None) -> ColumnElement[bool] | None:
         )
         .exists()
     )
-    return or_(model_match, prompt_match)
+    asset_hash_match = (
+        select(MediaAsset.media_id)
+        .where(
+            MediaAsset.media_id == Media.id,
+            MediaAsset.sha256.ilike(pattern, escape="\\"),
+        )
+        .correlate(Media)
+        .exists()
+    )
+    variant_hash_match = (
+        select(MediaVariant.id)
+        .where(
+            MediaVariant.media_id == Media.id,
+            MediaVariant.sha256.is_not(None),
+            MediaVariant.sha256.ilike(pattern, escape="\\"),
+        )
+        .correlate(Media)
+        .exists()
+    )
+    return or_(model_match, prompt_match, asset_hash_match, variant_hash_match)
+
+
+def media_sha256_filter(query: str | None) -> ColumnElement[bool] | None:
+    normalized_query = normalize_media_sha256_query(query)
+    if normalized_query is None:
+        return None
+    escaped_query = _escape_like(normalized_query)
+    asset_hash_match = (
+        select(MediaAsset.media_id)
+        .where(
+            MediaAsset.media_id == Media.id,
+            MediaAsset.sha256.ilike(escaped_query, escape="\\"),
+        )
+        .correlate(Media)
+        .exists()
+    )
+    variant_hash_match = (
+        select(MediaVariant.id)
+        .where(
+            MediaVariant.media_id == Media.id,
+            MediaVariant.sha256.is_not(None),
+            MediaVariant.sha256.ilike(escaped_query, escape="\\"),
+        )
+        .correlate(Media)
+        .exists()
+    )
+    return or_(asset_hash_match, variant_hash_match)
 
 
 def _escape_like(value: str) -> str:

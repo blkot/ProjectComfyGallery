@@ -46,10 +46,17 @@ compatible.
 whitespace is ignored; blank input behaves as no search filter.
 
 Search covers current checkpoint and LoRA raw/normalized references, confirmed
-alias display names, resolved artifact display/file names, and current successfully
-extracted positive/negative prompts. Fields use OR; `q` combines with all other
-filters using AND. Totals, pagination, sorting, navigation, and slideshow scope all
-resolve from the same matching population.
+alias display names, resolved artifact display/file names, current successfully
+extracted positive/negative prompts, and original or attached-variant SHA-256 hashes.
+Fields use OR; `q` combines with all other filters using AND. Totals, pagination,
+sorting, navigation, and slideshow scope all resolve from the same matching
+population.
+
+The same endpoints accept `sha256=<64-character-hex-sha256>` for a case-insensitive
+exact match against the original asset hash or any stored attached-variant hash.
+`sha256` combines with `q` and all other filters using AND. `MediaFilterRequest`
+also carries `sha256`, so saved filters, server-filtered collection/tag membership,
+selection scopes, and review sessions can preserve an exact hash lookup.
 
 Reusable `MediaFilterRequest` expressions now include `q`, so saved filters,
 server-filtered collection/tag membership, selection scopes, and review sessions can

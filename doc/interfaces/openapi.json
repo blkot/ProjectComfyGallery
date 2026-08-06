@@ -2884,7 +2884,23 @@
                 "type": "null"
               }
             ],
+            "description": "Case-insensitive partial search across model references, prompts, and original or attached-variant SHA-256 hashes.",
             "title": "Q"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 64,
+                "pattern": "^[0-9a-fA-F]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Case-insensitive exact SHA-256 match against an original media asset or attached variant.",
+            "title": "Sha256"
           },
           "source_root_id": {
             "anyOf": [
@@ -9830,6 +9846,7 @@
         "operationId": "list_media_api_v1_media_get",
         "parameters": [
           {
+            "description": "Case-insensitive partial search across model references, prompts, and original or attached-variant SHA-256 hashes.",
             "in": "query",
             "name": "q",
             "required": false,
@@ -9843,7 +9860,29 @@
                   "type": "null"
                 }
               ],
+              "description": "Case-insensitive partial search across model references, prompts, and original or attached-variant SHA-256 hashes.",
               "title": "Q"
+            }
+          },
+          {
+            "description": "Case-insensitive exact SHA-256 match against an original media asset or attached variant.",
+            "in": "query",
+            "name": "sha256",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 64,
+                  "pattern": "^[0-9a-fA-F]{64}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Case-insensitive exact SHA-256 match against an original media asset or attached variant.",
+              "title": "Sha256"
             }
           },
           {
@@ -10193,6 +10232,7 @@
         "operationId": "get_slideshow_playlist_api_v1_media_slideshow_get",
         "parameters": [
           {
+            "description": "Case-insensitive partial search across model references, prompts, and original or attached-variant SHA-256 hashes.",
             "in": "query",
             "name": "q",
             "required": false,
@@ -10206,7 +10246,29 @@
                   "type": "null"
                 }
               ],
+              "description": "Case-insensitive partial search across model references, prompts, and original or attached-variant SHA-256 hashes.",
               "title": "Q"
+            }
+          },
+          {
+            "description": "Case-insensitive exact SHA-256 match against an original media asset or attached variant.",
+            "in": "query",
+            "name": "sha256",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 64,
+                  "pattern": "^[0-9a-fA-F]{64}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Case-insensitive exact SHA-256 match against an original media asset or attached variant.",
+              "title": "Sha256"
             }
           },
           {
@@ -10760,6 +10822,7 @@
             }
           },
           {
+            "description": "Case-insensitive partial search across model references, prompts, and original or attached-variant SHA-256 hashes.",
             "in": "query",
             "name": "q",
             "required": false,
@@ -10773,7 +10836,29 @@
                   "type": "null"
                 }
               ],
+              "description": "Case-insensitive partial search across model references, prompts, and original or attached-variant SHA-256 hashes.",
               "title": "Q"
+            }
+          },
+          {
+            "description": "Case-insensitive exact SHA-256 match against an original media asset or attached variant.",
+            "in": "query",
+            "name": "sha256",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 64,
+                  "pattern": "^[0-9a-fA-F]{64}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Case-insensitive exact SHA-256 match against an original media asset or attached variant.",
+              "title": "Sha256"
             }
           },
           {

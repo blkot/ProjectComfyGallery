@@ -137,7 +137,8 @@ matching across these fields:
 - their normalized references;
 - confirmed reference-alias display names;
 - resolved artifact display names and filenames;
-- positive and negative prompts from the current successful extraction run.
+- positive and negative prompts from the current successful extraction run;
+- original media asset SHA-256 hashes and attached variant SHA-256 hashes.
 
 The fields are combined with OR. `q` is combined with every other active filter
 using AND. Blank or whitespace-only `q` behaves as omitted. Historical prompt
@@ -145,6 +146,18 @@ observations from superseded or failed extraction runs are not searched. Matchin
 is media-based, so one media is returned once even when several fields match.
 Totals, sorting, pagination, navigation, and slideshow resolution all use the same
 search population.
+
+For an exact hash lookup, the same endpoints also accept a `sha256` query parameter:
+
+```text
+GET /api/v1/media?sha256=<64-character-hex-sha256>
+```
+
+The match is case-insensitive and checks both the original `MediaAsset.sha256` and
+every stored `MediaVariant.sha256` associated with the logical media. Whitespace is
+not part of the hash; callers should send exactly 64 hexadecimal characters. `sha256`
+combines with `q` and all other filters using AND. The reusable `MediaFilterRequest`
+used by saved filters, collections, tags, and review scopes supports the same field.
 
 The media list and navigation endpoints also accept optional `favorite`,
 `prefer_spatial_playback`, `spatial_available`, and deprecated

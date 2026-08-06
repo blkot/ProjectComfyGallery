@@ -13,7 +13,15 @@ from sqlalchemy.sql import ColumnElement, Select
 
 from comfy_gallery_api.dependencies import CsrfPrincipalDep, DbSessionDep, PrincipalDep, SettingsDep
 from comfy_gallery_api.errors import ApiError
-from comfy_gallery_api.media_filters import MEDIA_SEARCH_QUERY_MAX_LENGTH, media_keyword_filter
+from comfy_gallery_api.media_filters import (
+    MEDIA_SEARCH_QUERY_DESCRIPTION,
+    MEDIA_SEARCH_QUERY_MAX_LENGTH,
+    MEDIA_SHA256_QUERY_DESCRIPTION,
+    MEDIA_SHA256_QUERY_LENGTH,
+    MEDIA_SHA256_QUERY_PATTERN,
+    media_keyword_filter,
+    media_sha256_filter,
+)
 from comfy_gallery_api.media_schemas import (
     DerivativeResponse,
     MediaDetailResponse,
@@ -64,7 +72,18 @@ ReferenceMatch = Literal["any", "all"]
 async def list_media(
     _principal: PrincipalDep,
     session: DbSessionDep,
-    q: str | None = Query(default=None, max_length=MEDIA_SEARCH_QUERY_MAX_LENGTH),
+    q: str | None = Query(
+        default=None,
+        max_length=MEDIA_SEARCH_QUERY_MAX_LENGTH,
+        description=MEDIA_SEARCH_QUERY_DESCRIPTION,
+    ),
+    sha256: str | None = Query(
+        default=None,
+        min_length=MEDIA_SHA256_QUERY_LENGTH,
+        max_length=MEDIA_SHA256_QUERY_LENGTH,
+        pattern=MEDIA_SHA256_QUERY_PATTERN,
+        description=MEDIA_SHA256_QUERY_DESCRIPTION,
+    ),
     kind: str | None = None,
     media_status: str | None = Query(default=None, alias="status"),
     workflow_status: str | None = None,
@@ -89,6 +108,7 @@ async def list_media(
     )
     id_query = _media_id_query(
         q=q,
+        sha256=sha256,
         kind=kind,
         media_status=media_status,
         workflow_status=workflow_status,
@@ -156,7 +176,18 @@ async def list_media(
 async def get_slideshow_playlist(
     _principal: PrincipalDep,
     session: DbSessionDep,
-    q: str | None = Query(default=None, max_length=MEDIA_SEARCH_QUERY_MAX_LENGTH),
+    q: str | None = Query(
+        default=None,
+        max_length=MEDIA_SEARCH_QUERY_MAX_LENGTH,
+        description=MEDIA_SEARCH_QUERY_DESCRIPTION,
+    ),
+    sha256: str | None = Query(
+        default=None,
+        min_length=MEDIA_SHA256_QUERY_LENGTH,
+        max_length=MEDIA_SHA256_QUERY_LENGTH,
+        pattern=MEDIA_SHA256_QUERY_PATTERN,
+        description=MEDIA_SHA256_QUERY_DESCRIPTION,
+    ),
     kind: str | None = None,
     media_status: str | None = Query(default=None, alias="status"),
     workflow_status: str | None = None,
@@ -189,6 +220,7 @@ async def get_slideshow_playlist(
     )
     id_query = _media_id_query(
         q=q,
+        sha256=sha256,
         kind=kind,
         media_status=media_status,
         workflow_status=workflow_status,
@@ -240,7 +272,18 @@ async def get_media_navigation(
     media_id: UUID,
     _principal: PrincipalDep,
     session: DbSessionDep,
-    q: str | None = Query(default=None, max_length=MEDIA_SEARCH_QUERY_MAX_LENGTH),
+    q: str | None = Query(
+        default=None,
+        max_length=MEDIA_SEARCH_QUERY_MAX_LENGTH,
+        description=MEDIA_SEARCH_QUERY_DESCRIPTION,
+    ),
+    sha256: str | None = Query(
+        default=None,
+        min_length=MEDIA_SHA256_QUERY_LENGTH,
+        max_length=MEDIA_SHA256_QUERY_LENGTH,
+        pattern=MEDIA_SHA256_QUERY_PATTERN,
+        description=MEDIA_SHA256_QUERY_DESCRIPTION,
+    ),
     kind: str | None = None,
     media_status: str | None = Query(default=None, alias="status"),
     workflow_status: str | None = None,
@@ -263,6 +306,7 @@ async def get_media_navigation(
     )
     id_query = _media_id_query(
         q=q,
+        sha256=sha256,
         kind=kind,
         media_status=media_status,
         workflow_status=workflow_status,
@@ -650,6 +694,7 @@ def _slideshow_item(media: Media) -> SlideshowItemResponse:
 def _media_id_query(
     *,
     q: str | None,
+    sha256: str | None,
     kind: str | None,
     media_status: str | None,
     workflow_status: str | None,
@@ -669,6 +714,9 @@ def _media_id_query(
     keyword_filter = media_keyword_filter(q)
     if keyword_filter is not None:
         filters.append(keyword_filter)
+    hash_filter = media_sha256_filter(sha256)
+    if hash_filter is not None:
+        filters.append(hash_filter)
     if kind:
         filters.append(Media.kind == kind)
     if media_status:

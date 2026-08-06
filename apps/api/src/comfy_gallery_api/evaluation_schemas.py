@@ -8,7 +8,10 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from comfy_gallery_api.media_filters import (
     MEDIA_SEARCH_QUERY_MAX_LENGTH,
+    MEDIA_SHA256_QUERY_LENGTH,
+    MEDIA_SHA256_QUERY_PATTERN,
     normalize_media_search_query,
+    normalize_media_sha256_query,
 )
 
 
@@ -104,7 +107,24 @@ class EvaluationRevisionsResponse(BaseModel):
 
 
 class MediaFilterRequest(BaseModel):
-    q: str | None = Field(default=None, max_length=MEDIA_SEARCH_QUERY_MAX_LENGTH)
+    q: str | None = Field(
+        default=None,
+        max_length=MEDIA_SEARCH_QUERY_MAX_LENGTH,
+        description=(
+            "Case-insensitive partial search across model references, prompts, and original "
+            "or attached-variant SHA-256 hashes."
+        ),
+    )
+    sha256: str | None = Field(
+        default=None,
+        min_length=MEDIA_SHA256_QUERY_LENGTH,
+        max_length=MEDIA_SHA256_QUERY_LENGTH,
+        pattern=MEDIA_SHA256_QUERY_PATTERN,
+        description=(
+            "Case-insensitive exact SHA-256 match against an original media asset or "
+            "attached variant."
+        ),
+    )
     kind: Literal["image", "video"] | None = None
     status: str | None = None
     workflow_status: str | None = None
@@ -130,6 +150,13 @@ class MediaFilterRequest(BaseModel):
     def normalize_query(cls, value: object) -> object:
         if value is None or isinstance(value, str):
             return normalize_media_search_query(value)
+        return value
+
+    @field_validator("sha256", mode="before")
+    @classmethod
+    def normalize_hash_query(cls, value: object) -> object:
+        if value is None or isinstance(value, str):
+            return normalize_media_sha256_query(value)
         return value
 
     @model_validator(mode="after")

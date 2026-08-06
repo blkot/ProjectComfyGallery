@@ -33,6 +33,7 @@ from comfy_gallery_core.db.models import (
     Media,
     MediaAsset,
     MediaCollection,
+    MediaVariant,
     ModelArtifact,
     ModelReference,
     ModelReferenceGroup,
@@ -262,6 +263,7 @@ async def test_media_library_sorts_by_source_time_and_filters_model_usages() -> 
             _principal=None,  # type: ignore[arg-type]
             session=session,
             q=None,
+            sha256=None,
             kind=None,
             media_status=None,
             workflow_status=None,
@@ -332,6 +334,16 @@ async def test_media_library_keyword_search_uses_current_prompts_and_model_ident
             kind="image",
             filename="unrelated.png",
             sha256="7" * 64,
+        )
+        session.add(
+            MediaVariant(
+                media_id=artifact_media.id,
+                role="spatial_video",
+                status="ready",
+                is_active=True,
+                sha256="AbCd" * 16,
+                original_filename="artifact-spatial.mov",
+            )
         )
 
         alias_group = ModelReferenceGroup(
@@ -432,17 +444,27 @@ async def test_media_library_keyword_search_uses_current_prompts_and_model_ident
 
         cases = {
             "kReA2cInEmA": checkpoint_media.id,
+            "1111111111": checkpoint_media.id,
             "portraithero": lora_media.id,
             "character alias": alias_media.id,
             "redcraft turbo": artifact_media.id,
             "redcraft_v4": artifact_media.id,
             "moonLIT": prompt_media.id,
             "warped HANDS": prompt_media.id,
+            "abcd": artifact_media.id,
         }
         for query, expected_media_id in cases.items():
             page = await _library_page(session, sort="file_created_desc", q=query)
             assert page.total == 1
             assert [item.id for item in page.items] == [expected_media_id]
+
+        exact_hash_page = await _library_page(
+            session,
+            sort="file_created_desc",
+            sha256="ABCD" * 16,
+        )
+        assert exact_hash_page.total == 1
+        assert [item.id for item in exact_hash_page.items] == [artifact_media.id]
 
         combined = await _library_page(
             session,
@@ -473,12 +495,21 @@ async def test_media_library_keyword_search_uses_current_prompts_and_model_ident
         )
         assert scoped_ids == [prompt_media.id]
         assert MediaFilterRequest(q="   ").q is None
+        exact_hash_filter = MediaFilterRequest(sha256="  " + ("ABCD" * 16) + "  ")
+        assert exact_hash_filter.sha256 == "abcd" * 16
+        hash_scoped_ids = list(
+            await session.scalars(
+                _media_scope_query(exact_hash_filter, reviewable_only=False)
+            )
+        )
+        assert hash_scoped_ids == [artifact_media.id]
 
         navigation = await get_media_navigation(
             media_id=artifact_media.id,
             _principal=None,  # type: ignore[arg-type]
             session=session,
             q="redcraft",
+            sha256=None,
             kind=None,
             media_status=None,
             workflow_status=None,
@@ -492,9 +523,32 @@ async def test_media_library_keyword_search_uses_current_prompts_and_model_ident
             sort="file_created_desc",
         )
         assert navigation.total == 1
+        hash_navigation = await get_media_navigation(
+            media_id=artifact_media.id,
+            _principal=None,  # type: ignore[arg-type]
+            session=session,
+            q=None,
+            sha256="abcd" * 16,
+            kind=None,
+            media_status=None,
+            workflow_status=None,
+            evaluation_state=None,
+            trash=None,
+            source_root_id=None,
+            checkpoint_reference_id=None,
+            checkpoint_reference_match="any",
+            lora_reference_id=None,
+            lora_reference_match="any",
+            sort="file_created_desc",
+        )
+        assert hash_navigation.total == 1
+        assert hash_navigation.position == 1
         playlist = await _slideshow_playlist(session, q="redcraft")
         assert playlist.total == 1
         assert [item.id for item in playlist.items] == [artifact_media.id]
+        hash_playlist = await _slideshow_playlist(session, sha256="ABCD" * 16)
+        assert hash_playlist.total == 1
+        assert [item.id for item in hash_playlist.items] == [artifact_media.id]
 
     await engine.dispose()
 
@@ -768,6 +822,7 @@ async def _slideshow_playlist(
         "_principal": None,
         "session": session,
         "q": None,
+        "sha256": None,
         "kind": None,
         "media_status": None,
         "workflow_status": None,
@@ -927,6 +982,7 @@ async def _library_page(
     *,
     sort: MediaSort,
     q: str | None = None,
+    sha256: str | None = None,
     kind: str | None = None,
     checkpoint_reference_ids: list[UUID] | None = None,
     checkpoint_reference_match: ReferenceMatch = "any",
@@ -943,6 +999,7 @@ async def _library_page(
         _principal=None,  # type: ignore[arg-type]
         session=session,
         q=q,
+        sha256=sha256,
         kind=kind,
         media_status=None,
         workflow_status=None,

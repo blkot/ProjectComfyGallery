@@ -44,7 +44,7 @@ from comfy_gallery_api.evaluation_schemas import (
     TagResponse,
     TrashUpdateRequest,
 )
-from comfy_gallery_api.media_filters import media_keyword_filter
+from comfy_gallery_api.media_filters import media_keyword_filter, media_sha256_filter
 from comfy_gallery_core.db.models import (
     CollectionItem,
     CriterionVersion,
@@ -841,6 +841,9 @@ def _media_scope_query(
     keyword_filter = media_keyword_filter(media_filter.q)
     if keyword_filter is not None:
         query = query.where(keyword_filter)
+    hash_filter = media_sha256_filter(media_filter.sha256)
+    if hash_filter is not None:
+        query = query.where(hash_filter)
     if reviewable_only:
         query = query.where(Media.status.in_(REVIEWABLE_MEDIA_STATUSES))
     if media_filter.kind:
