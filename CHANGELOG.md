@@ -4,6 +4,15 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.18 — 2026-08-09
+
+- Capture workflow input images and videos into immutable SHA-256-deduplicated
+  managed storage, with durable resolution jobs, authenticated APIs, and Media
+  Detail presentation.
+- Add a one-command milestone `ship` workflow, release-image waiting, actionable
+  deployment planning, verified target-image backups, correct non-root backup
+  ownership, retention warnings, and complete worker health gates.
+
 ## 0.1.0-rc.17 — 2026-08-06
 
 - Add Hash-Search.

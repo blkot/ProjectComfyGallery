@@ -5,7 +5,35 @@ set -Eeuo pipefail
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repository_root"
 
-release_version="${1:-$(tr -d '[:space:]' < VERSION)}"
+release_version=""
+dry_run=false
+
+while (($# > 0)); do
+  case "$1" in
+    --dry-run)
+      dry_run=true
+      ;;
+    -h | --help)
+      echo "Usage: $0 [release-version] [--dry-run]"
+      exit 0
+      ;;
+    -*)
+      echo "Unknown option: $1" >&2
+      echo "Usage: $0 [release-version] [--dry-run]" >&2
+      exit 1
+      ;;
+    *)
+      if [[ -n "$release_version" ]]; then
+        echo "Only one release version may be supplied." >&2
+        exit 1
+      fi
+      release_version="$1"
+      ;;
+  esac
+  shift
+done
+
+release_version="${release_version:-$(tr -d '[:space:]' < VERSION)}"
 release_tag="v${release_version}"
 
 if [[ ! "$release_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
@@ -51,6 +79,12 @@ POSTGRES_PASSWORD=release-validation \
   CG_ADMIN_PASSWORD=release-validation \
   CG_IMAGE_TAG="$release_version" \
   docker compose -f compose.yaml -f compose.production.yaml config --quiet
+
+if [[ "$dry_run" == true ]]; then
+  echo "Milestone preflight passed for ${release_tag}."
+  echo "No tag was created or pushed."
+  exit 0
+fi
 
 git tag -a "$release_tag" -m "Project Comfy Gallery ${release_version}"
 git push origin "$release_tag"

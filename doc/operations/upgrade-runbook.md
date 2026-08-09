@@ -38,6 +38,10 @@ repository or its environment files.
 
 ### Create and deploy a milestone
 
+For the complete command-by-command procedure, failure explanations, and direct
+NAS fallback, follow the
+[manual milestone deployment runbook](manual-release-deployment.md).
+
 After the release version and changelog are finalized on `main`:
 
 ```bash
@@ -60,6 +64,20 @@ and waits for health and version checks.
 The current NAS release remains active if image pulling or the migration
 preflight fails. A failed post-start health check is reported and must be
 investigated before another deployment.
+
+### One-command release after commit and push
+
+When `VERSION` and `CHANGELOG.md` are finalized and clean `main` is already pushed,
+the dispatcher can create the milestone tag, wait for GitHub Actions, and deploy:
+
+```bash
+./deploy/operations/deploy-xanta-auto.sh \
+  ship \
+  --release-version 0.1.0-rc.18
+```
+
+Run the same command with `--dry-run` first to execute milestone verification
+without publishing a tag or changing the NAS.
 
 ## Automatic deployment selection from the development Mac
 
@@ -92,9 +110,10 @@ To run verification and builds without changing the NAS:
 ```
 
 The dispatcher deliberately does not turn arbitrary backend worktree changes into
-an ad-hoc production image. A full-release plan requires `VERSION`, the matching
-tag, the GitHub-built immutable images, and a clean worktree. Database migrations
-are always a full-release case and therefore receive the existing mandatory backup.
+an ad-hoc production image. `auto` and `release` require an existing matching tag;
+the explicit `ship` operation may create that tag only from clean, pushed `main`.
+Database migrations are always a full-release case and therefore receive the
+mandatory backup.
 Use `--from REF` only when an older manual image lacks a usable revision label.
 
 ## Manual NAS recovery path

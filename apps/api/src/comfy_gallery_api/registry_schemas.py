@@ -100,6 +100,7 @@ class NodeMappingCreateRequest(BaseModel):
         "lora_reference",
         "prompt",
         "generation_parameter",
+        "input_media_reference",
         "ignore",
     ]
     role: str | None = Field(default=None, max_length=128)

@@ -14,6 +14,8 @@ erDiagram
     MEDIA ||--o| WORKFLOW_SNAPSHOT : embeds
     WORKFLOW_SNAPSHOT ||--o{ WORKFLOW_NODE : contains
     WORKFLOW_SNAPSHOT ||--o{ WORKFLOW_EDGE : contains
+    WORKFLOW_SNAPSHOT ||--o{ WORKFLOW_INPUT_REFERENCE : preserves
+    WORKFLOW_INPUT_ASSET ||--o{ WORKFLOW_INPUT_REFERENCE : resolves
     WORKFLOW_NODE ||--o{ SEMANTIC_OBSERVATION : yields
     NODE_DEFINITION ||--o{ NODE_SEMANTIC_MAPPING : receives
     MODEL_ARTIFACT ||--o{ MODEL_ALIAS : has
@@ -201,6 +203,23 @@ Optional normalized representation for queryable values:
 - Normalized value where safe.
 - No normalization discards the original.
 
+### `workflow_input_reference`
+
+- One detected API-prompt node/input locator within a workflow snapshot.
+- Preserves the original filename or opaque asset reference, normalized input
+  subfolder, node evidence, detection method, attempt history, and resolution state.
+- Optionally links to a captured workflow input asset.
+- Missing or failed resolution is durable and retryable without changing the raw
+  workflow or blocking its generated media.
+
+### `workflow_input_asset`
+
+- One immutable managed image or video identified globally by exact SHA-256 bytes.
+- Stores format/probe facts and a content-addressed managed path.
+- Shared by any number of workflow input references and generated media.
+- Is supporting provenance rather than an independently evaluable gallery media
+  record.
+
 ## Node registry and semantic observations
 
 ### `node_definition`
@@ -215,7 +234,8 @@ Optional normalized representation for queryable values:
 
 - Node-definition variant or compatible class pattern.
 - Input name/widget locator.
-- Semantic tag: checkpoint, LoRA, prompt, sampler configuration, or supported extension.
+- Semantic tag: checkpoint, LoRA, prompt, workflow input media, sampler
+  configuration, or supported extension.
 - Optional extraction transform.
 - Source: built-in, inferred, manual.
 - Confidence and activation state: confirmed, high-confidence active, needs-review, unknown.

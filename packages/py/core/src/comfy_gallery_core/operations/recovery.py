@@ -41,6 +41,11 @@ def _dispatch_for(job: Job) -> tuple[str, str, tuple[str, ...]] | None:
         ),
         "scan_source_root": ("scan_source_root", "scan", (resource_id, job_id)),
         "extract_workflow": ("extract_workflow", "workflow", (resource_id, job_id)),
+        "capture_workflow_inputs": (
+            "capture_workflow_inputs",
+            "workflow",
+            (resource_id, job_id),
+        ),
         "registry_sync": ("sync_registry", "registry", (resource_id, job_id)),
         "portable_export": (
             "create_portable_export",

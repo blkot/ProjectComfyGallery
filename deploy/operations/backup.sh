@@ -12,6 +12,7 @@ weekly_root="$backup_root/weekly"
 temporary="$backup_root/.tmp-$backup_id"
 status_temporary="$backup_root/.backup-status.json.tmp"
 completed=0
+retention_warning=false
 
 write_failure_status() {
     cat >"$status_temporary" <<EOF
@@ -23,7 +24,7 @@ EOF
 cleanup() {
     result=$?
     if [ "$completed" -ne 1 ]; then
-        rm -rf "$temporary"
+        rm -rf "$temporary" || true
         write_failure_status
     fi
     exit "$result"
@@ -96,7 +97,10 @@ prune_directory() {
         esac
         index=$((index + 1))
         if [ "$index" -gt "$keep" ]; then
-            rm -rf "$directory/$entry_name"
+            if ! rm -rf "$directory/$entry_name"; then
+                retention_warning=true
+                echo "Warning: could not prune $directory/$entry_name" >&2
+            fi
         fi
     done
 }
@@ -105,7 +109,7 @@ prune_directory "$daily_root" "$daily_keep"
 prune_directory "$weekly_root" "$weekly_keep"
 
 cat >"$status_temporary" <<EOF
-{"status":"ok","backup_id":"$backup_id","completed_at":"$completed_at","byte_size":$byte_size,"sha256":"$dump_sha256","alembic_version":"$schema_version"}
+{"status":"ok","backup_id":"$backup_id","completed_at":"$completed_at","byte_size":$byte_size,"sha256":"$dump_sha256","alembic_version":"$schema_version","retention_warning":$retention_warning}
 EOF
 mv "$status_temporary" "$backup_root/.backup-status.json"
 completed=1

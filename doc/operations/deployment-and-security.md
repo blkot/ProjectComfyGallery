@@ -156,10 +156,15 @@ Limits:
   definitions, metadata fetch concurrency to four, and HTTP operations to a
   180-second timeout. `CG_REGISTRY_*` settings bound each value; metadata concurrency
   cannot exceed eight.
+- Workflow input capture defaults to 256 MiB per fetched image/video and a 60-second
+  HTTP timeout. `CG_WORKFLOW_INPUT_MAX_BYTES` and
+  `CG_WORKFLOW_INPUT_HTTP_TIMEOUT_SECONDS` bound these values.
 
 `CG_COMFYUI_BASE_URL` is optional. When present it supplies the default manual-sync
-target; a request may also provide a URL for that run. The value is operational
-configuration and is never persisted as a ComfyUI-instance entity.
+target and the only origin allowed for workflow-input capture; a registry request
+may also provide a URL for that sync run. `CG_COMFYUI_USER` optionally selects the
+owner for current ComfyUI asset hashes. These values are operational configuration
+and are never persisted as ComfyUI-instance entities or returned to clients.
 
 ## Intel media acceleration
 

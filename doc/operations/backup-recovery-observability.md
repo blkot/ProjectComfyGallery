@@ -12,8 +12,9 @@ Order of irreplaceability:
 4. Saved analysis runs and collections/tags.
 5. Managed original media.
 6. Imported non-regenerable media variants.
-7. Regenerable semantic extractions.
-8. Regenerable thumbnails/proxies.
+7. Captured workflow input media.
+8. Regenerable semantic extractions.
+9. Regenerable thumbnails/proxies.
 
 Source rescanning cannot recreate manual work.
 
@@ -35,10 +36,11 @@ Automatic logical backups include:
 
 ### Managed media
 
-Managed original media and imported variants are backed up through the NAS/storage
-backup strategy. Variants are not regenerable by the NAS worker, so both
-`managed/originals` and `managed/variants` must be included. The application
-documents expected paths but does not duplicate media into database backups.
+Managed original media, imported variants, and captured workflow inputs are backed
+up through the NAS/storage backup strategy. These bytes are not regenerable by the
+NAS worker, so `managed/originals`, `managed/variants`, and
+`managed/workflow-inputs` must be included. The application documents expected
+paths but does not duplicate media into database backups.
 
 ### Derivatives
 
@@ -78,6 +80,12 @@ Backup files are private application data and are created with UID/GID 10001 and
 group-restricted permissions. The status API reads `.backup-status.json`; a failure
 remains visible until a later backup succeeds.
 
+The status record also contains `retention_warning`. A verified new dump remains a
+successful backup when an older legacy directory cannot be pruned, but the warning
+is retained for operator cleanup. Release deployment creates its backup through a
+one-off target-version backup container so dumps are never created as root inside
+the scheduled container.
+
 ## Backup procedure
 
 1. Run `pg_dump` in a consistent custom format.
@@ -87,7 +95,7 @@ remains visible until a later backup succeeds.
 5. Atomically move backup and manifest into retention storage.
 6. Optionally calculate SHA-256.
 7. Apply retention only after a new backup succeeds.
-8. Emit structured success/failure status.
+8. Emit structured success/failure status, including any retention warning.
 
 Backup failure must remain visible in system status until a later successful backup.
 

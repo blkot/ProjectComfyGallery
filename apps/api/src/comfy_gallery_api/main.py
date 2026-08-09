@@ -26,6 +26,7 @@ from comfy_gallery_api.routes.media import router as media_router
 from comfy_gallery_api.routes.registries import router as registries_router
 from comfy_gallery_api.routes.system import router as system_router
 from comfy_gallery_api.routes.variants import router as variants_router
+from comfy_gallery_api.routes.workflow_inputs import router as workflow_inputs_router
 from comfy_gallery_api.routes.workflows import router as workflows_router
 from comfy_gallery_core.config import get_settings
 from comfy_gallery_core.db import get_database
@@ -106,6 +107,7 @@ app.include_router(jobs_router)
 app.include_router(media_router)
 app.include_router(variants_router)
 app.include_router(workflows_router)
+app.include_router(workflow_inputs_router)
 app.include_router(registries_router)
 app.include_router(evaluations_router)
 app.include_router(analytics_router)

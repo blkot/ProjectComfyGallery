@@ -754,6 +754,10 @@ class WorkflowSnapshot(Base):
         back_populates="snapshot",
         cascade="all, delete-orphan",
     )
+    input_references: Mapped[list[WorkflowInputReference]] = relationship(
+        back_populates="snapshot",
+        cascade="all, delete-orphan",
+    )
 
 
 class WorkflowNode(Base):
@@ -819,6 +823,10 @@ class WorkflowNode(Base):
     )
     observations: Mapped[list[SemanticObservation]] = relationship(back_populates="node")
     node_definition: Mapped[NodeDefinition | None] = relationship(back_populates="workflow_nodes")
+    input_references: Mapped[list[WorkflowInputReference]] = relationship(
+        back_populates="node",
+        passive_deletes=True,
+    )
 
 
 class WorkflowEdge(Base):
@@ -880,6 +888,115 @@ class WorkflowValue(Base):
     normalized_text: Mapped[str | None] = mapped_column(Text)
 
     node: Mapped[WorkflowNode] = relationship(back_populates="values")
+
+
+class WorkflowInputAsset(Base):
+    """Immutable, content-addressed input bytes shared by workflow references."""
+
+    __tablename__ = "workflow_input_asset"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid7)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    detected_format: Mapped[str] = mapped_column(String(32), nullable=False)
+    mime_type: Mapped[str] = mapped_column(String(128), nullable=False)
+    byte_size: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    original_filename: Mapped[str] = mapped_column(String(1024), nullable=False)
+    original_extension: Mapped[str | None] = mapped_column(String(32))
+    managed_path: Mapped[str] = mapped_column(String(1024), nullable=False, unique=True)
+    width: Mapped[int | None] = mapped_column(Integer)
+    height: Mapped[int | None] = mapped_column(Integer)
+    duration_seconds: Mapped[float | None] = mapped_column(Float)
+    frame_rate: Mapped[float | None] = mapped_column(Float)
+    container: Mapped[str | None] = mapped_column(String(64))
+    video_codec: Mapped[str | None] = mapped_column(String(64))
+    audio_codec: Mapped[str | None] = mapped_column(String(64))
+    probe_data: Mapped[dict[str, object]] = mapped_column(
+        json_type,
+        nullable=False,
+        default=dict,
+        server_default="{}",
+    )
+    stored_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    references: Mapped[list[WorkflowInputReference]] = relationship(back_populates="asset")
+
+
+class WorkflowInputReference(TimestampMixin, Base):
+    """One workflow-node input locator and its best-effort capture state."""
+
+    __tablename__ = "workflow_input_reference"
+    __table_args__ = (
+        UniqueConstraint(
+            "snapshot_id",
+            "representation",
+            "original_node_id",
+            "locator",
+            name="uq_workflow_input_reference_identity",
+        ),
+        Index("ix_workflow_input_reference_snapshot_status", "snapshot_id", "status"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid7)
+    snapshot_id: Mapped[UUID] = mapped_column(
+        ForeignKey("workflow_snapshot.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    node_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("workflow_node.id", ondelete="SET NULL"),
+        index=True,
+    )
+    input_asset_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("workflow_input_asset.id", ondelete="SET NULL"),
+        index=True,
+    )
+    representation: Mapped[str] = mapped_column(String(32), nullable=False)
+    original_node_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    class_type: Mapped[str] = mapped_column(String(512), nullable=False)
+    locator: Mapped[str] = mapped_column(String(512), nullable=False)
+    input_name: Mapped[str | None] = mapped_column(String(512))
+    media_kind_hint: Mapped[str | None] = mapped_column(String(16))
+    source_filename: Mapped[str] = mapped_column(String(1024), nullable=False)
+    source_subfolder: Mapped[str | None] = mapped_column(String(2048))
+    source_type: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="input",
+        server_default="input",
+    )
+    raw_value: Mapped[object] = mapped_column(json_type, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="pending",
+        server_default="pending",
+        index=True,
+    )
+    attempt_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error_code: Mapped[str | None] = mapped_column(String(80))
+    last_error_message: Mapped[str | None] = mapped_column(Text)
+    resolution_details: Mapped[dict[str, object]] = mapped_column(
+        json_type,
+        nullable=False,
+        default=dict,
+        server_default="{}",
+    )
+
+    snapshot: Mapped[WorkflowSnapshot] = relationship(back_populates="input_references")
+    node: Mapped[WorkflowNode | None] = relationship(back_populates="input_references")
+    asset: Mapped[WorkflowInputAsset | None] = relationship(back_populates="references")
 
 
 class ExtractionRun(Base):

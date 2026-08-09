@@ -58,6 +58,7 @@ Extract:
 - Checkpoint and LoRA references.
 - Model pipeline patterns and usage slots.
 - Sampler/settings metadata retained for filtering.
+- Input image/video references for immediate best-effort capture.
 - Dimensions, seeds, and other supported configuration facts.
 
 Every observation carries evidence, confidence, extractor version, and correction precedence.
@@ -159,6 +160,7 @@ A semantic mapping relates a node input or widget locator to a supported meaning
 - Prompt.
 - Sampler/configuration.
 - Other future typed semantics.
+- Workflow input media, with an image/video role when known.
 
 Mappings may be:
 

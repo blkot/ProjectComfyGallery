@@ -3,10 +3,17 @@ from uuid import UUID
 
 import structlog
 from dramatiq import actor
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from comfy_gallery_core.config import get_settings
 from comfy_gallery_core.db import get_database
-from comfy_gallery_core.db.models import ExportRun
+from comfy_gallery_core.db.models import (
+    ExportRun,
+    RegistrySyncRun,
+    WorkflowInputReference,
+    WorkflowSnapshot,
+)
 from comfy_gallery_core.logging import configure_logging
 from comfy_gallery_core.media.errors import IngestionError
 from comfy_gallery_core.media.files import ensure_storage_layout
@@ -23,8 +30,14 @@ from comfy_gallery_core.media.jobs import (
 from comfy_gallery_core.media.scan import run_source_scan
 from comfy_gallery_core.media.variants import process_variant_import
 from comfy_gallery_core.operations.exports import create_portable_export
+from comfy_gallery_core.queue import enqueue_workflow_input_capture
 from comfy_gallery_core.registry.sync import process_registry_sync_job
 from comfy_gallery_core.workflow.extraction import process_workflow_job
+from comfy_gallery_core.workflow.input_media import (
+    CAPTURABLE_STATUSES,
+    create_capture_job_if_needed,
+    process_workflow_input_job,
+)
 from comfy_gallery_worker import __version__
 from comfy_gallery_worker.broker import broker as broker
 
@@ -66,7 +79,8 @@ def healthcheck(correlation_id: str) -> dict[str, str]:
 )
 async def process_upload_item_actor(upload_item_id: str, job_id: str) -> None:
     try:
-        await _process_upload(UUID(upload_item_id), UUID(job_id))
+        media_id = await _process_upload(UUID(upload_item_id), UUID(job_id))
+        await _schedule_workflow_input_capture(media_id)
     except IngestionError as error:
         logger.error(
             "upload_processing_failed",
@@ -144,6 +158,27 @@ async def extract_workflow_actor(media_id: str, job_id: str) -> None:
 
 
 @actor(
+    actor_name="capture_workflow_inputs",
+    queue_name="workflow",
+    max_retries=1,
+    min_backoff=10_000,
+)
+async def capture_workflow_inputs_actor(media_id: str, job_id: str) -> None:
+    try:
+        await _capture_workflow_inputs(UUID(media_id), UUID(job_id))
+    except IngestionError as error:
+        logger.error(
+            "workflow_input_capture_failed",
+            media_id=media_id,
+            job_id=job_id,
+            code=error.code,
+            retryable=error.retryable,
+        )
+        if error.retryable:
+            raise
+
+
+@actor(
     actor_name="sync_registry",
     queue_name="registry",
     max_retries=1,
@@ -185,15 +220,16 @@ async def create_portable_export_actor(export_run_id: str, job_id: str) -> None:
             raise
 
 
-async def _process_upload(upload_item_id: UUID, job_id: UUID) -> None:
+async def _process_upload(upload_item_id: UUID, job_id: UUID) -> UUID:
     database = get_database()
     async with database.session() as session:
-        await process_upload_item(
+        outcome = await process_upload_item(
             session,
             upload_item_id=upload_item_id,
             job_id=job_id,
             settings=settings,
         )
+        return outcome.media_id
 
 
 async def _process_variant_import(variant_id: UUID, job_id: UUID) -> None:
@@ -221,7 +257,20 @@ async def _scan_source(scan_id: UUID, job_id: UUID) -> None:
 async def _extract_workflow(media_id: UUID, job_id: UUID) -> None:
     database = get_database()
     async with database.session() as session:
-        await process_workflow_job(
+        outcome = await process_workflow_job(
+            session,
+            media_id=media_id,
+            job_id=job_id,
+            settings=settings,
+        )
+    if outcome is not None:
+        await _schedule_workflow_input_capture(media_id)
+
+
+async def _capture_workflow_inputs(media_id: UUID, job_id: UUID) -> None:
+    database = get_database()
+    async with database.session() as session:
+        await process_workflow_input_job(
             session,
             media_id=media_id,
             job_id=job_id,
@@ -229,14 +278,75 @@ async def _extract_workflow(media_id: UUID, job_id: UUID) -> None:
         )
 
 
-async def _sync_registry(sync_run_id: UUID, job_id: UUID) -> None:
+async def _schedule_workflow_input_capture(media_id: UUID) -> None:
     database = get_database()
     async with database.session() as session:
+        await _reserve_and_enqueue_workflow_input_capture(session, media_id)
+
+
+async def _sync_registry(sync_run_id: UUID, job_id: UUID) -> None:
+    database = get_database()
+    should_schedule_captures = False
+    async with database.session() as session:
+        sync_run = await session.get(RegistrySyncRun, sync_run_id)
+        should_schedule_captures = bool(
+            sync_run is not None and sync_run.requested_options.get("reprocess_workflows", False)
+        )
         await process_registry_sync_job(
             session,
             sync_run_id=sync_run_id,
             job_id=job_id,
             settings=settings,
+        )
+    if should_schedule_captures:
+        await _schedule_all_pending_workflow_input_captures()
+
+
+async def _schedule_all_pending_workflow_input_captures() -> None:
+    database = get_database()
+    async with database.session() as session:
+        media_ids = list(
+            await session.scalars(
+                select(WorkflowSnapshot.media_id)
+                .join(
+                    WorkflowInputReference,
+                    WorkflowInputReference.snapshot_id == WorkflowSnapshot.id,
+                )
+                .where(WorkflowInputReference.status.in_(CAPTURABLE_STATUSES))
+                .distinct()
+                .order_by(WorkflowSnapshot.media_id)
+            )
+        )
+        for media_id in media_ids:
+            await _reserve_and_enqueue_workflow_input_capture(session, media_id)
+
+
+async def _reserve_and_enqueue_workflow_input_capture(
+    session: AsyncSession,
+    media_id: UUID,
+) -> None:
+    reservation = await create_capture_job_if_needed(
+        session,
+        media_id=media_id,
+        settings=settings,
+    )
+    job = reservation.job
+    if job is None or not reservation.created:
+        return
+    try:
+        enqueue_workflow_input_capture(media_id=str(media_id), job_id=str(job.id))
+    except Exception as exc:
+        job.status = "failed"
+        job.error_code = "QUEUE_UNAVAILABLE"
+        job.error_message = "Workflow input capture could not be queued."
+        job.error_details = {"retryable": True}
+        job.completed_at = datetime.now(UTC)
+        await session.commit()
+        logger.error(
+            "workflow_input_capture_queue_failed",
+            media_id=str(media_id),
+            job_id=str(job.id),
+            reason=type(exc).__name__,
         )
 
 

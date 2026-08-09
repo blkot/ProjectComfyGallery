@@ -4,6 +4,38 @@ This file is the cross-agent handoff for backend contract changes. Consumers sho
 also use the committed [OpenAPI snapshot](openapi.json); prose here explains
 semantics and compatibility that a schema alone cannot express.
 
+## Unreleased: captured workflow input media
+
+**Database migration:** `0012_workflow_input_media`
+
+Media clients can now read workflow input provenance separately from the large
+workflow graph:
+
+```http
+GET /api/v1/media/{media_id}/workflow-inputs
+GET /api/v1/media/{media_id}/workflow-inputs/{input_id}/content
+POST /api/v1/media/{media_id}/workflow-inputs/resolve
+```
+
+The list returns one item per detected workflow node/input locator. `status=ready`
+items include immutable SHA-256 asset facts and `content_url`; non-ready items keep
+their original ComfyUI reference plus a stable error code. Clients must use the
+returned content URL and must not call ComfyUI directly.
+
+The resolve command is asynchronous and returns `{media_id, job}`. It accepts a
+browser session with CSRF or a bearer API token. Missing or unreachable input files
+are per-reference outcomes, so the capture job can succeed after recording them;
+call the resolve command again to retry those references after ComfyUI or its files
+become available.
+
+Captured assets are shared globally by exact SHA-256 bytes. They are provenance
+objects, not gallery media records: they have no evaluation, favorite, collection,
+or navigation state.
+
+After deploying the migration, existing media can be discovered and queued through
+`POST /api/v1/workflows/reprocess` with `{"mode":"all"}`. New imports schedule
+capture automatically after workflow extraction.
+
 ## Unreleased: import result discovery
 
 **Database migration:** none

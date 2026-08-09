@@ -46,6 +46,7 @@ from comfy_gallery_core.workflow.graph import (
     NodeSpec,
     normalize_workflow_graph,
 )
+from comfy_gallery_core.workflow.input_media import discover_workflow_inputs
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,6 +163,11 @@ async def extract_workflow_for_media(
         run.error_details = {}
         await session.commit()
         await resolve_model_references(session, snapshot_ids={snapshot.id})
+        await discover_workflow_inputs(
+            session,
+            snapshot_id=snapshot.id,
+            settings=settings,
+        )
         return WorkflowExtractionOutcome(
             snapshot_id=snapshot.id,
             parse_status=snapshot.parse_status,

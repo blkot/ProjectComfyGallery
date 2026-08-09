@@ -203,7 +203,7 @@ wheels = [
 
 [[package]]
 name = "comfy-gallery-api"
-version = "0.1.0rc17"
+version = "0.1.0rc18"
 source = { editable = "apps/api" }
 dependencies = [
     { name = "aiofiles" },
@@ -226,9 +226,10 @@ requires-dist = [
 
 [[package]]
 name = "comfy-gallery-core"
-version = "0.1.0rc17"
+version = "0.1.0rc18"
 source = { editable = "packages/py/core" }
 dependencies = [
+    { name = "aiofiles" },
     { name = "alembic" },
     { name = "asyncpg" },
     { name = "dramatiq", extra = ["redis"] },
@@ -244,6 +245,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aiofiles", specifier = ">=24.1.0" },
     { name = "alembic", specifier = ">=1.15.0" },
     { name = "asyncpg", specifier = ">=0.30.0" },
     { name = "dramatiq", extras = ["redis"], specifier = ">=2.2.0" },
@@ -259,7 +261,7 @@ requires-dist = [
 
 [[package]]
 name = "comfy-gallery-worker"
-version = "0.1.0rc17"
+version = "0.1.0rc18"
 source = { editable = "apps/worker" }
 dependencies = [
     { name = "comfy-gallery-core" },
@@ -562,7 +564,7 @@ wheels = [
 
 [[package]]
 name = "project-comfy-gallery"
-version = "0.1.0rc17"
+version = "0.1.0rc18"
 source = { virtual = "." }
 
 [package.dev-dependencies]

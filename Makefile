@@ -1,6 +1,6 @@
 .PHONY: audit backup bootstrap check dev dev-admin dev-bootstrap dev-check \
 	dev-infra dev-infra-down dev-logs dev-migrate dev-ready dev-status down \
-	image-audit logs migrate milestone nas-deploy nas-registry-login production test
+	image-audit logs migrate milestone nas-deploy nas-registry-login nas-ship production test
 
 DEV_ENV ?= .env.development
 DEV_COMPOSE = docker compose --env-file $(DEV_ENV) -f compose.development.yaml
@@ -65,6 +65,11 @@ nas-deploy:
 	@test -n "$(RELEASE_VERSION)" || \
 		(echo "Usage: make nas-deploy RELEASE_VERSION=x.y.z" >&2; exit 1)
 	./deploy/operations/deploy-xanta-release.sh $(RELEASE_VERSION)
+
+nas-ship:
+	@test -n "$(RELEASE_VERSION)" || \
+		(echo "Usage: make nas-ship RELEASE_VERSION=x.y.z" >&2; exit 1)
+	./deploy/operations/deploy-xanta-auto.sh ship --release-version $(RELEASE_VERSION)
 
 production:
 	docker compose -f compose.yaml -f compose.production.yaml up -d --build

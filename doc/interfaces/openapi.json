@@ -5098,6 +5098,7 @@
               "lora_reference",
               "prompt",
               "generation_parameter",
+              "input_media_reference",
               "ignore"
             ],
             "title": "Semantic Type",
@@ -7477,6 +7478,357 @@
         "title": "WorkflowEdgeResponse",
         "type": "object"
       },
+      "WorkflowInputAssetResponse": {
+        "properties": {
+          "audio_codec": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio Codec"
+          },
+          "byte_size": {
+            "title": "Byte Size",
+            "type": "integer"
+          },
+          "container": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Container"
+          },
+          "detected_format": {
+            "title": "Detected Format",
+            "type": "string"
+          },
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Seconds"
+          },
+          "frame_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frame Rate"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "mime_type": {
+            "title": "Mime Type",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "video_codec": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Codec"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          }
+        },
+        "required": [
+          "id",
+          "sha256",
+          "kind",
+          "detected_format",
+          "mime_type",
+          "byte_size",
+          "width",
+          "height",
+          "duration_seconds",
+          "frame_rate",
+          "container",
+          "video_codec",
+          "audio_codec"
+        ],
+        "title": "WorkflowInputAssetResponse",
+        "type": "object"
+      },
+      "WorkflowInputListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowInputReferenceResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "media_id": {
+            "format": "uuid",
+            "title": "Media Id",
+            "type": "string"
+          },
+          "ready_count": {
+            "title": "Ready Count",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "unresolved_count": {
+            "title": "Unresolved Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "media_id",
+          "items",
+          "total",
+          "ready_count",
+          "unresolved_count"
+        ],
+        "title": "WorkflowInputListResponse",
+        "type": "object"
+      },
+      "WorkflowInputReferenceResponse": {
+        "properties": {
+          "asset": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkflowInputAssetResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempt_count": {
+            "title": "Attempt Count",
+            "type": "integer"
+          },
+          "class_type": {
+            "title": "Class Type",
+            "type": "string"
+          },
+          "content_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Url"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "input_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Name"
+          },
+          "last_attempt_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Attempt At"
+          },
+          "last_error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error Code"
+          },
+          "last_error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error Message"
+          },
+          "locator": {
+            "title": "Locator",
+            "type": "string"
+          },
+          "media_kind_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Media Kind Hint"
+          },
+          "original_node_id": {
+            "title": "Original Node Id",
+            "type": "string"
+          },
+          "raw_value": {
+            "title": "Raw Value"
+          },
+          "representation": {
+            "title": "Representation",
+            "type": "string"
+          },
+          "resolution_details": {
+            "additionalProperties": true,
+            "title": "Resolution Details",
+            "type": "object"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "source_filename": {
+            "title": "Source Filename",
+            "type": "string"
+          },
+          "source_subfolder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Subfolder"
+          },
+          "source_type": {
+            "title": "Source Type",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "representation",
+          "original_node_id",
+          "class_type",
+          "locator",
+          "input_name",
+          "media_kind_hint",
+          "source_filename",
+          "source_subfolder",
+          "source_type",
+          "raw_value",
+          "attempt_count",
+          "last_attempt_at",
+          "resolved_at",
+          "last_error_code",
+          "last_error_message",
+          "resolution_details",
+          "asset",
+          "content_url"
+        ],
+        "title": "WorkflowInputReferenceResponse",
+        "type": "object"
+      },
+      "WorkflowInputResolveAcceptedResponse": {
+        "properties": {
+          "job": {
+            "$ref": "#/components/schemas/JobResponse"
+          },
+          "media_id": {
+            "format": "uuid",
+            "title": "Media Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "media_id",
+          "job"
+        ],
+        "title": "WorkflowInputResolveAcceptedResponse",
+        "type": "object"
+      },
       "WorkflowModelUsageResponse": {
         "properties": {
           "architecture_family": {
@@ -7995,7 +8347,7 @@
   },
   "info": {
     "title": "Project Comfy Gallery API",
-    "version": "0.1.0-rc.17"
+    "version": "0.1.0-rc.18"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -11618,6 +11970,138 @@
         "summary": "Get Media Workflow",
         "tags": [
           "workflows"
+        ]
+      }
+    },
+    "/api/v1/media/{media_id}/workflow-inputs": {
+      "get": {
+        "operationId": "list_workflow_inputs_api_v1_media__media_id__workflow_inputs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Media Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowInputListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Workflow Inputs",
+        "tags": [
+          "workflow inputs"
+        ]
+      }
+    },
+    "/api/v1/media/{media_id}/workflow-inputs/resolve": {
+      "post": {
+        "operationId": "resolve_workflow_inputs_api_v1_media__media_id__workflow_inputs_resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Media Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowInputResolveAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Workflow Inputs",
+        "tags": [
+          "workflow inputs"
+        ]
+      }
+    },
+    "/api/v1/media/{media_id}/workflow-inputs/{input_id}/content": {
+      "get": {
+        "operationId": "get_workflow_input_content_api_v1_media__media_id__workflow_inputs__input_id__content_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Media Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "input_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Input Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Workflow Input Content",
+        "tags": [
+          "workflow inputs"
         ]
       }
     },

@@ -64,6 +64,14 @@ def enqueue_workflow(*, media_id: str, job_id: str) -> str:
     )
 
 
+def enqueue_workflow_input_capture(*, media_id: str, job_id: str) -> str:
+    return enqueue_message(
+        actor_name="capture_workflow_inputs",
+        queue_name="workflow",
+        args=(media_id, job_id),
+    )
+
+
 def enqueue_registry_sync(*, sync_run_id: str, job_id: str) -> str:
     return enqueue_message(
         actor_name="sync_registry",

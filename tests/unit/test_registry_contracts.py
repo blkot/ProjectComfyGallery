@@ -108,6 +108,25 @@ def test_node_mapping_suggestions_and_opaque_lora_series_rule() -> None:
     assert parse_lora_training_series("Krea2_guzong_lora_v2.safetensors") is None
 
 
+def test_input_loader_mapping_is_suggested_from_node_schema() -> None:
+    definition = NodeDefinition(
+        class_type="LoadVideo",
+        python_module="comfy_extras.nodes_video",
+        schema_fingerprint="b" * 64,
+        source_kind="comfyui",
+        input_schema={"required": {"file": [["reference.mp4"]]}},
+        output_schema=["VIDEO"],
+        raw_definition={},
+    )
+
+    suggestions = suggest_definition_mappings(definition)
+
+    assert len(suggestions) == 1
+    assert suggestions[0].locator == "input:file"
+    assert suggestions[0].semantic_type == "input_media_reference"
+    assert suggestions[0].role == "video"
+
+
 def test_model_reference_alias_key_only_sanitizes_path_extension_and_match_case() -> None:
     raw = "Krea2\\guzong\\Krea2_guzong_lora_v2_000003500.SAFETENSORS"
 

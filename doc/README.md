@@ -47,11 +47,16 @@ This structure borrows the audience separation of the Diátaxis documentation mo
 - [Committed OpenAPI snapshot](interfaces/openapi.json)
 - [ComfyUI custom-node upload integration](interfaces/comfyui-custom-node-upload.md)
 
+### Research notes
+
+- [ComfyUI workflow input-media retrieval](research/comfyui-workflow-input-media-retrieval.md)
+
 ### Operations
 
 - [Deployment and security](operations/deployment-and-security.md)
 - [Backup, recovery, and observability](operations/backup-recovery-observability.md)
 - [Upgrade runbook](operations/upgrade-runbook.md)
+- [Manual milestone deployment](operations/manual-release-deployment.md)
 - [Manual web-only deployment](operations/manual-web-only-deployment.md)
 
 ### Development

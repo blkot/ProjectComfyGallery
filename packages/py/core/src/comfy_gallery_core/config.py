@@ -51,7 +51,14 @@ class Settings(BaseSettings):
     workflow_json_max_depth: int = Field(default=128, ge=8, le=512)
     workflow_json_max_items: int = Field(default=250_000, ge=1_000, le=2_000_000)
     workflow_max_nodes: int = Field(default=20_000, ge=100, le=250_000)
+    workflow_input_max_bytes: int = Field(
+        default=256 * 1024 * 1024,
+        ge=1024 * 1024,
+        le=2 * 1024 * 1024 * 1024,
+    )
+    workflow_input_http_timeout_seconds: float = Field(default=60.0, ge=5.0, le=600.0)
     comfyui_base_url: str | None = None
+    comfyui_user: str | None = None
     registry_http_timeout_seconds: float = Field(default=180.0, ge=5.0, le=600.0)
     registry_max_response_bytes: int = Field(
         default=64 * 1024 * 1024,
@@ -91,6 +98,16 @@ class Settings(BaseSettings):
         if value is None:
             return None
         normalized = str(value).strip().rstrip("/")
+        return normalized or None
+
+    @field_validator("comfyui_user", mode="before")
+    @classmethod
+    def normalize_comfyui_user(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        normalized = str(value).strip()
+        if len(normalized) > 256 or any(ord(character) < 32 for character in normalized):
+            raise ValueError("ComfyUI user must be a valid short HTTP header value")
         return normalized or None
 
     @property

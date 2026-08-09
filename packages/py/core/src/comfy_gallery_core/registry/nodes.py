@@ -38,6 +38,16 @@ CHECKPOINT_INPUT_NAMES = {
     "diffusion_model_name",
 }
 PROMPT_INPUT_NAMES = {"positive", "negative", "prompt"}
+INPUT_MEDIA_NAMES = {
+    "file",
+    "filename",
+    "image",
+    "image_file",
+    "image_path",
+    "video",
+    "video_file",
+    "video_path",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -502,6 +512,7 @@ async def set_manual_mapping(
         "lora_reference",
         "prompt",
         "generation_parameter",
+        "input_media_reference",
         "ignore",
     }:
         raise IngestionError(
@@ -752,6 +763,15 @@ def _classify_input(
         return "prompt", role, 0.94
     if lowered_name == "text" and ("textencode" in lowered_class or "prompt" in lowered_class):
         return "prompt", "unclassified", 0.93
+    if lowered_name in INPUT_MEDIA_NAMES and "load" in lowered_class:
+        if "video" in lowered_class or lowered_name.startswith("video"):
+            return "input_media_reference", "video", 0.98
+        if (
+            "image" in lowered_class
+            or lowered_name.startswith("image")
+            or bool(outputs & {"image", "mask"})
+        ):
+            return "input_media_reference", "image", 0.98
     if lowered_name in GENERATION_PARAMETER_NAMES:
         return "generation_parameter", lowered_name, 0.97
     return None

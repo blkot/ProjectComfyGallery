@@ -37,6 +37,8 @@ EXPORT_TABLE_NAMES = (
     "workflow_node",
     "workflow_edge",
     "workflow_value",
+    "workflow_input_asset",
+    "workflow_input_reference",
     "extraction_run",
     "semantic_observation",
     "node_schema_snapshot",
@@ -77,6 +79,8 @@ WORKFLOW_EVIDENCE_TABLES = {
     "workflow_node",
     "workflow_edge",
     "workflow_value",
+    "workflow_input_asset",
+    "workflow_input_reference",
     "extraction_run",
     "semantic_observation",
 }

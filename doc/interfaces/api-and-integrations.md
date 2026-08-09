@@ -87,6 +87,9 @@ GET    /api/v1/media/:id/playback
 GET    /api/v1/media/:id/workflow
 GET    /api/v1/media/:id/workflow/raw
 POST   /api/v1/media/:id/workflow/reprocess
+GET    /api/v1/media/:id/workflow-inputs
+POST   /api/v1/media/:id/workflow-inputs/resolve
+GET    /api/v1/media/:id/workflow-inputs/:inputId/content
 POST   /api/v1/workflows/reprocess
 ```
 
@@ -200,6 +203,50 @@ The workflow summary endpoint uses bounded node/edge limits and never appears in
 gallery list response. The raw endpoint returns preserved decoded carrier metadata,
 exact prompt/workflow strings where available, and decoded JSON only after an
 explicit detail request.
+
+### Workflow input capture
+
+Workflow extraction detects input images and videos from API-prompt nodes. Built-in
+`LoadImage.inputs.image` and `LoadVideo.inputs.file` are seeded automatically;
+custom loaders can use an active `input_media_reference` node-semantic mapping.
+Detection preserves the node ID, class type, input locator, and raw ComfyUI
+reference without changing embedded ground truth.
+
+After extraction, a separate `capture_workflow_inputs` job resolves pending
+references against the configured ComfyUI `GET /view` endpoint. The worker always
+sets `type=input`, omits preview/channel transformations, rejects redirects and
+unsafe path forms, and enforces `CG_WORKFLOW_INPUT_HTTP_TIMEOUT_SECONDS` and
+`CG_WORKFLOW_INPUT_MAX_BYTES`. `CG_COMFYUI_USER` is optional and supplies ComfyUI's
+`comfy-user` header for owner-scoped `blake3:...` asset references.
+
+Successful responses are content-sniffed, probed, hashed with SHA-256, and stored
+under managed `workflow-inputs` storage. One immutable asset is shared by every
+exact-byte reference. A later ComfyUI rename, replacement, deletion, or outage does
+not affect captured content.
+
+`GET /api/v1/media/:id/workflow-inputs` returns every detected reference with its
+resolution status, node evidence, optional asset facts, and a `content_url` only
+when ready. Managed paths and the configured ComfyUI URL are never returned.
+`GET /api/v1/media/:id/workflow-inputs/:inputId/content` is authenticated,
+range-capable, and serves only the captured managed asset.
+
+Missing, unreachable, oversized, invalid, and unsupported inputs are recorded per
+reference and never fail the generated-media import. An authenticated browser+CSRF
+or bearer-token client can retry non-ready references with:
+
+```text
+POST /api/v1/media/:id/workflow-inputs/resolve
+```
+
+The command returns `202` with the existing active job or a newly queued durable
+job. It returns `COMFYUI_NOT_CONFIGURED` when no operational ComfyUI URL exists and
+`WORKFLOW_INPUTS_NOT_PENDING` when there is nothing to resolve. Retrieval remains
+best-effort until capture succeeds because ComfyUI `/view` identifies current
+storage rather than the historical execution bytes.
+
+Existing libraries are backfilled by running the established all-workflow
+reprocess command. Each successful per-media extraction queues its own capture job;
+node-registry corrections that reprocess workflows schedule the same follow-up.
 
 ### Spatial-video variant import
 
@@ -471,6 +518,8 @@ Obtain current node definitions and model-folder lists to enrich the offline nod
 - `/features`
 - `/models`
 - `/models/{folder}`
+- `/view` with explicit `filename`, optional `subfolder`, and `type=input` for
+  immediate workflow-input capture
 
 No ComfyUI execution endpoint is required for MVP behavior.
 

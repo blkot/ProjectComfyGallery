@@ -99,3 +99,44 @@ async def test_fresh_running_job_is_not_duplicated() -> None:
         assert summary.examined == 0
         assert calls == []
     await engine.dispose()
+
+
+async def test_stale_workflow_input_capture_is_requeued_to_workflow_worker() -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+    calls: list[dict[str, object]] = []
+    async with session_factory() as session:
+        media = Media(kind="image", status="ready")
+        session.add(media)
+        await session.flush()
+        job = Job(
+            kind="capture_workflow_inputs",
+            queue="workflow",
+            resource_type="media",
+            resource_id=media.id,
+            status="running",
+            started_at=datetime.now(UTC) - timedelta(minutes=10),
+        )
+        session.add(job)
+        await session.commit()
+
+        summary = await reconcile_interrupted_jobs(
+            session,
+            settings=Settings(
+                running_job_recovery_after_seconds=30,
+                queued_job_recovery_after_seconds=10,
+            ),
+            enqueue=lambda **kwargs: calls.append(kwargs) or "message-id",
+        )
+
+        assert summary.requeued == 1
+        assert calls == [
+            {
+                "actor_name": "capture_workflow_inputs",
+                "queue_name": "workflow",
+                "args": (str(media.id), str(job.id)),
+            }
+        ]
+    await engine.dispose()

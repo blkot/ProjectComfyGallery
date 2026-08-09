@@ -144,3 +144,19 @@ The checkpoint’s position in one workflow, such as single, high-noise, low-noi
 ## Weighting profile
 
 A versioned set of criterion weights used to calculate composite scores from raw evaluation values.
+
+## Workflow input asset
+
+An immutable, application-managed copy of input image or video bytes captured
+from a workflow input reference and shared by exact SHA-256 identity.
+
+## Workflow input reference
+
+A workflow-preserved reference to an image or video used to generate a media
+record. It retains its original node and ComfyUI file locator even when the bytes
+cannot be captured.
+
+## Workflow input usage
+
+The relationship connecting one media record and workflow node to a workflow
+input reference and, when resolved, its captured workflow input asset.

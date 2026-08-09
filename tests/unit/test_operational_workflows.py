@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -59,9 +60,11 @@ def test_nas_deployment_pulls_without_building() -> None:
 
     assert 'docker compose "${compose_files[@]}" pull' in deployment
     assert 'docker compose "${compose_files[@]}" up -d --no-build' in deployment
-    assert "docker exec comfy-gallery-backup-1 comfy-gallery-backup" in deployment
+    assert 'docker compose "${compose_files[@]}" run --rm --no-deps backup run' in deployment
+    assert "--entrypoint sh backup" in deployment
     assert "alembic -c packages/py/core/alembic.ini upgrade head" in deployment
     assert "alembic -c packages/py/core/alembic.ini check" in deployment
+    assert "comfy-gallery-worker-background-1" in deployment
 
 
 def test_nas_release_confirmation_accepts_crlf_terminal_input(tmp_path: Path) -> None:
@@ -69,12 +72,12 @@ def test_nas_release_confirmation_accepts_crlf_terminal_input(tmp_path: Path) ->
     fake_bin.mkdir()
     fake_gh = fake_bin / "gh"
     fake_gh.write_text(
-        "#!/usr/bin/env bash\nprintf 'completed\\tsuccess\\thttps://example.test/release-run\\n'\n",
+        "#!/usr/bin/env bash\nprintf '123\\tcompleted\\tsuccess\\thttps://example.test/release-run\\n'\n",
         encoding="utf-8",
     )
     fake_gh.chmod(0o755)
 
-    version = "0.1.0-rc.17"
+    version = "0.1.0-rc.18"
     environment = os.environ.copy()
     environment["PATH"] = f"{fake_bin}:{environment['PATH']}"
     environment["XANTA_NAS_HELPER"] = "/usr/bin/true"
@@ -90,6 +93,70 @@ def test_nas_release_confirmation_accepts_crlf_terminal_input(tmp_path: Path) ->
 
     assert result.returncode == 0, result.stderr
     assert "Deployment completed from https://example.test/release-run" in result.stdout
+
+
+def test_backup_retention_warning_does_not_invalidate_a_verified_dump(
+    tmp_path: Path,
+) -> None:
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    fake_commands = {
+        "pg_dump": """#!/bin/sh
+for argument in "$@"; do
+  case "$argument" in
+    --file=*) output=${argument#--file=} ;;
+  esac
+done
+printf 'verified-dump' > "$output"
+""",
+        "pg_restore": "#!/bin/sh\nexit 0\n",
+        "psql": "#!/bin/sh\nprintf '0012_workflow_input_media\\n'\n",
+        "stat": "#!/bin/sh\n/usr/bin/wc -c < \"$3\" | tr -d ' ' | tr -d '\\n'\n",
+    }
+    for name, content in fake_commands.items():
+        command = fake_bin / name
+        command.write_text(content, encoding="utf-8")
+        command.chmod(0o755)
+
+    backup_root = tmp_path / "backups"
+    protected = backup_root / "daily" / "cg-20000101T000000Z"
+    protected.mkdir(parents=True)
+    (protected / "database.dump").write_bytes(b"legacy")
+    protected.chmod(0o500)
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "PATH": f"{fake_bin}:{environment['PATH']}",
+            "CG_BACKUP_ROOT": str(backup_root),
+            "CG_BACKUP_DAILY_KEEP": "1",
+            "CG_BACKUP_WEEKLY_KEEP": "1",
+        }
+    )
+
+    try:
+        result = subprocess.run(
+            ["sh", str(ROOT / "deploy/operations/backup.sh")],
+            text=True,
+            capture_output=True,
+            env=environment,
+            check=False,
+        )
+    finally:
+        protected.chmod(0o700)
+
+    assert result.returncode == 0, result.stderr
+    status = json.loads((backup_root / ".backup-status.json").read_text(encoding="utf-8"))
+    assert status["status"] == "ok"
+    assert status["retention_warning"] is True
+    assert "could not prune" in result.stderr
+
+
+def test_auto_deployer_offers_one_command_release_shipping() -> None:
+    deployment = (ROOT / "deploy/operations/deploy-xanta-auto.sh").read_text(encoding="utf-8")
+
+    assert "plan | auto | web | release | ship | status" in deployment
+    assert '"$milestone_creator" "$release_version"' in deployment
+    assert "deploy/operations/backup.sh" in deployment
 
 
 def test_media_jobs_have_dedicated_worker_capacity() -> None:

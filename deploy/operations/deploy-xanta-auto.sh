@@ -30,6 +30,8 @@ Operations:
   web        Require a web-only change and run the targeted web deployment.
   release    Deploy an existing immutable release tag through the standard backup,
              migration, service replacement, and health-check workflow.
+  ship       Create the missing milestone tag when needed, wait for its images,
+             and deploy it. Requires clean, pushed main plus VERSION/CHANGELOG.
   status     Show the repository and Compose state currently running on the NAS.
 
 Options:
@@ -53,7 +55,8 @@ Examples:
   ./deploy/operations/deploy-xanta-auto.sh plan
   ./deploy/operations/deploy-xanta-auto.sh auto --dry-run
   ./deploy/operations/deploy-xanta-auto.sh auto --yes
-  ./deploy/operations/deploy-xanta-auto.sh release --release-version 0.1.0-rc.17
+  ./deploy/operations/deploy-xanta-auto.sh ship --release-version 0.1.0-rc.18
+  ./deploy/operations/deploy-xanta-auto.sh release --release-version 0.1.0-rc.18
 
 Environment overrides:
   XANTA_NAS_HELPER
@@ -112,7 +115,7 @@ while (($# > 0)); do
 done
 
 case "$operation" in
-  plan | auto | web | release | status) ;;
+  plan | auto | web | release | ship | status) ;;
   *) die "unknown operation: $operation" ;;
 esac
 
@@ -267,8 +270,12 @@ deployment_class_for_path() {
     "")
       printf '%s\n' "none"
       ;;
+    deploy/operations/backup.sh | deploy/operations/backup-entrypoint.sh | \
+      deploy/operations/restore.sh)
+      printf '%s\n' "release"
+      ;;
     doc/* | docs/* | tests/* | mobile/* | XR/* | .github/* | .openai/* | \
-      deploy/operations/* | deploy/development/* | scripts/* | AGENTS.md | \
+      deploy/operations/* | deploy/development/* | scripts/* | Makefile | AGENTS.md | \
       CONTEXT-MAP.md | CHANGELOG.md | README.md | *.md)
       printf '%s\n' "none"
       ;;
@@ -363,6 +370,36 @@ print_file_group "No NAS deployment" "$ignored_changes_file" "$ignored_count"
 print_file_group "Web runtime" "$web_changes_file" "$web_count"
 print_file_group "Full release" "$release_changes_file" "$release_count"
 
+echo
+case "$detected_plan" in
+  none)
+    echo "Next: no NAS deployment is needed for these changes."
+    ;;
+  web)
+    echo "Next: validate with '$0 auto --dry-run', then deploy with '$0 auto'."
+    ;;
+  release)
+    current_version="$(tr -d '[:space:]' < VERSION)"
+    current_release_tag="v${current_version}"
+    current_tag_commit="$(
+      git rev-parse --verify "${current_release_tag}^{commit}" 2>/dev/null || true
+    )"
+    if [[ -n "$current_tag_commit" && "$current_tag_commit" != "$target_commit" ]]; then
+      suggested_version="<next-version>"
+      if [[ "$current_version" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-rc\.([0-9]+)$ ]]; then
+        suggested_version="${BASH_REMATCH[1]}-rc.$((10#${BASH_REMATCH[2]} + 1))"
+      fi
+      echo "Next: ${current_release_tag} already belongs to ${current_tag_commit:0:12}."
+      echo "  1. Set VERSION and CHANGELOG to a new version (suggested: ${suggested_version})."
+      echo "  2. Commit and push main."
+      echo "  3. Run: $0 ship --release-version ${suggested_version}"
+    else
+      echo "Next: finalize VERSION and CHANGELOG, commit and push main, then run:"
+      echo "  $0 ship --release-version ${current_version}"
+    fi
+    ;;
+esac
+
 if [[ "$operation" == "plan" ]]; then
   exit 0
 fi
@@ -373,7 +410,7 @@ if [[ "$operation" == "web" ]]; then
     die "web-only deployment is unsafe because full-release files changed"
   fi
   selected_plan="web"
-elif [[ "$operation" == "release" ]]; then
+elif [[ "$operation" == "release" || "$operation" == "ship" ]]; then
   selected_plan="release"
 fi
 
@@ -420,8 +457,29 @@ fi
 release_tag="v${release_version}"
 git fetch --quiet origin --tags
 release_commit="$(git rev-parse --verify "${release_tag}^{commit}" 2>/dev/null || true)"
+if [[ -z "$release_commit" && "$operation" == "ship" ]]; then
+  [[ "$target_commit" == "$head_commit" ]] ||
+    die "ship requires --to to resolve to the current HEAD"
+  if [[ -n "$(git status --porcelain)" ]]; then
+    die "ship requires a clean worktree; commit the release files first"
+  fi
+  milestone_creator="$repository_root/deploy/operations/create-milestone.sh"
+  [[ -x "$milestone_creator" ]] ||
+    die "milestone creator is unavailable: $milestone_creator"
+  if [[ "$dry_run" == true ]]; then
+    echo
+    echo "Running milestone preflight without publishing a tag."
+    "$milestone_creator" "$release_version" --dry-run
+    echo "Ship dry run complete. No tag was published and the NAS was not modified."
+    exit 0
+  fi
+  echo
+  echo "Publishing the missing ${release_tag} milestone."
+  "$milestone_creator" "$release_version"
+  release_commit="$(git rev-parse --verify "${release_tag}^{commit}" 2>/dev/null || true)"
+fi
 if [[ -z "$release_commit" ]]; then
-  die "${release_tag} does not exist; finalize VERSION/CHANGELOG and create the milestone first"
+  die "${release_tag} does not exist; use 'ship' to create it or run create-milestone.sh first"
 fi
 if [[ "$release_commit" != "$target_commit" ]]; then
   die "${release_tag} points to ${release_commit:0:12}, not target ${target_commit:0:12}"

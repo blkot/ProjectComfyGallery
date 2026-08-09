@@ -22,6 +22,7 @@ from comfy_gallery_core.queue import (
     enqueue_upload,
     enqueue_variant_import,
     enqueue_workflow,
+    enqueue_workflow_input_capture,
 )
 
 router = APIRouter(prefix="/api/v1/jobs", tags=["jobs"])
@@ -128,6 +129,11 @@ async def retry_job(
             enqueue_scan(scan_id=str(scan.id), job_id=str(job.id))
         elif job.kind == "extract_workflow":
             enqueue_workflow(media_id=str(job.resource_id), job_id=str(job.id))
+        elif job.kind == "capture_workflow_inputs":
+            enqueue_workflow_input_capture(
+                media_id=str(job.resource_id),
+                job_id=str(job.id),
+            )
         elif job.kind == "registry_sync":
             sync_run = await session.get(RegistrySyncRun, job.resource_id)
             if sync_run is None:

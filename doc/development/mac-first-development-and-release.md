@@ -175,16 +175,26 @@ After the Release images workflow is successful:
 make nas-deploy RELEASE_VERSION=0.1.0-rc.8
 ```
 
+The deployment wrapper now waits for a queued or in-progress matching workflow,
+so it may be started immediately after the milestone tag is pushed. To combine
+milestone creation, waiting, and deployment after clean `main` is pushed, run:
+
+```bash
+./deploy/operations/deploy-xanta-auto.sh \
+  ship \
+  --release-version 0.1.0-rc.18
+```
+
 The Mac wrapper verifies the matching GitHub Actions run completed successfully
 and asks for exact version confirmation. The NAS then:
 
 1. Verifies its repository worktree is clean.
 2. Fetches and checks out the exact annotated release tag.
-3. Creates a fresh database backup from the currently running container.
+3. Pulls the target backup image and creates a fresh verified database backup.
 4. Pulls all versioned GHCR images.
 5. Runs Alembic upgrade and schema-drift preflight using the new backend image.
 6. Replaces services with `--no-build`.
-7. Waits for API, web, PostgreSQL, Redis, backup, and worker health.
+7. Waits for API, web, PostgreSQL, Redis, backup service state, and both workers.
 8. Confirms the API reports the requested application version.
 9. Persists `CG_IMAGE_NAMESPACE` and `CG_IMAGE_TAG` in the ignored NAS `.env`.
 

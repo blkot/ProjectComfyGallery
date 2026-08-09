@@ -4,7 +4,7 @@ Self-hosted ComfyUI media intelligence, manual evaluation, and observational mod
 
 The governing product and engineering documentation starts at [doc/README.md](doc/README.md).
 
-**Locked release candidate:** `0.1.0-rc.17`. Runtime images use the same tag and
+**Locked release candidate:** `0.1.0-rc.18`. Runtime images use the same tag and
 OCI version label; upstream base images are pinned by digest.
 
 ## MVP release status
@@ -108,8 +108,10 @@ installation that hosts LoRA Manager:
 CG_COMFYUI_BASE_URL=http://192.168.x.x:8188
 ```
 
-ComfyUI only needs to be online during a manual synchronization. Cached registries
-remain usable while it is offline.
+ComfyUI only needs to be online during manual synchronization and the short
+best-effort capture job for newly parsed workflow input images/videos. Cached
+registries and successfully captured inputs remain usable while it is offline.
+Multi-user ComfyUI installations can additionally set `CG_COMFYUI_USER`.
 
 By default:
 

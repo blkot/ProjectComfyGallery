@@ -28,13 +28,25 @@ fi
 export CG_IMAGE_NAMESPACE="$image_namespace"
 export CG_IMAGE_TAG="$release_version"
 
-echo "Creating a database backup from the currently running release."
+echo "Validating the production Compose configuration."
+docker compose "${compose_files[@]}" config --quiet
+
+echo "Checking the currently scheduled backup service."
 if docker inspect comfy-gallery-backup-1 >/dev/null 2>&1; then
-  docker exec comfy-gallery-backup-1 comfy-gallery-backup
-else
-  docker compose "${compose_files[@]}" pull backup
-  docker compose "${compose_files[@]}" run --rm --no-deps backup run
+  previous_backup_health="$(
+    docker inspect comfy-gallery-backup-1 --format '{{.State.Health.Status}}' 2>/dev/null || true
+  )"
+  if [[ "$previous_backup_health" != "healthy" ]]; then
+    echo "Warning: backup container health is ${previous_backup_health:-unknown}; requiring a fresh successful backup before continuing." >&2
+  fi
 fi
+
+echo "Pulling the target backup image and creating a fresh database backup."
+docker compose "${compose_files[@]}" pull backup
+docker compose "${compose_files[@]}" run --rm --no-deps backup run
+docker compose "${compose_files[@]}" run --rm --no-deps --entrypoint sh backup -c \
+  "test -s /backups/.backup-status.json && grep -q '\"status\":\"ok\"' /backups/.backup-status.json"
+echo "Fresh database backup verified."
 
 echo "Pulling immutable ${release_version} images from ${image_namespace}."
 docker compose "${compose_files[@]}" pull
@@ -60,16 +72,23 @@ for _attempt in {1..60}; do
   backup_health="$(
     docker inspect comfy-gallery-backup-1 --format '{{.State.Health.Status}}' 2>/dev/null || true
   )"
+  backup_state="$(
+    docker inspect comfy-gallery-backup-1 --format '{{.State.Status}}' 2>/dev/null || true
+  )"
   worker_state="$(
     docker inspect comfy-gallery-worker-1 --format '{{.State.Status}}' 2>/dev/null || true
+  )"
+  worker_background_state="$(
+    docker inspect comfy-gallery-worker-background-1 --format '{{.State.Status}}' 2>/dev/null || true
   )"
 
   if [[ "$api_health" == "healthy" &&
     "$web_health" == "healthy" &&
     "$postgres_health" == "healthy" &&
     "$redis_health" == "healthy" &&
-    "$backup_health" == "healthy" &&
-    "$worker_state" == "running" ]]; then
+    "$backup_state" == "running" &&
+    "$worker_state" == "running" &&
+    "$worker_background_state" == "running" ]]; then
     break
   fi
   sleep 2
@@ -79,11 +98,18 @@ if [[ "$api_health" != "healthy" ||
   "$web_health" != "healthy" ||
   "$postgres_health" != "healthy" ||
   "$redis_health" != "healthy" ||
-  "$backup_health" != "healthy" ||
-  "$worker_state" != "running" ]]; then
+  "$backup_state" != "running" ||
+  "$worker_state" != "running" ||
+  "$worker_background_state" != "running" ]]; then
   docker compose "${compose_files[@]}" ps
   echo "Release health verification failed. Preserve logs and use the backup-based rollback runbook." >&2
   exit 1
+fi
+
+docker exec --user 10001:10001 comfy-gallery-backup-1 sh -c \
+  "test -s /backups/.backup-status.json && grep -q '\"status\":\"ok\"' /backups/.backup-status.json"
+if [[ "$backup_health" != "healthy" ]]; then
+  echo "Backup service is running with a verified successful backup; Docker health is ${backup_health:-starting} and may lag until its five-minute probe." >&2
 fi
 
 reported_version="$(

@@ -14,3 +14,6 @@ def test_committed_openapi_snapshot_matches_application_contract() -> None:
     assert "/api/v1/media/{media_id}/variant-imports" in current["paths"]
     assert "/api/v1/media/{media_id}/variants/{variant_id}/content" in current["paths"]
     assert "/api/v1/media/{media_id}/playback-preference" in current["paths"]
+    assert "/api/v1/media/{media_id}/workflow-inputs" in current["paths"]
+    assert "/api/v1/media/{media_id}/workflow-inputs/resolve" in current["paths"]
+    assert "/api/v1/media/{media_id}/workflow-inputs/{input_id}/content" in current["paths"]
