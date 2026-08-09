@@ -347,6 +347,53 @@ export type WorkflowDetail = {
   raw_url: string | null;
 };
 
+export type WorkflowInputAsset = {
+  id: string;
+  sha256: string;
+  kind: "image" | "video" | string;
+  detected_format: string;
+  mime_type: string;
+  byte_size: number;
+  width: number | null;
+  height: number | null;
+  duration_seconds: number | null;
+  frame_rate: number | null;
+  container: string | null;
+  video_codec: string | null;
+  audio_codec: string | null;
+};
+
+export type WorkflowInputReference = {
+  id: string;
+  status: string;
+  representation: string;
+  original_node_id: string;
+  class_type: string;
+  locator: string;
+  input_name: string | null;
+  media_kind_hint: string | null;
+  source_filename: string;
+  source_subfolder: string | null;
+  source_type: string;
+  raw_value: unknown;
+  attempt_count: number;
+  last_attempt_at: string | null;
+  resolved_at: string | null;
+  last_error_code: string | null;
+  last_error_message: string | null;
+  resolution_details: Record<string, unknown>;
+  asset: WorkflowInputAsset | null;
+  content_url: string | null;
+};
+
+export type WorkflowInputList = {
+  media_id: string;
+  items: WorkflowInputReference[];
+  total: number;
+  ready_count: number;
+  unresolved_count: number;
+};
+
 export type WorkflowRawEvidence = {
   snapshot_id: string;
   evidence_sha256: string;
@@ -437,6 +484,11 @@ export type Job = {
   created_at: string;
   started_at: string | null;
   completed_at: string | null;
+};
+
+export type WorkflowInputResolveAccepted = {
+  media_id: string;
+  job: Job;
 };
 
 export type VariantImportAccepted = {

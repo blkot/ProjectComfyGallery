@@ -13,6 +13,7 @@ import { MediaSpatialPreferenceButton } from "../components/media-spatial-prefer
 import { MediaTrashButton } from "../components/media-trash-button";
 import { SpatialVariantAttachment } from "../components/spatial-variant-attachment";
 import { WorkflowInspector } from "../components/workflow-inspector";
+import { WorkflowInputMedia } from "../components/workflow-input-media";
 import {
   apiRequest,
   type MediaDetail,
@@ -322,6 +323,8 @@ export function MediaDetailPage() {
             {item.kind === "video" ? (
               <SpatialVariantAttachment media={item} />
             ) : null}
+
+            <WorkflowInputMedia mediaId={item.id} />
 
             <WorkflowInspector mediaId={item.id} />
 

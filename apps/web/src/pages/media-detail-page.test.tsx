@@ -80,6 +80,9 @@ describe("MediaDetailPage spatial variant action", () => {
           next_position: null,
         });
       }
+      if (path.startsWith("/api/v1/media/media-1/workflow-inputs")) {
+        return Promise.resolve(emptyWorkflowInputs);
+      }
       if (path.startsWith("/api/v1/media/media-1/workflow?")) {
         return Promise.resolve({});
       }
@@ -121,6 +124,9 @@ describe("MediaDetailPage image viewer", () => {
           next_id: null,
           next_position: null,
         });
+      }
+      if (path.startsWith("/api/v1/media/media-1/workflow-inputs")) {
+        return Promise.resolve(emptyWorkflowInputs);
       }
       if (path.startsWith("/api/v1/media/media-1/workflow?")) {
         return Promise.resolve({});
@@ -173,6 +179,9 @@ describe("MediaDetailPage image viewer", () => {
           next_id: null,
           next_position: null,
         });
+      }
+      if (path.startsWith("/api/v1/media/media-1/workflow-inputs")) {
+        return Promise.resolve(emptyWorkflowInputs);
       }
       if (path.startsWith("/api/v1/media/media-1/workflow?")) {
         return Promise.resolve({});
@@ -229,6 +238,12 @@ describe("MediaDetailPage keyboard controls", () => {
           next_id: null,
           next_position: null,
         });
+      }
+      if (path.startsWith("/api/v1/media/media-1/workflow-inputs")) {
+        return Promise.resolve(emptyWorkflowInputs);
+      }
+      if (path.startsWith("/api/v1/media/media-2/workflow-inputs")) {
+        return Promise.resolve(emptyWorkflowInputs);
       }
       if (path.startsWith("/api/v1/media/media-")) {
         return Promise.resolve({});
@@ -353,4 +368,12 @@ const imageDetail: MediaDetail = {
   preview_url: "/preview-image",
   playback_url: "/playback-image",
   original_url: "/original-image",
+};
+
+const emptyWorkflowInputs = {
+  media_id: "media-1",
+  items: [],
+  total: 0,
+  ready_count: 0,
+  unresolved_count: 0,
 };
