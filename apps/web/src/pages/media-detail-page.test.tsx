@@ -1,13 +1,22 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter, Route, Routes } from "react-router";
+import type { RefObject } from "react";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 
 import type { MediaDetail } from "../lib/api";
 import { MediaDetailPage } from "./media-detail-page";
 
-const { apiRequestMock } = vi.hoisted(() => ({
+const { apiRequestMock, favoriteClickMock } = vi.hoisted(() => ({
   apiRequestMock: vi.fn(),
+  favoriteClickMock: vi.fn(),
 }));
 
 vi.mock("../lib/api", async () => {
@@ -23,7 +32,19 @@ vi.mock("../components/media-evaluation-panel", () => ({
 }));
 
 vi.mock("../components/media-favorite-button", () => ({
-  MediaFavoriteButton: () => <button type="button">Favorite</button>,
+  MediaFavoriteButton: ({
+    buttonRef,
+  }: {
+    buttonRef?: RefObject<HTMLButtonElement | null>;
+  }) => (
+    <button
+      ref={buttonRef}
+      type="button"
+      onClick={favoriteClickMock}
+    >
+      Favorite
+    </button>
+  ),
 }));
 
 vi.mock("../components/media-spatial-preference-button", () => ({
@@ -39,6 +60,7 @@ vi.mock("../components/workflow-inspector", () => ({
 afterEach(() => {
   cleanup();
   apiRequestMock.mockReset();
+  favoriteClickMock.mockReset();
 });
 
 describe("MediaDetailPage spatial variant action", () => {
@@ -176,6 +198,107 @@ describe("MediaDetailPage image viewer", () => {
     expect(image).not.toHaveAttribute("src", "/preview-image");
   });
 });
+
+describe("MediaDetailPage keyboard controls", () => {
+  it("navigates from a focused video, toggles playback, and toggles Favorite", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/api/v1/media/media-1") {
+        return Promise.resolve(videoDetail);
+      }
+      if (path === "/api/v1/media/media-2") {
+        return Promise.resolve({ ...videoDetail, id: "media-2" });
+      }
+      if (path.startsWith("/api/v1/media/media-1/navigation?")) {
+        return Promise.resolve({
+          media_id: "media-1",
+          position: 1,
+          total: 2,
+          previous_id: null,
+          previous_position: null,
+          next_id: "media-2",
+          next_position: 2,
+        });
+      }
+      if (path.startsWith("/api/v1/media/media-2/navigation?")) {
+        return Promise.resolve({
+          media_id: "media-2",
+          position: 2,
+          total: 2,
+          previous_id: "media-1",
+          previous_position: 1,
+          next_id: null,
+          next_position: null,
+        });
+      }
+      if (path.startsWith("/api/v1/media/media-")) {
+        return Promise.resolve({});
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    });
+    const playMock = vi
+      .spyOn(HTMLMediaElement.prototype, "play")
+      .mockResolvedValue(undefined);
+    const pauseMock = vi
+      .spyOn(HTMLMediaElement.prototype, "pause")
+      .mockImplementation(() => {});
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/library/media-1"]}>
+          <Routes>
+            <Route
+              path="/library/:mediaId"
+              element={
+                <>
+                  <MediaDetailPage />
+                  <LocationProbe />
+                </>
+              }
+            />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const video = await waitFor(() => {
+      const element = document.querySelector("video");
+      if (!element) throw new Error("Video did not render");
+      return element as HTMLVideoElement;
+    });
+    Object.defineProperty(video, "paused", {
+      configurable: true,
+      value: true,
+    });
+    video.focus();
+    fireEvent.keyDown(video, { code: "Space", key: " " });
+    expect(playMock).toHaveBeenCalledTimes(1);
+
+    Object.defineProperty(video, "paused", {
+      configurable: true,
+      value: false,
+    });
+    fireEvent.keyDown(video, { code: "Space", key: " " });
+    expect(pauseMock).toHaveBeenCalledTimes(1);
+
+    fireEvent.keyDown(video, { key: "f" });
+    expect(favoriteClickMock).toHaveBeenCalledTimes(1);
+
+    fireEvent.keyDown(video, { key: "ArrowRight" });
+    await waitFor(() =>
+      expect(screen.getByTestId("media-location")).toHaveTextContent(
+        "/library/media-2",
+      ),
+    );
+  });
+});
+
+function LocationProbe() {
+  const location = useLocation();
+  return <output data-testid="media-location">{location.pathname}</output>;
+}
 
 const videoDetail: MediaDetail = {
   id: "media-1",

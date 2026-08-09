@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   Link,
   useNavigate,
@@ -19,6 +19,7 @@ import {
   type MediaNavigation,
 } from "../lib/api";
 import { formatBytes, formatDate, formatDuration, titleCase } from "../lib/format";
+import { hasShortcutModifier, isShortcutBlockedTarget } from "../lib/keyboard";
 import {
   mediaDetailHref,
   mediaLibraryHref,
@@ -30,6 +31,8 @@ export function MediaDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const favoriteButtonRef = useRef<HTMLButtonElement>(null);
   const activePanel =
     searchParams.get("panel") === "evaluation" ? "evaluation" : "information";
   const navigationSearch = mediaNavigationQuery(searchParams).toString();
@@ -74,30 +77,48 @@ export function MediaDetailPage() {
   }, [mediaId, queryClient]);
 
   useEffect(() => {
-    function handleKeyboardNavigation(event: KeyboardEvent) {
-      const target = event.target;
-      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
-        return;
-      }
+    function handleKeyboardShortcuts(event: KeyboardEvent) {
       if (
-        target instanceof HTMLElement &&
-        (target.isContentEditable ||
-          ["AUDIO", "INPUT", "SELECT", "TEXTAREA", "VIDEO"].includes(
-            target.tagName,
-          ))
+        event.repeat ||
+        hasShortcutModifier(event) ||
+        isShortcutBlockedTarget(event.target, { allowVideo: true })
       ) {
         return;
       }
+
       if (event.key === "ArrowLeft" && previousHref) {
         event.preventDefault();
         navigate(previousHref);
-      } else if (event.key === "ArrowRight" && nextHref) {
+        return;
+      }
+      if (event.key === "ArrowRight" && nextHref) {
         event.preventDefault();
         navigate(nextHref);
+        return;
+      }
+
+      const video = videoRef.current;
+      if ((event.code === "Space" || event.key === " ") && video) {
+        event.preventDefault();
+        if (video.paused) {
+          void video.play().catch(() => undefined);
+        } else {
+          video.pause();
+        }
+        return;
+      }
+
+      if (event.key.toLowerCase() === "f") {
+        const favoriteButton = favoriteButtonRef.current;
+        if (!favoriteButton || favoriteButton.disabled) return;
+        event.preventDefault();
+        favoriteButton.click();
       }
     }
-    window.addEventListener("keydown", handleKeyboardNavigation);
-    return () => window.removeEventListener("keydown", handleKeyboardNavigation);
+
+    window.addEventListener("keydown", handleKeyboardShortcuts, true);
+    return () =>
+      window.removeEventListener("keydown", handleKeyboardShortcuts, true);
   }, [navigate, nextHref, previousHref]);
 
   function prefetchMedia(targetId: string | null) {
@@ -138,7 +159,10 @@ export function MediaDetailPage() {
 
   const item = media.data;
   return (
-    <main className="media-record-workspace">
+    <main
+      className="media-record-workspace"
+      aria-keyshortcuts="ArrowLeft ArrowRight Space F"
+    >
       <section className="media-record-preview" aria-label="Media preview">
         <header className="media-record-toolbar">
           <Link className="media-record-back" to={libraryHref}>
@@ -194,6 +218,7 @@ export function MediaDetailPage() {
             aria-label="Media actions"
           >
             <MediaFavoriteButton
+              buttonRef={favoriteButtonRef}
               mediaId={item.id}
               favorite={item.favorite}
               className="media-record-favorite"
@@ -215,6 +240,7 @@ export function MediaDetailPage() {
         <div className="media-record-stage">
           {item.kind === "video" ? (
             <video
+              ref={videoRef}
               src={item.playback_url}
               controls
               playsInline

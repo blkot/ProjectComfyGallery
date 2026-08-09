@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type { RefObject } from "react";
 
 import {
   apiRequest,
@@ -11,10 +12,12 @@ export function MediaFavoriteButton({
   mediaId,
   favorite,
   className = "",
+  buttonRef,
 }: {
   mediaId: string;
   favorite: boolean;
   className?: string;
+  buttonRef?: RefObject<HTMLButtonElement | null>;
 }) {
   const queryClient = useQueryClient();
   const mutation = useMutation({
@@ -59,6 +62,7 @@ export function MediaFavoriteButton({
 
   return (
     <button
+      ref={buttonRef}
       className={`media-favorite-button ${className}`.trim()}
       type="button"
       aria-label={label}

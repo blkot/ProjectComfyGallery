@@ -138,6 +138,48 @@ describe("LibraryPage controls sidebar", () => {
     );
   });
 
+  it("changes pages with the arrow keys without hijacking form controls", async () => {
+    const mediaRequests: string[] = [];
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path.startsWith("/api/v1/media?")) {
+        mediaRequests.push(path);
+        return Promise.resolve({
+          items: [],
+          total: 480,
+          limit: 48,
+          offset: Number(
+            new URL(path, "http://gallery.test").searchParams.get("offset"),
+          ),
+        });
+      }
+      return Promise.resolve([]);
+    });
+    renderLibrary("/library?offset=48");
+
+    await screen.findByRole("navigation", {
+      name: "Media pages above gallery",
+    });
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+
+    await waitFor(() =>
+      expect(
+        mediaRequests.some(
+          (path) =>
+            new URL(path, "http://gallery.test").searchParams.get("offset") ===
+            "96",
+        ),
+      ).toBe(true),
+    );
+
+    mediaRequests.length = 0;
+    const pageInput = await screen.findByRole("spinbutton", {
+      name: "Go to page from top pagination",
+    });
+    pageInput.focus();
+    fireEvent.keyDown(pageInput, { key: "ArrowLeft" });
+    expect(mediaRequests).toHaveLength(0);
+  });
+
   it("excludes trash by default and supports explicit include or trash-only modes", async () => {
     const mediaRequests: string[] = [];
     apiRequestMock.mockImplementation((path: string) => {

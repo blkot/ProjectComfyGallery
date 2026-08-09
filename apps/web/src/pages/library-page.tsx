@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 
 import { MediaFavoriteButton } from "../components/media-favorite-button";
@@ -18,6 +18,7 @@ import {
   formatDuration,
   titleCase,
 } from "../lib/format";
+import { hasShortcutModifier, isShortcutBlockedTarget } from "../lib/keyboard";
 import {
   defaultMediaSort,
   libraryFilterExpression,
@@ -102,6 +103,14 @@ export function LibraryPage() {
     queryKey: ["media", requestSearch],
     queryFn: () => apiRequest<MediaPage>(`/api/v1/media?${requestSearch}`),
   });
+  const libraryPageCount = Math.max(
+    1,
+    Math.ceil((media.data?.total ?? 0) / mediaPageSize),
+  );
+  const currentLibraryPage = Math.min(
+    libraryPageCount,
+    Math.floor(offset / mediaPageSize) + 1,
+  );
   const checkpointReferences = useQuery({
     queryKey: ["model-references", "library-checkpoint-options"],
     queryFn: () =>
@@ -241,6 +250,48 @@ export function LibraryPage() {
     }
   }, [controlsCollapsed]);
 
+  const changeOffset = useCallback((nextOffset: number) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      if (nextOffset > 0) next.set("offset", String(nextOffset));
+      else next.delete("offset");
+      next.delete(mediaReturnParam);
+      return next;
+    });
+    window.requestAnimationFrame(() => {
+      galleryTopRef.current?.scrollIntoView?.({ block: "start" });
+    });
+  }, [setSearchParams]);
+
+  useEffect(() => {
+    function handleKeyboardPageNavigation(event: KeyboardEvent) {
+      if (
+        event.repeat ||
+        hasShortcutModifier(event) ||
+        slideshowOpen ||
+        isShortcutBlockedTarget(event.target)
+      ) {
+        return;
+      }
+      const direction =
+        event.key === "ArrowLeft" ? -1 : event.key === "ArrowRight" ? 1 : 0;
+      if (!direction) return;
+      const nextPage = currentLibraryPage + direction;
+      if (nextPage < 1 || nextPage > libraryPageCount) return;
+      event.preventDefault();
+      changeOffset((nextPage - 1) * mediaPageSize);
+    }
+
+    window.addEventListener("keydown", handleKeyboardPageNavigation);
+    return () =>
+      window.removeEventListener("keydown", handleKeyboardPageNavigation);
+  }, [
+    changeOffset,
+    currentLibraryPage,
+    libraryPageCount,
+    slideshowOpen,
+  ]);
+
   function changeLibraryParameter(name: string, value: string) {
     if (name !== "sort") setFilteredSelection(null);
     setSearchParams((current) => {
@@ -265,19 +316,6 @@ export function LibraryPage() {
       next.delete("offset");
       next.delete(mediaReturnParam);
       return next;
-    });
-  }
-
-  function changeOffset(nextOffset: number) {
-    setSearchParams((current) => {
-      const next = new URLSearchParams(current);
-      if (nextOffset > 0) next.set("offset", String(nextOffset));
-      else next.delete("offset");
-      next.delete(mediaReturnParam);
-      return next;
-    });
-    window.requestAnimationFrame(() => {
-      galleryTopRef.current?.scrollIntoView({ block: "start" });
     });
   }
 
@@ -340,7 +378,10 @@ export function LibraryPage() {
     currentPageIds.length > 0 && currentPageIds.every((id) => selected.has(id));
 
   return (
-    <main className="page library-page">
+    <main
+      className="page library-page"
+      aria-keyshortcuts="ArrowLeft ArrowRight"
+    >
       <header className="page-header compact-header">
         <div>
           <p className="kicker">Managed originals</p>
