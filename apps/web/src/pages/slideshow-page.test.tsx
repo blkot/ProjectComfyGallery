@@ -149,6 +149,21 @@ describe("SlideshowPage", () => {
     expect(screen.getByText("two.mp4")).toBeInTheDocument();
   });
 
+  it("keeps audio enabled for video slides", async () => {
+    const view = renderSlideshow("/slideshow?source=filter&interval=5");
+    expect(await screen.findByText("one.png")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    const video = view.container.querySelector("video.slideshow-media");
+    expect(video).not.toBeNull();
+    expect((video as HTMLVideoElement).muted).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "Mute" }));
+    expect((video as HTMLVideoElement).muted).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Enable sound" }));
+    expect((video as HTMLVideoElement).muted).toBe(false);
+  });
+
   it("moves to the previous and next items with wrapping controls", async () => {
     renderSlideshow("/slideshow?source=filter&interval=5");
     expect(await screen.findByText("one.png")).toBeInTheDocument();

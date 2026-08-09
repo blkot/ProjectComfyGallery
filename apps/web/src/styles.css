@@ -5795,7 +5795,10 @@ textarea {
 .slideshow-controls {
   bottom: 28px;
   left: 50%;
+  max-width: calc(100% - 32px);
   gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
   transform: translateX(-50%);
 }
 

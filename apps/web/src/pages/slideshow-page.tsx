@@ -35,6 +35,8 @@ export function SlideshowPage() {
   const [playhead, setPlayhead] = useState(0);
   const [paused, setPaused] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [audioBlocked, setAudioBlocked] = useState(false);
   const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const items = playlist.data?.items ?? [];
@@ -87,14 +89,27 @@ export function SlideshowPage() {
   useEffect(() => {
     const video = videoRef.current;
     if (!video || current?.kind !== "video") return;
+    video.muted = !soundEnabled;
     if (paused) {
       video.pause();
       return;
     }
-    void video.play().catch(() => {
-      // Muted autoplay normally succeeds; the fallback timer still advances if denied.
-    });
-  }, [current, paused, playhead]);
+    let cancelled = false;
+    void video.play().then(
+      () => {
+        if (!cancelled) setAudioBlocked(false);
+      },
+      () => {
+        if (!cancelled && soundEnabled) {
+          setAudioBlocked(true);
+          setControlsVisible(true);
+        }
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [current, paused, playhead, soundEnabled]);
 
   useEffect(() => {
     if (next?.kind !== "image") return;
@@ -105,6 +120,28 @@ export function SlideshowPage() {
   function exitSlideshow() {
     navigate(returnTo, { replace: true });
   }
+
+  const toggleSound = useCallback(() => {
+    const video = videoRef.current;
+    if (soundEnabled && !audioBlocked) {
+      setSoundEnabled(false);
+      setAudioBlocked(false);
+      if (video) video.muted = true;
+      return;
+    }
+
+    setSoundEnabled(true);
+    setAudioBlocked(false);
+    if (!video || current?.kind !== "video" || paused) return;
+    video.muted = false;
+    void video.play().then(
+      () => setAudioBlocked(false),
+      () => {
+        setAudioBlocked(true);
+        setControlsVisible(true);
+      },
+    );
+  }, [audioBlocked, current?.kind, paused, soundEnabled]);
 
   if (playlist.isPending) {
     return (
@@ -153,7 +190,7 @@ export function SlideshowPage() {
             src={current.playback_url}
             poster={current.preview_url}
             autoPlay
-            muted
+            muted={!soundEnabled}
             playsInline
             preload="auto"
             onEnded={advance}
@@ -223,6 +260,17 @@ export function SlideshowPage() {
         >
           Next
         </button>
+        {current.kind === "video" ? (
+          <button
+            className="slideshow-control"
+            type="button"
+            tabIndex={controlsVisible ? 0 : -1}
+            aria-pressed={soundEnabled && !audioBlocked}
+            onClick={toggleSound}
+          >
+            {soundEnabled && !audioBlocked ? "Mute" : "Enable sound"}
+          </button>
+        ) : null}
       </div>
     </main>
   );

@@ -426,8 +426,8 @@ export function LibraryPage() {
               <p className="kicker">Hands-off playback</p>
               <h2 id="slideshow-setup-title">Start slideshow</h2>
               <p className="muted">
-                Images advance automatically. Videos play muted and continue
-                when they finish.
+                Images advance automatically. Videos play with audio when the
+                browser allows it, and offer an Enable sound control otherwise.
               </p>
             </div>
             <form

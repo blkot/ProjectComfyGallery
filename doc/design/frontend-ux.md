@@ -122,8 +122,9 @@ The Library header also opens a focused **Start slideshow** dialog. The user cho
 the current filtered result or one collection, an image duration, and optional
 shuffle. Start opens a presentation-only route inside the current browser window,
 without requesting browser fullscreen and without the application navigation shell.
-Images advance on the chosen timer; videos autoplay muted and advance when playback
-ends, with a duration-based fallback if playback stalls. The playlist loops until
+Images advance on the chosen timer; videos attempt autoplay with audio and advance
+when playback ends, with a duration-based fallback if playback stalls. If the browser
+blocks audible autoplay, the slideshow exposes an Enable sound control. The playlist loops until
 Exit. Previous and Next wrap through the playlist in either direction, while those
 controls, Pause/Resume, and Exit fade after pointer inactivity and reappear on
 interaction. The browser receives at most 2,000 lightweight playlist records and
