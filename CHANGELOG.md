@@ -4,6 +4,11 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.21 — 2026-08-10
+
+- Shorten the Alembic 0014 revision identifier to fit PostgreSQL's standard
+  32-character version column and add a repository-wide regression guard.
+
 ## 0.1.0-rc.20 — 2026-08-10
 
 - Make MSS the owner of long-running GPU queue execution: ComfyGallery now performs

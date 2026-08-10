@@ -99,7 +99,7 @@ persisted MSS batch.
 
 Before production enablement:
 
-1. Apply migrations through `0014_event_driven_spatial_conversion` and start `worker-spatial`.
+1. Apply migrations through `0014_event_driven_mss` and start `worker-spatial`.
 2. Confirm the NAS container can reach MSS's base URL.
 3. Confirm MSS can authenticate back to CG and its CG URL is reachable.
 4. Choose a ready, ordinary video and start conversion from Media Detail.
