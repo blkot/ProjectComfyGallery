@@ -81,6 +81,9 @@ for _attempt in {1..60}; do
   worker_background_state="$(
     docker inspect comfy-gallery-worker-background-1 --format '{{.State.Status}}' 2>/dev/null || true
   )"
+  worker_spatial_state="$(
+    docker inspect comfy-gallery-worker-spatial-1 --format '{{.State.Status}}' 2>/dev/null || true
+  )"
 
   if [[ "$api_health" == "healthy" &&
     "$web_health" == "healthy" &&
@@ -88,7 +91,8 @@ for _attempt in {1..60}; do
     "$redis_health" == "healthy" &&
     "$backup_state" == "running" &&
     "$worker_state" == "running" &&
-    "$worker_background_state" == "running" ]]; then
+    "$worker_background_state" == "running" &&
+    "$worker_spatial_state" == "running" ]]; then
     break
   fi
   sleep 2
@@ -100,7 +104,8 @@ if [[ "$api_health" != "healthy" ||
   "$redis_health" != "healthy" ||
   "$backup_state" != "running" ||
   "$worker_state" != "running" ||
-  "$worker_background_state" != "running" ]]; then
+  "$worker_background_state" != "running" ||
+  "$worker_spatial_state" != "running" ]]; then
   docker compose "${compose_files[@]}" ps
   echo "Release health verification failed. Preserve logs and use the backup-based rollback runbook." >&2
   exit 1

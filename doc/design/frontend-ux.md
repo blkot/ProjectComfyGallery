@@ -247,6 +247,16 @@ changing Favorite, spatial playback preference, ordinary browser playback, origi
 download, or workflow evidence. Failed validation keeps the selected file available
 for an explicit retry with a new command key. Image detail never renders this panel.
 
+When the server reports MSS configured, video detail also exposes **Generate with
+ml-sharp-spatial** above manual attachment. Starting it is one action: the browser
+creates a server-owned run and never contacts MSS directly. The panel restores the
+latest run on entry, polls queued/submitting/processing state, explains that leaving
+the page does not stop conversion, surfaces stable failure details, and refreshes
+the same media detail after success. A ready variant changes the action to Generate
+replacement; CG and MSS still preserve the prior active variant until validation
+and atomic activation finish. Manual attachment remains available as a separate
+fallback.
+
 ### Preview
 
 - Original image or video player.

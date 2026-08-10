@@ -81,6 +81,9 @@ PUT    /api/v1/media/:id/spatial-preference
 POST   /api/v1/media/:id/variant-imports
 GET    /api/v1/media/:id/variant-imports/:variantId
 GET    /api/v1/media/:id/variants/:variantId/content
+GET    /api/v1/media/:id/spatial-conversions/current
+POST   /api/v1/media/:id/spatial-conversions
+GET    /api/v1/spatial-conversions/:runId
 GET    /api/v1/media/:id/original
 GET    /api/v1/media/:id/preview
 GET    /api/v1/media/:id/playback
@@ -283,6 +286,54 @@ Media detail exposes only active ready variants and never exposes managed paths.
 `GET /api/v1/media/:id/variants/:variantId/content` is authenticated and
 range-capable. Existing `/playback`, `/original`, and `/preview` paths never switch
 to MV-HEVC; spatial clients explicitly choose `content_url`.
+
+### External spatial conversion orchestration
+
+`POST /api/v1/media/:id/spatial-conversions` accepts a browser session with CSRF
+or a bearer token and returns `202`. Only ready video media are accepted. The
+optional JSON body is:
+
+```json
+{
+  "precision": "float16",
+  "spatial_quality": "high",
+  "spatial_preset": "medium"
+}
+```
+
+Omit any option to use MSS defaults. If the media already has a queued,
+submitting, or processing run, the command returns that run and its job rather
+than enqueueing duplicate GPU work. A later command after a terminal run creates
+a new run and can replace an existing variant through the normal atomic variant
+activation path.
+
+Read current state with:
+
+```text
+GET /api/v1/media/:id/spatial-conversions/current
+GET /api/v1/spatial-conversions/:runId
+```
+
+Both return `{configured, conversion, job}`. `conversion` and `job` are null when
+no run exists. `configured=false` means the server has no `CG_MSS_BASE_URL`;
+clients should disable the command. Active statuses are `queued`, `submitting`,
+and `processing`; terminal statuses are `succeeded`, `failed`, and `cancelled`.
+The conversion projection includes MSS batch/queue/file/publish state, returned
+Gallery media/variant IDs, stable errors, request options, and timestamps. On
+success, re-fetch media detail instead of treating those IDs as a replacement for
+the canonical media projection.
+
+The server pushes the immutable original as multipart `videos` to MSS
+`POST /spatial/batches` with `publish_to_gallery=true`, configured converter
+provenance, and optional request settings. It polls
+`GET /spatial/batches/{batch_id}`. MSS must publish through the existing variant
+import contract. Returned status URLs are audit evidence only and are never
+followed.
+
+Stable errors include `MSS_NOT_CONFIGURED`, `MSS_SUBMIT_FAILED`,
+`MSS_STATUS_FAILED`, `MSS_RESPONSE_INVALID`, `MSS_POLL_TIMEOUT`,
+`MSS_PUBLISH_FAILED`, `MSS_MEDIA_MISMATCH`, and
+`MSS_PUBLISH_NOT_OBSERVED`.
 
 ### Source roots and scans
 

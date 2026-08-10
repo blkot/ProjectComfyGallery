@@ -65,6 +65,7 @@ def test_nas_deployment_pulls_without_building() -> None:
     assert "alembic -c packages/py/core/alembic.ini upgrade head" in deployment
     assert "alembic -c packages/py/core/alembic.ini check" in deployment
     assert "comfy-gallery-worker-background-1" in deployment
+    assert "comfy-gallery-worker-spatial-1" in deployment
 
 
 def test_nas_release_confirmation_accepts_crlf_terminal_input(tmp_path: Path) -> None:
@@ -77,7 +78,7 @@ def test_nas_release_confirmation_accepts_crlf_terminal_input(tmp_path: Path) ->
     )
     fake_gh.chmod(0o755)
 
-    version = "0.1.0-rc.18"
+    version = "0.1.0-rc.19"
     environment = os.environ.copy()
     environment["PATH"] = f"{fake_bin}:{environment['PATH']}"
     environment["XANTA_NAS_HELPER"] = "/usr/bin/true"
@@ -174,4 +175,9 @@ def test_media_jobs_have_dedicated_worker_capacity() -> None:
     assert (
         services["worker-background"]["environment"]["CG_RUNTIME_ROOT"]
         == "/data/runtime/background-worker"
+    )
+    assert services["worker-spatial"]["command"][-2:] == ["--queues", "spatial"]
+    assert (
+        services["worker-spatial"]["environment"]["CG_RUNTIME_ROOT"]
+        == "/data/runtime/spatial-worker"
     )

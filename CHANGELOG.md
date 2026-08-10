@@ -4,6 +4,17 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.19 — 2026-08-10
+
+- Add ComfyGallery-driven ml-sharp-spatial conversion from video Media Detail,
+  with durable per-media runs, active-run reuse, isolated worker capacity,
+  restart/retry recovery, same-media publish verification, and persistent UI
+  progress.
+- Add the `0013_spatial_conversion_runs` migration, MSS server configuration,
+  authenticated orchestration APIs, OpenAPI/client handoff, production worker and
+  deployment health gates, and complete operational documentation.
+- Enable audio during hands-off slideshow video playback.
+
 ## 0.1.0-rc.18 — 2026-08-09
 
 - Capture workflow input images and videos into immutable SHA-256-deduplicated

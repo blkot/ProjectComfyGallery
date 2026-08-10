@@ -137,6 +137,22 @@ Key concepts:
   database transaction.
 - The immutable original remains the workflow and identity authority.
 
+### `spatial_conversion_run`
+
+- A durable request to an external spatial converter for exactly one logical
+  video media record; it owns no media bytes.
+- Lifecycle: queued, submitting, processing, succeeded, failed, or cancelled.
+- Stores the requested converter options, MSS batch identity, bounded status
+  evidence, the active variant at request time, publish outcome, returned Gallery
+  IDs, timestamps, and stable error code/message.
+- At most one queued/submitting/processing run may exist per media. A completed
+  run remains historical evidence and a later request creates a new run.
+- A persisted MSS batch ID is the recovery boundary: retry and startup recovery
+  resume polling that batch instead of resubmitting the original.
+- Success requires both a successful MSS publish outcome and an active ready
+  `spatial_video` row for the same media. `media_variant` remains the source of
+  truth for availability and content.
+
 ## Workflow evidence
 
 ### `embedded_metadata`

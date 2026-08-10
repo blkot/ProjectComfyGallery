@@ -56,6 +56,14 @@ def enqueue_variant_import(*, variant_id: str, job_id: str) -> str:
     )
 
 
+def enqueue_spatial_conversion(*, run_id: str, job_id: str) -> str:
+    return enqueue_message(
+        actor_name="process_spatial_conversion",
+        queue_name="spatial",
+        args=(run_id, job_id),
+    )
+
+
 def enqueue_workflow(*, media_id: str, job_id: str) -> str:
     return enqueue_message(
         actor_name="extract_workflow",

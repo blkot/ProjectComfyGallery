@@ -53,6 +53,7 @@ Use the full [upgrade runbook](upgrade-runbook.md) for those changes.
 - API container: `comfy-gallery-api-1`
 - Worker container: `comfy-gallery-worker-1`
 - Background worker container: `comfy-gallery-worker-background-1`
+- Spatial worker container: `comfy-gallery-worker-spatial-1`
 - LAN health URL: `http://192.168.50.68:8181/healthz`
 
 ## Automated path (recommended)
@@ -199,6 +200,7 @@ WEB_REF="$(docker inspect comfy-gallery-web-1 --format '{{.Config.Image}}')"
 OLD_WEB_IMAGE="$(docker inspect comfy-gallery-web-1 --format '{{.Image}}')"
 API_BEFORE="$(docker inspect comfy-gallery-api-1 --format '{{.Id}}')"
 WORKER_BEFORE="$(docker inspect comfy-gallery-worker-1 --format '{{.Id}}')"
+SPATIAL_WORKER_BEFORE="$(docker inspect comfy-gallery-worker-spatial-1 --format '{{.Id}}')"
 ROLLBACK_REF="${WEB_REF}-before-manual-$(date +%Y%m%d-%H%M%S)"
 ALPINE_MIRROR="$(sed -n 's/^ALPINE_MIRROR=//p' .env | tail -n 1)"
 
@@ -209,6 +211,7 @@ printf 'Rollback image: %s\n' "$ROLLBACK_REF"
 printf 'Alpine mirror:  %s\n' "$ALPINE_MIRROR"
 printf 'API before:     %s\n' "$API_BEFORE"
 printf 'Worker before:  %s\n' "$WORKER_BEFORE"
+printf 'Spatial worker before: %s\n' "$SPATIAL_WORKER_BEFORE"
 ```
 
 Keep the shell open so these values remain available for verification and
@@ -302,12 +305,14 @@ Confirm that the API and worker were not recreated:
 ```bash
 API_AFTER="$(docker inspect comfy-gallery-api-1 --format '{{.Id}}')"
 WORKER_AFTER="$(docker inspect comfy-gallery-worker-1 --format '{{.Id}}')"
+SPATIAL_WORKER_AFTER="$(docker inspect comfy-gallery-worker-spatial-1 --format '{{.Id}}')"
 
 test "$API_AFTER" = "$API_BEFORE" && echo "API unchanged"
 test "$WORKER_AFTER" = "$WORKER_BEFORE" && echo "Worker unchanged"
+test "$SPATIAL_WORKER_AFTER" = "$SPATIAL_WORKER_BEFORE" && echo "Spatial worker unchanged"
 
 docker compose -f compose.yaml -f compose.production.yaml \
-  ps web api worker postgres redis
+  ps web api worker worker-background worker-spatial postgres redis
 ```
 
 Both identity comparisons must succeed. PostgreSQL and Redis must remain

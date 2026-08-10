@@ -124,12 +124,14 @@ Initial conservative defaults:
 - PostgreSQL pool sized for a small deployment.
 - Redis memory policy that does not make it authoritative.
 
-Production uses two isolated Dramatiq pools with one process and one thread each.
+Production uses three isolated Dramatiq pools with one process and one thread each.
 The critical `system`/`media` pool cannot be occupied by scans, workflow backfills,
 registry synchronization, or exports; those run in the background pool. This
 keeps uploads and spatial validation responsive while still bounding each work
-class to one operation at a time on the J4125. Video validation/transcode
-concurrency remains one unless NAS measurements support a change.
+class to one operation at a time on the J4125. The `spatial` pool only streams an
+original to MSS and polls its external job; conversion remains on the GPU host.
+Video validation/transcode concurrency remains one unless NAS measurements support
+a change.
 
 Configurable default container ceilings:
 
@@ -138,6 +140,7 @@ Configurable default container ceilings:
 - API: 768 MB and 1 CPU.
 - Critical media worker: 1 GB and 1 CPU.
 - Background worker: 2 GB and 2 CPU.
+- Spatial orchestration worker: 512 MB and 0.5 CPU.
 - Backup: 256 MB and 0.5 CPU.
 - Web: 128 MB and 0.5 CPU.
 
@@ -165,6 +168,14 @@ target and the only origin allowed for workflow-input capture; a registry reques
 may also provide a URL for that sync run. `CG_COMFYUI_USER` optionally selects the
 owner for current ComfyUI asset hashes. These values are operational configuration
 and are never persisted as ComfyUI-instance entities or returned to clients.
+
+`CG_MSS_BASE_URL` is optional and enables ComfyGallery-driven spatial conversion
+when set to the MSS origin reachable from the NAS containers, for example
+`http://192.168.50.90:8000`. `CG_MSS_API_TOKEN` is an optional token for MSS's own
+API; it is not the ComfyGallery bearer token that MSS uses to publish back.
+Submission/status timeout, polling interval, maximum watch duration, publish
+observation grace period, and converter provenance are controlled by the
+`CG_MSS_*` settings in `.env.example`. None are returned to the browser.
 
 ## Intel media acceleration
 

@@ -15,6 +15,7 @@ from comfy_gallery_core.db.models import (
     MediaVariant,
     RegistrySyncRun,
     ScanBatch,
+    SpatialConversionRun,
     UploadItem,
 )
 from comfy_gallery_core.queue import enqueue_message
@@ -52,6 +53,11 @@ def _dispatch_for(job: Job) -> tuple[str, str, tuple[str, ...]] | None:
             "maintenance",
             (resource_id, job_id),
         ),
+        "spatial_conversion": (
+            "process_spatial_conversion",
+            "spatial",
+            (resource_id, job_id),
+        ),
     }
     return dispatches.get(job.kind)
 
@@ -68,6 +74,8 @@ async def _reset_owner(session: AsyncSession, job: Job) -> None:
         owner = await session.get(RegistrySyncRun, job.resource_id)
     elif job.kind == "portable_export":
         owner = await session.get(ExportRun, job.resource_id)
+    elif job.kind == "spatial_conversion":
+        owner = await session.get(SpatialConversionRun, job.resource_id)
     if isinstance(owner, MediaVariant):
         if not owner.is_active:
             owner.status = "staging"
@@ -75,6 +83,11 @@ async def _reset_owner(session: AsyncSession, job: Job) -> None:
         owner.last_error_message = None
     elif isinstance(owner, (UploadItem, ScanBatch, RegistrySyncRun, ExportRun)):
         owner.status = "queued"
+        owner.error_code = None
+        owner.error_message = None
+        owner.completed_at = None
+    elif isinstance(owner, SpatialConversionRun):
+        owner.status = "processing" if owner.mss_batch_id else "queued"
         owner.error_code = None
         owner.error_message = None
         owner.completed_at = None
@@ -104,6 +117,25 @@ async def reconcile_interrupted_jobs(
     requeued = 0
     failed = 0
     for job in jobs:
+        if job.kind == "spatial_conversion" and job.status == "running":
+            # A conversion watcher can legitimately outlive the generic job cutoff.
+            # Its run is committed on every MSS poll, so recent run activity is a
+            # safer liveness signal than the job's immutable start timestamp.
+            spatial_stale_seconds = max(
+                settings.running_job_recovery_after_seconds,
+                int(settings.mss_http_timeout_seconds)
+                + int(settings.mss_poll_interval_seconds * 2),
+            )
+            fresh_run_id = await session.scalar(
+                select(SpatialConversionRun.id).where(
+                    SpatialConversionRun.id == job.resource_id,
+                    SpatialConversionRun.status.in_(("submitting", "processing")),
+                    SpatialConversionRun.updated_at
+                    >= now - timedelta(seconds=spatial_stale_seconds),
+                )
+            )
+            if fresh_run_id is not None:
+                continue
         dispatch = _dispatch_for(job)
         if dispatch is None:
             if job.status == "running":
@@ -142,6 +174,13 @@ async def reconcile_interrupted_jobs(
         try:
             enqueue(actor_name=actor_name, queue_name=queue_name, args=args)
         except Exception:
+            if job.kind == "spatial_conversion":
+                conversion = await session.get(SpatialConversionRun, job.resource_id)
+                if conversion is not None:
+                    conversion.status = "failed"
+                    conversion.error_code = "QUEUE_UNAVAILABLE"
+                    conversion.error_message = "Interrupted conversion could not be requeued."
+                    conversion.completed_at = now
             job.status = "failed"
             job.error_code = "QUEUE_UNAVAILABLE"
             job.error_message = "Interrupted work could not be returned to the queue."

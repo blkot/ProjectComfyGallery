@@ -114,6 +114,13 @@ A derived browser-compatible video used for preview while the original remains a
 System-owned video state indicating that an active, ready, validated
 `spatial_video` variant exists. It is independent from playback preference.
 
+## Spatial conversion run
+
+A durable ComfyGallery-owned request that sends one immutable original video to
+an external spatial converter, tracks the converter batch, and completes only
+after ComfyGallery observes the published active variant. It is an operation
+record, not a media variant and not a copy of the converted bytes.
+
 ## Spatial playback preference
 
 User-owned intent to use a spatial presentation when one is available. For images

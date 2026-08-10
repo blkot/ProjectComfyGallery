@@ -13,12 +13,14 @@ from comfy_gallery_core.db.models import (
     MediaVariant,
     RegistrySyncRun,
     ScanBatch,
+    SpatialConversionRun,
     UploadItem,
 )
 from comfy_gallery_core.queue import (
     enqueue_portable_export,
     enqueue_registry_sync,
     enqueue_scan,
+    enqueue_spatial_conversion,
     enqueue_upload,
     enqueue_variant_import,
     enqueue_workflow,
@@ -168,6 +170,20 @@ async def retry_job(
                 export_run_id=str(export_run.id),
                 job_id=str(job.id),
             )
+        elif job.kind == "spatial_conversion":
+            conversion = await session.get(SpatialConversionRun, job.resource_id)
+            if conversion is None:
+                raise ApiError(
+                    status_code=404,
+                    code="SPATIAL_CONVERSION_NOT_FOUND",
+                    message="The spatial conversion request no longer exists.",
+                )
+            conversion.status = "processing" if conversion.mss_batch_id else "queued"
+            conversion.completed_at = None
+            conversion.error_code = None
+            conversion.error_message = None
+            await session.commit()
+            enqueue_spatial_conversion(run_id=str(conversion.id), job_id=str(job.id))
         else:
             raise ApiError(
                 status_code=409,
@@ -177,6 +193,13 @@ async def retry_job(
     except ApiError:
         raise
     except Exception as exc:
+        if job.kind == "spatial_conversion":
+            conversion = await session.get(SpatialConversionRun, job.resource_id)
+            if conversion is not None:
+                conversion.status = "failed"
+                conversion.error_code = "QUEUE_UNAVAILABLE"
+                conversion.error_message = "The spatial conversion retry could not be queued."
+                conversion.completed_at = datetime.now(UTC)
         job.status = "failed"
         job.error_code = "QUEUE_UNAVAILABLE"
         job.error_message = "The retry could not be queued."

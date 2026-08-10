@@ -11,6 +11,7 @@ from comfy_gallery_core.db import get_database
 from comfy_gallery_core.db.models import (
     ExportRun,
     RegistrySyncRun,
+    SpatialConversionRun,
     WorkflowInputReference,
     WorkflowSnapshot,
 )
@@ -28,6 +29,7 @@ from comfy_gallery_core.media.jobs import (
     succeed_job,
 )
 from comfy_gallery_core.media.scan import run_source_scan
+from comfy_gallery_core.media.spatial_conversion import process_spatial_conversion
 from comfy_gallery_core.media.variants import process_variant_import
 from comfy_gallery_core.operations.exports import create_portable_export
 from comfy_gallery_core.queue import enqueue_workflow_input_capture
@@ -106,6 +108,28 @@ async def process_variant_import_actor(variant_id: str, job_id: str) -> None:
         logger.error(
             "variant_processing_failed",
             variant_id=variant_id,
+            job_id=job_id,
+            code=error.code,
+            retryable=error.retryable,
+        )
+        if error.retryable:
+            raise
+
+
+@actor(
+    actor_name="process_spatial_conversion",
+    queue_name="spatial",
+    # Retry is explicit through the durable Job API. Blind broker retry after an
+    # ambiguous upload could submit the same expensive GPU work twice.
+    max_retries=0,
+)
+async def process_spatial_conversion_actor(run_id: str, job_id: str) -> None:
+    try:
+        await _process_spatial_conversion(UUID(run_id), UUID(job_id))
+    except IngestionError as error:
+        logger.error(
+            "spatial_conversion_failed",
+            run_id=run_id,
             job_id=job_id,
             code=error.code,
             retryable=error.retryable,
@@ -239,6 +263,24 @@ async def _process_variant_import(variant_id: UUID, job_id: UUID) -> None:
             session,
             variant_id=variant_id,
             job_id=job_id,
+            settings=settings,
+        )
+
+
+async def _process_spatial_conversion(run_id: UUID, job_id: UUID) -> None:
+    database = get_database()
+    async with database.session() as session:
+        job = await load_job(session, job_id)
+        run = await session.get(SpatialConversionRun, run_id)
+        if run is None:
+            raise IngestionError(
+                code="SPATIAL_CONVERSION_NOT_FOUND",
+                message="The spatial conversion request no longer exists.",
+            )
+        await process_spatial_conversion(
+            session,
+            run_id=run.id,
+            job=job,
             settings=settings,
         )
 

@@ -2783,6 +2783,47 @@ textarea {
   border-top: 1px solid var(--line-soft);
 }
 
+.spatial-conversion-panel {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.spatial-conversion-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.spatial-conversion-heading > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.spatial-conversion-heading strong {
+  font-size: 10px;
+}
+
+.spatial-conversion-heading small {
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.spatial-conversion-heading .primary-button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding-inline: 12px;
+  font-size: 9px;
+}
+
+.spatial-conversion-panel > .notice {
+  margin-top: 12px;
+}
+
 .spatial-variant-attachment-heading,
 .spatial-variant-file-summary,
 .spatial-variant-attachment-actions {

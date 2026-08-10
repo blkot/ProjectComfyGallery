@@ -71,6 +71,7 @@ This structure borrows the audience separation of the Diátaxis documentation mo
 - [Phase 5 model-focused analytics](development/phase-5-model-analytics.md)
 - [Phase 6 NAS release](development/phase-6-nas-release.md)
 - [Spatial video variant backend update guide](development/spatial-video-variant-backend-update.md)
+- [MSS orchestration implementation and operations](development/mss-orchestration.md)
 - [Testing and golden corpus](development/testing-and-golden-corpus.md)
 
 ### Decisions and governance

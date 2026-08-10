@@ -39,6 +39,8 @@ flowchart TB
     API["FastAPI service"]
     MediaWorker["Media worker"]
     BackgroundWorker["Background worker"]
+    SpatialWorker["Spatial orchestration worker"]
+    MSS["ml-sharp-spatial GPU service"]
     Redis["Redis broker"]
     DB["PostgreSQL"]
     Managed["Managed media volume"]
@@ -56,6 +58,11 @@ flowchart TB
     BackgroundWorker --> DB
     BackgroundWorker --> Managed
     BackgroundWorker --> Sources
+    SpatialWorker --> Redis
+    SpatialWorker --> DB
+    SpatialWorker --> Managed
+    SpatialWorker --> MSS
+    MSS --> API
     API --> Managed
     DB -. "pg_dump" .-> Backups
     API -. "portable exports" .-> Backups
@@ -103,8 +110,10 @@ Responsibilities:
 The critical pool consumes only `system` and `media` queues, so uploads and spatial
 variant validation cannot wait behind a long scan or registry reprocessing run.
 The background pool consumes `scan`, `workflow`, `registry`, and `maintenance`.
-Each pool uses one process and one thread; their CPU and memory ceilings are
-separate and explicitly bounded for the J4125 CPU.
+The spatial pool consumes only `spatial`; it streams originals to MSS and watches
+external batches without occupying either NAS processing pool. Each pool uses one
+process and one thread; their CPU and memory ceilings are separate and explicitly
+bounded for the J4125 CPU.
 
 ### PostgreSQL
 
@@ -116,7 +125,7 @@ PostgreSQL is authoritative for:
 - Node/model registries and semantic observations.
 - Evaluation templates, scores, revisions, and Trash state.
 - Review sessions, collections, filters, and tags.
-- Jobs, stage attempts, analysis runs, and results.
+- Jobs, stage attempts, spatial conversion runs, analysis runs, and results.
 
 Large media bytes and proxies do not live in PostgreSQL.
 

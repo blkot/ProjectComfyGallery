@@ -59,6 +59,14 @@ class Settings(BaseSettings):
     workflow_input_http_timeout_seconds: float = Field(default=60.0, ge=5.0, le=600.0)
     comfyui_base_url: str | None = None
     comfyui_user: str | None = None
+    mss_base_url: str | None = None
+    mss_api_token: SecretStr | None = None
+    mss_http_timeout_seconds: float = Field(default=600.0, ge=5.0, le=3600.0)
+    mss_poll_interval_seconds: float = Field(default=5.0, ge=0.1, le=300.0)
+    mss_max_poll_seconds: int = Field(default=21_600, ge=30, le=86_400)
+    mss_publish_grace_seconds: int = Field(default=120, ge=5, le=1800)
+    mss_converter_name: str = Field(default="ml-sharp-spatial", min_length=1, max_length=128)
+    mss_converter_version: str = Field(default="0.1", min_length=1, max_length=64)
     registry_http_timeout_seconds: float = Field(default=180.0, ge=5.0, le=600.0)
     registry_max_response_bytes: int = Field(
         default=64 * 1024 * 1024,
@@ -92,9 +100,9 @@ class Settings(BaseSettings):
     def normalize_log_level(cls, value: str) -> str:
         return value.upper()
 
-    @field_validator("comfyui_base_url", mode="before")
+    @field_validator("comfyui_base_url", "mss_base_url", mode="before")
     @classmethod
-    def normalize_comfyui_base_url(cls, value: object) -> str | None:
+    def normalize_base_url(cls, value: object) -> str | None:
         if value is None:
             return None
         normalized = str(value).strip().rstrip("/")

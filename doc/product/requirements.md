@@ -34,6 +34,14 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
   MUST remain independent.
 - **MEDIA-015:** Variant content delivery MUST support byte-range requests without
   changing ordinary preview, playback, or original-download semantics.
+- **MEDIA-016:** Starting external spatial conversion MUST create a durable,
+  observable run attached to the source media, reuse an already-active run, and
+  survive page navigation and service restarts without requiring the browser to
+  communicate with the converter.
+- **MEDIA-017:** A spatial conversion run MUST succeed only after the converter
+  reports a successful publish and ComfyGallery observes the active, ready variant
+  on the same logical media. Failed conversion or publication MUST preserve the
+  immutable original and any prior active variant.
 
 ## Import and processing
 
@@ -187,6 +195,10 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
   and resolved artifact display/file names. Search MUST compose with existing filters,
   sorting, pagination, navigation, slideshows, saved filters, and server-resolved
   scopes without duplicating media rows. Blank search text MUST behave as omitted.
+- **LIB-020:** Video Media Detail MUST let the user start and observe an external
+  spatial conversion without uploading a result manually. It MUST remain usable
+  after leaving and returning to the page, show queued/processing/failure/success
+  state, and refresh the same media record when its spatial variant becomes ready.
 
 ## Manual evaluation
 

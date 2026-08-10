@@ -239,6 +239,7 @@ web_before="$(service_id web)"
 api_before="$(service_id api)"
 worker_before="$(service_id worker)"
 worker_background_before="$(service_id worker-background)"
+worker_spatial_before="$(service_id worker-spatial)"
 postgres_before="$(service_id postgres)"
 redis_before="$(service_id redis)"
 backup_before="$(service_id backup)"
@@ -248,6 +249,7 @@ for container_id in \
   "$api_before" \
   "$worker_before" \
   "$worker_background_before" \
+  "$worker_spatial_before" \
   "$postgres_before" \
   "$redis_before" \
   "$backup_before"; do
@@ -261,6 +263,7 @@ web_health_before="$(container_health "$web_before")"
 api_health_before="$(container_health "$api_before")"
 worker_health_before="$(container_health "$worker_before")"
 worker_background_health_before="$(container_health "$worker_background_before")"
+worker_spatial_health_before="$(container_health "$worker_spatial_before")"
 postgres_health_before="$(container_health "$postgres_before")"
 redis_health_before="$(container_health "$redis_before")"
 backup_health_before="$(container_health "$backup_before")"
@@ -268,6 +271,7 @@ backup_health_before="$(container_health "$backup_before")"
 printf '%s\n' \
   "Pre-deploy health: web=$web_health_before api=$api_health_before" \
   "  worker=$worker_health_before worker-background=$worker_background_health_before" \
+  "  worker-spatial=$worker_spatial_health_before" \
   "  postgres=$postgres_health_before redis=$redis_health_before backup=$backup_health_before"
 
 if [[ "$backup_health_before" != healthy ]]; then
@@ -279,7 +283,8 @@ if [[ "$web_health_before" != healthy ||
   "$postgres_health_before" != healthy ||
   "$redis_health_before" != healthy ||
   "$worker_health_before" != running ||
-  "$worker_background_health_before" != running ]]; then
+  "$worker_background_health_before" != running ||
+  "$worker_spatial_health_before" != running ]]; then
   docker compose "${compose_files[@]}" ps
   echo "A service required for safe frontend deployment is not healthy; refusing to continue." >&2
   exit 1
@@ -375,6 +380,7 @@ test "$(docker inspect "$web_after" --format '{{.Image}}')" = "$new_web_image"
 test "$(service_id api)" = "$api_before"
 test "$(service_id worker)" = "$worker_before"
 test "$(service_id worker-background)" = "$worker_background_before"
+test "$(service_id worker-spatial)" = "$worker_spatial_before"
 test "$(service_id postgres)" = "$postgres_before"
 test "$(service_id redis)" = "$redis_before"
 test "$(service_id backup)" = "$backup_before"

@@ -4,6 +4,31 @@ This file is the cross-agent handoff for backend contract changes. Consumers sho
 also use the committed [OpenAPI snapshot](openapi.json); prose here explains
 semantics and compatibility that a schema alone cannot express.
 
+## Unreleased: ComfyGallery-driven MSS spatial conversion
+
+**Database migration:** `0013_spatial_conversion_runs`
+
+Media Detail and other authenticated clients can now start and observe an MSS
+conversion without contacting MSS directly:
+
+```http
+POST /api/v1/media/{media_id}/spatial-conversions
+GET  /api/v1/media/{media_id}/spatial-conversions/current
+GET  /api/v1/spatial-conversions/{run_id}
+```
+
+The POST accepts optional `precision`, `spatial_quality`, and `spatial_preset`
+JSON strings and returns `{configured, conversion, job}` with `202`. It reuses an
+active run for the same media. The current endpoint returns the latest historical
+run or null fields when none exists, so clients can restore state after navigation
+or restart. Poll while status is `queued`, `submitting`, or `processing`; on
+`succeeded`, re-fetch media detail and its active `variants` projection.
+
+The browser must never call MSS or persist its token/base URL. `configured=false`
+means the server operator has not set `CG_MSS_BASE_URL`. Conversion failures do
+not remove the ordinary original or an existing ready spatial variant. Manual
+variant upload remains compatible and available as a separate recovery path.
+
 ## Unreleased: captured workflow input media
 
 **Database migration:** `0012_workflow_input_media`

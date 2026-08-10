@@ -496,6 +496,32 @@ export type VariantImportAccepted = {
   job: Job;
 };
 
+export type SpatialConversion = {
+  id: string;
+  media_id: string;
+  status: "queued" | "submitting" | "processing" | "succeeded" | "failed" | "cancelled";
+  requested_options: Record<string, unknown>;
+  mss_batch_id: string | null;
+  queue_position: number | null;
+  mss_file_status: string | null;
+  publish_status: string | null;
+  gallery_media_id: string | null;
+  gallery_variant_id: string | null;
+  error_code: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+  started_at: string | null;
+  submitted_at: string | null;
+  completed_at: string | null;
+};
+
+export type SpatialConversionState = {
+  configured: boolean;
+  conversion: SpatialConversion | null;
+  job: Job | null;
+};
+
 export type RegistrySyncRun = {
   id: string;
   registry_kind: string;

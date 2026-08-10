@@ -181,6 +181,10 @@ class Media(TimestampMixin, Base):
         back_populates="media",
         cascade="all, delete-orphan",
     )
+    spatial_conversion_runs: Mapped[list[SpatialConversionRun]] = relationship(
+        back_populates="media",
+        cascade="all, delete-orphan",
+    )
     source_occurrences: Mapped[list[SourceOccurrence]] = relationship(back_populates="media")
     upload_items: Mapped[list[UploadItem]] = relationship(back_populates="media")
     workflow_snapshot: Mapped[WorkflowSnapshot | None] = relationship(
@@ -346,6 +350,68 @@ class MediaVariant(TimestampMixin, Base):
     last_error_message: Mapped[str | None] = mapped_column(Text)
 
     media: Mapped[Media] = relationship(back_populates="variants")
+
+
+class SpatialConversionRun(TimestampMixin, Base):
+    """One durable request for an external service to create a spatial variant."""
+
+    __tablename__ = "spatial_conversion_run"
+    __table_args__ = (
+        Index("ix_spatial_conversion_run_media_created", "media_id", "created_at"),
+        Index(
+            "uq_spatial_conversion_run_active_media",
+            "media_id",
+            unique=True,
+            postgresql_where=text("status IN ('queued', 'submitting', 'processing')"),
+            sqlite_where=text("status IN ('queued', 'submitting', 'processing')"),
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid7)
+    media_id: Mapped[UUID] = mapped_column(
+        ForeignKey("media.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    created_by_user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("app_user.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    status: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="queued",
+        server_default="queued",
+        index=True,
+    )
+    requested_options: Mapped[dict[str, object]] = mapped_column(
+        json_type,
+        nullable=False,
+        default=dict,
+        server_default="{}",
+    )
+    mss_batch_id: Mapped[str | None] = mapped_column(String(128), index=True)
+    mss_status_url: Mapped[str | None] = mapped_column(String(1024))
+    queue_position: Mapped[int | None] = mapped_column(Integer)
+    mss_file_status: Mapped[str | None] = mapped_column(String(64))
+    publish_status: Mapped[str | None] = mapped_column(String(64))
+    previous_variant_id: Mapped[UUID | None] = mapped_column()
+    gallery_media_id: Mapped[UUID | None] = mapped_column()
+    gallery_variant_id: Mapped[UUID | None] = mapped_column()
+    response_data: Mapped[dict[str, object]] = mapped_column(
+        json_type,
+        nullable=False,
+        default=dict,
+        server_default="{}",
+    )
+    error_code: Mapped[str | None] = mapped_column(String(80))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    media: Mapped[Media] = relationship(back_populates="spatial_conversion_runs")
 
 
 class SourceRoot(TimestampMixin, Base):

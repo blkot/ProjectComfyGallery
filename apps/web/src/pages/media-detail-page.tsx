@@ -12,6 +12,7 @@ import { MediaEvaluationPanel } from "../components/media-evaluation-panel";
 import { MediaSpatialPreferenceButton } from "../components/media-spatial-preference-button";
 import { MediaTrashButton } from "../components/media-trash-button";
 import { SpatialVariantAttachment } from "../components/spatial-variant-attachment";
+import { SpatialConversionPanel } from "../components/spatial-conversion-panel";
 import { WorkflowInspector } from "../components/workflow-inspector";
 import { WorkflowInputMedia } from "../components/workflow-input-media";
 import {
@@ -321,7 +322,13 @@ export function MediaDetailPage() {
             ) : null}
 
             {item.kind === "video" ? (
-              <SpatialVariantAttachment media={item} />
+              <>
+                <SpatialConversionPanel
+                  mediaId={item.id}
+                  hasVariant={item.variants.length > 0}
+                />
+                <SpatialVariantAttachment media={item} />
+              </>
             ) : null}
 
             <WorkflowInputMedia mediaId={item.id} />
