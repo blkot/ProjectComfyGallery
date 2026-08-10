@@ -147,9 +147,11 @@ Key concepts:
   IDs, timestamps, and stable error code/message.
 - At most one queued/submitting/processing run may exist per media. A completed
   run remains historical evidence and a later request creates a new run.
-- A persisted MSS batch ID is the recovery boundary: retry and startup recovery
-  resume polling that batch instead of resubmitting the original.
-- Success requires both a successful MSS publish outcome and an active ready
+- A persisted MSS batch ID is the recovery boundary: recovery never resubmits it.
+- `last_reconciled_at` and `next_reconciliation_at` persist low-frequency,
+  single-GET reconciliation throttling. A submitted batch is external progress
+  evidence; only a matching active ready CG variant completes the run.
+- Success requires a published/variant_exists MSS outcome and an active ready
   `spatial_video` row for the same media. `media_variant` remains the source of
   truth for availability and content.
 

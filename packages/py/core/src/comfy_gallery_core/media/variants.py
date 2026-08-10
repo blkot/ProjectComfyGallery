@@ -32,6 +32,9 @@ from comfy_gallery_core.media.jobs import (
     load_job,
     succeed_job,
 )
+from comfy_gallery_core.media.spatial_conversion import (
+    complete_active_spatial_conversion_from_variant,
+)
 from comfy_gallery_core.media.spatial_video import validate_spatial_video
 
 SPATIAL_VIDEO_ROLE = "spatial_video"
@@ -69,6 +72,7 @@ async def process_variant_import(
                 missing_ok=True,
             )
         await succeed_job(session, job)
+        await complete_active_spatial_conversion_from_variant(session, variant=variant)
         return VariantImportOutcome(
             media_id=variant.media_id,
             variant_id=_duplicate_of_variant_id(variant),
@@ -87,6 +91,7 @@ async def process_variant_import(
         )
     if variant.status == "ready" and variant.is_active:
         await succeed_job(session, job)
+        await complete_active_spatial_conversion_from_variant(session, variant=variant)
         return VariantImportOutcome(
             media_id=variant.media_id,
             variant_id=variant.id,
@@ -117,6 +122,7 @@ async def process_variant_import(
                 with suppress(OSError):
                     await asyncio.to_thread(staged_path.unlink, missing_ok=True)
                 await succeed_job(session, job)
+                await complete_active_spatial_conversion_from_variant(session, variant=variant)
                 return VariantImportOutcome(
                     media_id=variant.media_id,
                     variant_id=duplicate.id,
@@ -124,6 +130,7 @@ async def process_variant_import(
                 )
             replaced = await _activate_variant(session, variant, job)
         await succeed_job(session, job)
+        await complete_active_spatial_conversion_from_variant(session, variant=variant)
         return VariantImportOutcome(
             media_id=variant.media_id,
             variant_id=variant.id,

@@ -17,15 +17,21 @@ afterEach(() => {
 });
 
 describe("SpatialConversionPanel", () => {
-  it("starts a server-owned conversion and polls until the variant is ready", async () => {
+  it("starts a server-owned conversion and offers an on-demand refresh", async () => {
     let currentReads = 0;
     apiRequestMock.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.endsWith("/refresh") && init?.method === "POST") {
+        return Promise.resolve(state("queued"));
+      }
       if (init?.method === "POST") {
         return Promise.resolve(state("queued"));
       }
       if (path.endsWith("/spatial-conversions/current")) {
         currentReads += 1;
-        return Promise.resolve(currentReads === 1 ? state(null) : state("succeeded"));
+        if (currentReads === 1) return Promise.resolve(state(null));
+        // The first read after the 202 still sees the pre-actor projection.
+        // Refresh must keep observing briefly instead of treating it as final.
+        return Promise.resolve(currentReads === 2 ? state("queued") : state("succeeded"));
       }
       throw new Error(`Unexpected request: ${path}`);
     });
@@ -35,7 +41,7 @@ describe("SpatialConversionPanel", () => {
     const invalidate = vi.spyOn(queryClient, "invalidateQueries");
     render(
       <QueryClientProvider client={queryClient}>
-        <SpatialConversionPanel mediaId="media-1" hasVariant={false} pollInterval={10} />
+        <SpatialConversionPanel mediaId="media-1" hasVariant={false} />
       </QueryClientProvider>,
     );
 
@@ -43,9 +49,15 @@ describe("SpatialConversionPanel", () => {
       await screen.findByRole("button", { name: "Generate spatial video" }),
     );
     expect(await screen.findByText("Queued")).toBeInTheDocument();
-    expect(screen.getByText(/leave this page/i)).toBeInTheDocument();
+    expect(screen.getByText(/runs independently/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Refresh status" }));
     expect(await screen.findByText("Spatial video ready")).toBeInTheDocument();
+    expect(currentReads).toBe(3);
     await waitFor(() => {
+      expect(apiRequestMock).toHaveBeenCalledWith(
+        "/api/v1/spatial-conversions/run-1/refresh",
+        { method: "POST" },
+      );
       expect(apiRequestMock).toHaveBeenCalledWith(
         "/api/v1/media/media-1/spatial-conversions",
         { method: "POST", body: "{}" },
@@ -95,7 +107,7 @@ function renderPanel() {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <SpatialConversionPanel mediaId="media-1" hasVariant={false} pollInterval={10} />
+      <SpatialConversionPanel mediaId="media-1" hasVariant={false} />
     </QueryClientProvider>,
   );
 }
@@ -111,6 +123,10 @@ function state(status: string | null) {
           queue_position: status === "queued" ? 2 : null,
           error_code: null,
           error_message: null,
+          last_reconciled_at:
+            status === "succeeded" ? "2026-08-10T12:01:00Z" : null,
+          updated_at:
+            status === "succeeded" ? "2026-08-10T12:01:00Z" : "2026-08-10T12:00:00Z",
         }
       : null,
     job: null,

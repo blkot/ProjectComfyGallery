@@ -409,6 +409,10 @@ class SpatialConversionRun(TimestampMixin, Base):
     error_message: Mapped[str | None] = mapped_column(Text)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_reconciled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    next_reconciliation_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), index=True
+    )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     media: Mapped[Media] = relationship(back_populates="spatial_conversion_runs")

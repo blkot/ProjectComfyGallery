@@ -11,10 +11,43 @@ import { titleCase } from "../lib/format";
 type SpatialConversionPanelProps = {
   mediaId: string;
   hasVariant: boolean;
-  pollInterval?: number;
 };
 
 const activeStatuses = new Set(["queued", "submitting", "processing"]);
+const refreshObservationAttempts = 6;
+const refreshObservationIntervalMs = 500;
+
+function delay(milliseconds: number) {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+async function observeScheduledRefresh(
+  mediaId: string,
+  accepted: SpatialConversionState,
+) {
+  const baseline = accepted.conversion;
+  if (!baseline || !activeStatuses.has(baseline.status)) return accepted;
+
+  let latest = accepted;
+  for (let attempt = 0; attempt < refreshObservationAttempts; attempt += 1) {
+    latest = await apiRequest<SpatialConversionState>(
+      `/api/v1/media/${mediaId}/spatial-conversions/current`,
+    );
+    const current = latest.conversion;
+    if (
+      !current ||
+      current.id !== baseline.id ||
+      !activeStatuses.has(current.status) ||
+      current.last_reconciled_at !== baseline.last_reconciled_at
+    ) {
+      return latest;
+    }
+    if (attempt + 1 < refreshObservationAttempts) {
+      await delay(refreshObservationIntervalMs);
+    }
+  }
+  return latest;
+}
 
 function readableError(error: Error | null) {
   if (!error) return null;
@@ -25,7 +58,6 @@ function readableError(error: Error | null) {
 export function SpatialConversionPanel({
   mediaId,
   hasVariant,
-  pollInterval = 3_000,
 }: SpatialConversionPanelProps) {
   const queryClient = useQueryClient();
   const refreshedRun = useRef<string | null>(null);
@@ -35,10 +67,9 @@ export function SpatialConversionPanel({
       apiRequest<SpatialConversionState>(
         `/api/v1/media/${mediaId}/spatial-conversions/current`,
       ),
-    refetchInterval: (query) => {
-      const status = query.state.data?.conversion?.status;
-      return status && activeStatuses.has(status) ? pollInterval : false;
-    },
+    // MSS publishes the authoritative completion event to CG.  Detail refresh is
+    // on-demand; this browser never becomes a high-frequency conversion watcher.
+    refetchInterval: false,
   });
   const start = useMutation({
     mutationFn: async () => {
@@ -63,6 +94,33 @@ export function SpatialConversionPanel({
   });
   const conversion = state.data?.conversion;
   const active = conversion ? activeStatuses.has(conversion.status) : false;
+  const refresh = useMutation({
+    mutationFn: async () => {
+      const accepted = await apiRequest<SpatialConversionState>(
+        `/api/v1/spatial-conversions/${conversion?.id}/refresh`,
+        { method: "POST" },
+      );
+      // The 202 only confirms dispatch. Brief, bounded observation ensures the
+      // first stale read cannot prematurely end this explicit user refresh.
+      return observeScheduledRefresh(mediaId, accepted);
+    },
+    onSuccess: (response) =>
+      queryClient.setQueryData(["spatial-conversion", mediaId], response),
+  });
+  const retryPublish = useMutation({
+    mutationFn: async () => {
+      await apiRequest<SpatialConversionState>(
+        `/api/v1/spatial-conversions/${conversion?.id}/retry-publish`,
+        { method: "POST" },
+      );
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+      return apiRequest<SpatialConversionState>(
+        `/api/v1/media/${mediaId}/spatial-conversions/current`,
+      );
+    },
+    onSuccess: (response) =>
+      queryClient.setQueryData(["spatial-conversion", mediaId], response),
+  });
 
   useEffect(() => {
     if (
@@ -105,8 +163,7 @@ export function SpatialConversionPanel({
       : hasVariant
         ? "Generate replacement"
         : "Generate spatial video";
-  const error = readableError(start.error);
-
+  const error = readableError(start.error) ?? readableError(refresh.error) ?? readableError(retryPublish.error);
   return (
     <section className="spatial-conversion-panel" aria-label="Spatial conversion">
       <div className="spatial-conversion-heading">
@@ -124,6 +181,26 @@ export function SpatialConversionPanel({
         >
           {start.isPending ? "Starting…" : actionLabel}
         </button>
+        {active ? (
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={refresh.isPending}
+            onClick={() => refresh.mutate()}
+          >
+            {refresh.isPending ? "Refreshing…" : "Refresh status"}
+          </button>
+        ) : null}
+        {conversion?.publish_status === "failed" || conversion?.publish_status === "skipped" ? (
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={retryPublish.isPending}
+            onClick={() => retryPublish.mutate()}
+          >
+            {retryPublish.isPending ? "Retrying publication…" : "Retry publication"}
+          </button>
+        ) : null}
       </div>
 
       {!configured ? (
@@ -139,7 +216,7 @@ export function SpatialConversionPanel({
             {conversion?.queue_position != null
               ? `MSS queue position: ${conversion.queue_position}. `
               : ""}
-            You can leave this page; the server will keep tracking the job.
+            Submission is complete; MSS runs independently and CG reconciles progress.
           </span>
         </p>
       ) : null}
@@ -152,6 +229,14 @@ export function SpatialConversionPanel({
       {failed ? (
         <p className="notice error-notice" role="alert">
           <strong>Spatial conversion failed</strong>
+          <span>
+            {[conversion.error_code, conversion.error_message].filter(Boolean).join(": ")}
+          </span>
+        </p>
+      ) : null}
+      {conversion?.publish_status === "failed" || conversion?.publish_status === "skipped" ? (
+        <p className="notice error-notice" role="alert">
+          <strong>Spatial result is waiting to publish</strong>
           <span>
             {[conversion.error_code, conversion.error_message].filter(Boolean).join(": ")}
           </span>

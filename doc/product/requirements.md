@@ -268,3 +268,9 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
 - **OPS-014:** The milestone deployment command MUST require a fresh backup,
   migration/drift preflight, explicit version confirmation, and post-start health
   verification.
+# Event-driven spatial conversion requirement
+
+Spatial conversion submission MUST be durable and finite. MSS owns asynchronous GPU
+execution and its publish retry. CG MUST mark success only after its validated,
+active ready spatial variant activation or duplicate resolution; reconciliation is
+recovery/progress evidence only.

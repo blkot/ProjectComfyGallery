@@ -20,6 +20,7 @@ def enqueue_message(
     actor_name: str,
     queue_name: str,
     args: tuple[Any, ...],
+    delay_ms: int | None = None,
 ) -> str:
     message: Message[Any] = Message(
         queue_name=queue_name,
@@ -28,7 +29,7 @@ def enqueue_message(
         kwargs={},
         options={},
     )
-    configure_broker().enqueue(message)
+    configure_broker().enqueue(message, delay=delay_ms)
     return message.message_id
 
 
@@ -61,6 +62,23 @@ def enqueue_spatial_conversion(*, run_id: str, job_id: str) -> str:
         actor_name="process_spatial_conversion",
         queue_name="spatial",
         args=(run_id, job_id),
+    )
+
+
+def enqueue_spatial_reconciliation(*, run_id: str, delay_ms: int | None = None) -> str:
+    return enqueue_message(
+        actor_name="reconcile_spatial_conversion",
+        queue_name="spatial",
+        args=(run_id,),
+        delay_ms=delay_ms,
+    )
+
+
+def enqueue_spatial_publish_retry(*, run_id: str) -> str:
+    return enqueue_message(
+        actor_name="retry_spatial_publish",
+        queue_name="spatial",
+        args=(run_id,),
     )
 
 

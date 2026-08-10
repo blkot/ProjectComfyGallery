@@ -110,8 +110,10 @@ Responsibilities:
 The critical pool consumes only `system` and `media` queues, so uploads and spatial
 variant validation cannot wait behind a long scan or registry reprocessing run.
 The background pool consumes `scan`, `workflow`, `registry`, and `maintenance`.
-The spatial pool consumes only `spatial`; it streams originals to MSS and watches
-external batches without occupying either NAS processing pool. Each pool uses one
+The spatial pool consumes only `spatial`; it streams originals to MSS in a finite
+submission actor. MSS owns GPU execution; CG later performs bounded, low-frequency
+single-request reconciliation and accepts CG variant activation as success. External
+batches therefore do not occupy either NAS processing pool. Each pool uses one
 process and one thread; their CPU and memory ceilings are separate and explicitly
 bounded for the J4125 CPU.
 

@@ -538,3 +538,9 @@ Long operations return job IDs rather than indefinite spinners.
 - Do not expose host filesystem absolute paths unless the API explicitly chooses an administrator-only representation.
 - Use authenticated media URLs and range endpoints.
 - Do not store bearer API tokens in browser local storage.
+# Spatial conversion UX
+
+Media Detail distinguishes the completed local submission Job from the still-running
+external conversion. It shows an explicit Refresh status action, avoids browser
+polling as a watcher, and offers Retry publication only for MSS publish failures or
+skips. A successful ready spatial variant refreshes normal media detail state.

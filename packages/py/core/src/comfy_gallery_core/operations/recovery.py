@@ -117,6 +117,31 @@ async def reconcile_interrupted_jobs(
     requeued = 0
     failed = 0
     for job in jobs:
+        if job.kind == "spatial_conversion":
+            conversion = await session.get(SpatialConversionRun, job.resource_id)
+            if conversion is not None and conversion.mss_batch_id:
+                # rc.19 left the submit Job running while it long-polled.  Its
+                # batch is already authoritative: finish that old submit job and
+                # schedule one bounded reconciliation, never re-submit it.
+                job.status = "succeeded"
+                job.completed_at = now
+                conversion.status = "processing"
+                conversion.next_reconciliation_at = now
+                await session.commit()
+                try:
+                    enqueue(
+                        actor_name="reconcile_spatial_conversion",
+                        queue_name="spatial",
+                        args=(str(conversion.id),),
+                    )
+                except Exception:
+                    # The durable next_reconciliation_at remains due for the next sweep.
+                    conversion.next_reconciliation_at = now
+                    await session.commit()
+                    failed += 1
+                else:
+                    requeued += 1
+                continue
         if job.kind == "spatial_conversion" and job.status == "running":
             # A conversion watcher can legitimately outlive the generic job cutoff.
             # Its run is committed on every MSS poll, so recent run activity is a
@@ -187,6 +212,38 @@ async def reconcile_interrupted_jobs(
             job.error_details = {"retryable": True}
             job.completed_at = now
             await session.commit()
+            failed += 1
+        else:
+            requeued += 1
+    # Submission Jobs intentionally finish before MSS. Reconcile overdue external
+    # batches independently, including runs whose rc.19 Job has already finished.
+    overdue_runs = list(
+        await session.scalars(
+            select(SpatialConversionRun).where(
+                SpatialConversionRun.status.in_(("submitting", "processing")),
+                SpatialConversionRun.mss_batch_id.is_not(None),
+                or_(
+                    SpatialConversionRun.next_reconciliation_at.is_(None),
+                    SpatialConversionRun.next_reconciliation_at <= now,
+                ),
+            )
+        )
+    )
+    recovered_ids = {
+        str(job.resource_id)
+        for job in jobs
+        if job.kind == "spatial_conversion" and job.status == "succeeded"
+    }
+    for conversion in overdue_runs:
+        if str(conversion.id) in recovered_ids:
+            continue
+        try:
+            enqueue(
+                actor_name="reconcile_spatial_conversion",
+                queue_name="spatial",
+                args=(str(conversion.id),),
+            )
+        except Exception:
             failed += 1
         else:
             requeued += 1

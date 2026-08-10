@@ -129,3 +129,9 @@ When a requirement changes:
 2. Add/supersede an ADR when architecture or invariants change.
 3. Update the affected design.
 4. Update this matrix and regression coverage.
+# MSS event-driven orchestration
+
+| Requirement | Implementation | Evidence |
+| --- | --- | --- |
+| Finite MSS submission and CG-authoritative completion | `spatial_conversion.py`, `variants.py`, ADR-0014 | `test_spatial_conversion.py` |
+| Recovery and bounded reconciliation | `recovery.py`, spatial worker actors, migration 0014 | recovery integration tests |

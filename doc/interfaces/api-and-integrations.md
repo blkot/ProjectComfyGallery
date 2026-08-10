@@ -84,6 +84,8 @@ GET    /api/v1/media/:id/variants/:variantId/content
 GET    /api/v1/media/:id/spatial-conversions/current
 POST   /api/v1/media/:id/spatial-conversions
 GET    /api/v1/spatial-conversions/:runId
+POST   /api/v1/spatial-conversions/:runId/refresh
+POST   /api/v1/spatial-conversions/:runId/retry-publish
 GET    /api/v1/media/:id/original
 GET    /api/v1/media/:id/preview
 GET    /api/v1/media/:id/playback
@@ -323,17 +325,25 @@ Gallery media/variant IDs, stable errors, request options, and timestamps. On
 success, re-fetch media detail instead of treating those IDs as a replacement for
 the canonical media projection.
 
-The server pushes the immutable original as multipart `videos` to MSS
-`POST /spatial/batches` with `publish_to_gallery=true`, configured converter
-provenance, and optional request settings. It polls
-`GET /spatial/batches/{batch_id}`. MSS must publish through the existing variant
-import contract. Returned status URLs are audit evidence only and are never
-followed.
+The finite submission Job pushes the immutable original as multipart `videos` to
+MSS `POST /spatial/batches` with `source_media_id`, `publish_to_gallery=true`,
+`cleanup_mode=delete_all`, configured converter provenance, and options. A persisted
+batch is never resubmitted. `POST /api/v1/spatial-conversions/:runId/refresh`
+returns a terminal projection idempotently, or schedules an on-demand single
+status GET for an active batch; clients may briefly observe the projection until
+that finite action records `last_reconciled_at`. Low-frequency reconciliation
+recovers missed events. `POST /api/v1/spatial-conversions/:runId/retry-publish` asks MSS to
+publish an existing result without GPU regeneration. MSS must publish through the
+existing variant-import contract; only CG active-ready validation/activation marks
+the run successful. Returned status URLs are audit evidence only and never followed.
 
-Stable errors include `MSS_NOT_CONFIGURED`, `MSS_SUBMIT_FAILED`,
-`MSS_STATUS_FAILED`, `MSS_RESPONSE_INVALID`, `MSS_POLL_TIMEOUT`,
-`MSS_PUBLISH_FAILED`, `MSS_MEDIA_MISMATCH`, and
-`MSS_PUBLISH_NOT_OBSERVED`.
+Stable command/run errors include `MSS_NOT_CONFIGURED`, `MSS_SUBMIT_FAILED`,
+`MSS_RESPONSE_INVALID` during submission, `MSS_GENERATION_FAILED`,
+`MSS_PUBLISH_FAILED`, `MSS_PUBLISH_SKIPPED`, and `MSS_PUBLISH_RETRY_FAILED`.
+`MSS_STATUS_FAILED` (and an invalid status-read response) is transient operational
+evidence: CG logs it, keeps the run active, and schedules another low-frequency
+reconciliation. The finite submission Job is already succeeded once its batch ID
+is stored, so ordinary Job retry never polls or resumes that persisted batch.
 
 ### Source roots and scans
 

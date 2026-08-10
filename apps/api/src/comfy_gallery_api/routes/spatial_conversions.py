@@ -21,7 +21,11 @@ from comfy_gallery_api.spatial_conversion_schemas import (
     SpatialConversionStateResponse,
 )
 from comfy_gallery_core.db.models import Job, Media, MediaVariant, SpatialConversionRun
-from comfy_gallery_core.queue import enqueue_spatial_conversion
+from comfy_gallery_core.queue import (
+    enqueue_spatial_conversion,
+    enqueue_spatial_publish_retry,
+    enqueue_spatial_reconciliation,
+)
 
 router = APIRouter(tags=["spatial conversion"])
 ACTIVE_STATUSES = ("queued", "submitting", "processing")
@@ -70,6 +74,79 @@ async def get_spatial_conversion(
         settings.mss_base_url is not None,
         conversion,
         await _job_for_run(session, conversion.id),
+    )
+
+
+@router.post(
+    "/api/v1/spatial-conversions/{run_id}/refresh",
+    response_model=SpatialConversionStateResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def refresh_spatial_conversion(
+    run_id: UUID,
+    _principal: CsrfPrincipalDep,
+    session: DbSessionDep,
+    settings: SettingsDep,
+) -> SpatialConversionStateResponse:
+    conversion = await session.get(SpatialConversionRun, run_id)
+    if conversion is None:
+        raise ApiError(
+            status_code=404,
+            code="SPATIAL_CONVERSION_NOT_FOUND",
+            message="The spatial conversion request was not found.",
+        )
+    # A completion event can win after the page rendered an active run but before
+    # this command arrives. Return that terminal projection idempotently so the
+    # browser can observe the authoritative outcome instead of receiving a 409.
+    if conversion.status not in ACTIVE_STATUSES:
+        return _state(
+            settings.mss_base_url is not None,
+            conversion,
+            await _job_for_run(session, conversion.id),
+        )
+    if not conversion.mss_batch_id:
+        raise ApiError(
+            status_code=409,
+            code="SPATIAL_CONVERSION_NOT_REFRESHABLE",
+            message="This conversion has no active MSS batch to refresh.",
+        )
+    # Claim is made by the actor. Setting this due makes refresh an actual
+    # one-shot request rather than a message that the throttle immediately drops.
+    conversion.next_reconciliation_at = datetime.now(UTC)
+    await session.commit()
+    enqueue_spatial_reconciliation(run_id=str(run_id))
+    return _state(
+        settings.mss_base_url is not None, conversion, await _job_for_run(session, conversion.id)
+    )
+
+
+@router.post(
+    "/api/v1/spatial-conversions/{run_id}/retry-publish",
+    response_model=SpatialConversionStateResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def retry_spatial_conversion_publish(
+    run_id: UUID,
+    _principal: CsrfPrincipalDep,
+    session: DbSessionDep,
+    settings: SettingsDep,
+) -> SpatialConversionStateResponse:
+    conversion = await session.get(SpatialConversionRun, run_id)
+    if conversion is None:
+        raise ApiError(
+            status_code=404,
+            code="SPATIAL_CONVERSION_NOT_FOUND",
+            message="The spatial conversion request was not found.",
+        )
+    if not conversion.mss_batch_id or conversion.publish_status not in {"failed", "skipped"}:
+        raise ApiError(
+            status_code=409,
+            code="SPATIAL_PUBLISH_NOT_RETRYABLE",
+            message="Only a failed or skipped MSS publication can be retried.",
+        )
+    enqueue_spatial_publish_retry(run_id=str(run_id))
+    return _state(
+        settings.mss_base_url is not None, conversion, await _job_for_run(session, conversion.id)
     )
 
 

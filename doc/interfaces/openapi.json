@@ -6788,6 +6788,18 @@
             "title": "Id",
             "type": "string"
           },
+          "last_reconciled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Reconciled At"
+          },
           "media_id": {
             "format": "uuid",
             "title": "Media Id",
@@ -6814,6 +6826,18 @@
               }
             ],
             "title": "Mss File Status"
+          },
+          "next_reconciliation_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Reconciliation At"
           },
           "publish_status": {
             "anyOf": [
@@ -6893,6 +6917,8 @@
           "updated_at",
           "started_at",
           "submitted_at",
+          "last_reconciled_at",
+          "next_reconciliation_at",
           "completed_at"
         ],
         "title": "SpatialConversionResponse",
@@ -8604,7 +8630,7 @@
   },
   "info": {
     "title": "Project Comfy Gallery API",
-    "version": "0.1.0-rc.19"
+    "version": "0.1.0-rc.20"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -14215,6 +14241,92 @@
           }
         },
         "summary": "Get Spatial Conversion",
+        "tags": [
+          "spatial conversion"
+        ]
+      }
+    },
+    "/api/v1/spatial-conversions/{run_id}/refresh": {
+      "post": {
+        "operationId": "refresh_spatial_conversion_api_v1_spatial_conversions__run_id__refresh_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpatialConversionStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Refresh Spatial Conversion",
+        "tags": [
+          "spatial conversion"
+        ]
+      }
+    },
+    "/api/v1/spatial-conversions/{run_id}/retry-publish": {
+      "post": {
+        "operationId": "retry_spatial_conversion_publish_api_v1_spatial_conversions__run_id__retry_publish_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpatialConversionStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry Spatial Conversion Publish",
         "tags": [
           "spatial conversion"
         ]

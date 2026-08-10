@@ -4,6 +4,16 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.20 — 2026-08-10
+
+- Make MSS the owner of long-running GPU queue execution: ComfyGallery now performs
+  one finite upload, persists the external batch, and completes its submission Job.
+- Add bounded low-frequency and on-demand reconciliation, publish-only retry,
+  migration-safe recovery, and durable MSS progress fields without resubmitting
+  accepted GPU work.
+- Treat validated CG spatial-variant activation as monotonic completion authority,
+  including race-safe reconciliation and deterministic Media Detail refresh.
+
 ## 0.1.0-rc.19 — 2026-08-10
 
 - Add ComfyGallery-driven ml-sharp-spatial conversion from video Media Detail,

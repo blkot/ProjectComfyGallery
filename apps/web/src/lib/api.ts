@@ -513,6 +513,8 @@ export type SpatialConversion = {
   updated_at: string;
   started_at: string | null;
   submitted_at: string | null;
+  last_reconciled_at: string | null;
+  next_reconciliation_at: string | null;
   completed_at: string | null;
 };
 

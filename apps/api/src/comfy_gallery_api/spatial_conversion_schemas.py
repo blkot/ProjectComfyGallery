@@ -39,6 +39,8 @@ class SpatialConversionResponse(BaseModel):
     updated_at: datetime
     started_at: datetime | None
     submitted_at: datetime | None
+    last_reconciled_at: datetime | None
+    next_reconciliation_at: datetime | None
     completed_at: datetime | None
 
 

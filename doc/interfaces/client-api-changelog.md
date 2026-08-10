@@ -8,6 +8,11 @@ semantics and compatibility that a schema alone cannot express.
 
 **Database migration:** `0013_spatial_conversion_runs`
 
+**Event-driven update:** `0014_event_driven_spatial_conversion` completes the
+short submission Job after MSS batch persistence. `refresh` provides an on-demand
+single status GET; `retry-publish` asks MSS to publish an existing result without
+regenerating it. A ready/duplicate CG variant activation is the success authority.
+
 Media Detail and other authenticated clients can now start and observe an MSS
 conversion without contacting MSS directly:
 

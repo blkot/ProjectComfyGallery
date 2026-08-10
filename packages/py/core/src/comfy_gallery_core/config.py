@@ -65,6 +65,7 @@ class Settings(BaseSettings):
     mss_poll_interval_seconds: float = Field(default=5.0, ge=0.1, le=300.0)
     mss_max_poll_seconds: int = Field(default=21_600, ge=30, le=86_400)
     mss_publish_grace_seconds: int = Field(default=120, ge=5, le=1800)
+    mss_reconciliation_interval_seconds: int = Field(default=300, ge=30, le=86_400)
     mss_converter_name: str = Field(default="ml-sharp-spatial", min_length=1, max_length=128)
     mss_converter_version: str = Field(default="0.1", min_length=1, max_length=64)
     registry_http_timeout_seconds: float = Field(default=180.0, ge=5.0, le=600.0)

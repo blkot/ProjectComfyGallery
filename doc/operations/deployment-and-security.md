@@ -343,3 +343,8 @@ exits. The derived PostgreSQL image replaces its vulnerable embedded `gosu` bina
 with Alpine `su-exec`; the official entrypoint behavior is otherwise retained. The
 2026-07-24 Phase 6 release gate reported zero high or critical findings in all five
 runtime artifacts.
+# MSS orchestration settings
+
+`CG_MSS_BASE_URL` is server-only and must resolve to the trusted MSS origin.
+`CG_MSS_RECONCILIATION_INTERVAL_SECONDS` defaults to 300 seconds; low frequency
+prevents CG from competing with MSS's GPU FIFO. MSS-returned URLs are not followed.

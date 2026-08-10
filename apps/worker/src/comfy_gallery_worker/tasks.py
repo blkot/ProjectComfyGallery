@@ -29,10 +29,14 @@ from comfy_gallery_core.media.jobs import (
     succeed_job,
 )
 from comfy_gallery_core.media.scan import run_source_scan
-from comfy_gallery_core.media.spatial_conversion import process_spatial_conversion
+from comfy_gallery_core.media.spatial_conversion import (
+    process_spatial_conversion,
+    reconcile_spatial_conversion,
+    request_spatial_publish_retry,
+)
 from comfy_gallery_core.media.variants import process_variant_import
 from comfy_gallery_core.operations.exports import create_portable_export
-from comfy_gallery_core.queue import enqueue_workflow_input_capture
+from comfy_gallery_core.queue import enqueue_spatial_reconciliation, enqueue_workflow_input_capture
 from comfy_gallery_core.registry.sync import process_registry_sync_job
 from comfy_gallery_core.workflow.extraction import process_workflow_job
 from comfy_gallery_core.workflow.input_media import (
@@ -55,6 +59,7 @@ scan_actor_time_limit_ms = (
     if settings.scan_actor_time_limit_seconds == 0
     else settings.scan_actor_time_limit_seconds * 1_000
 )
+spatial_submit_time_limit_ms = int((settings.mss_http_timeout_seconds + 60) * 1_000)
 
 
 @actor(queue_name="system", max_retries=3, min_backoff=1_000)
@@ -122,6 +127,7 @@ async def process_variant_import_actor(variant_id: str, job_id: str) -> None:
     # Retry is explicit through the durable Job API. Blind broker retry after an
     # ambiguous upload could submit the same expensive GPU work twice.
     max_retries=0,
+    time_limit=spatial_submit_time_limit_ms,
 )
 async def process_spatial_conversion_actor(run_id: str, job_id: str) -> None:
     try:
@@ -136,6 +142,32 @@ async def process_spatial_conversion_actor(run_id: str, job_id: str) -> None:
         )
         if error.retryable:
             raise
+
+
+@actor(actor_name="reconcile_spatial_conversion", queue_name="spatial", max_retries=0)
+async def reconcile_spatial_conversion_actor(run_id: str) -> None:
+    try:
+        pending = await _reconcile_spatial_conversion(UUID(run_id))
+        if pending:
+            enqueue_spatial_reconciliation(
+                run_id=run_id,
+                delay_ms=settings.mss_reconciliation_interval_seconds * 1_000,
+            )
+    except IngestionError as error:
+        logger.error("spatial_conversion_reconciliation_failed", run_id=run_id, code=error.code)
+        enqueue_spatial_reconciliation(
+            run_id=run_id,
+            delay_ms=settings.mss_reconciliation_interval_seconds * 1_000,
+        )
+
+
+@actor(actor_name="retry_spatial_publish", queue_name="spatial", max_retries=0)
+async def retry_spatial_publish_actor(run_id: str) -> None:
+    try:
+        await _retry_spatial_publish(UUID(run_id))
+        enqueue_spatial_reconciliation(run_id=run_id)
+    except IngestionError as error:
+        logger.error("spatial_publish_retry_failed", run_id=run_id, code=error.code)
 
 
 @actor(
@@ -283,6 +315,21 @@ async def _process_spatial_conversion(run_id: UUID, job_id: UUID) -> None:
             job=job,
             settings=settings,
         )
+        await session.refresh(run)
+        if run.status == "processing":
+            enqueue_spatial_reconciliation(run_id=str(run.id))
+
+
+async def _reconcile_spatial_conversion(run_id: UUID) -> bool:
+    database = get_database()
+    async with database.session() as session:
+        return await reconcile_spatial_conversion(session, run_id=run_id, settings=settings)
+
+
+async def _retry_spatial_publish(run_id: UUID) -> None:
+    database = get_database()
+    async with database.session() as session:
+        await request_spatial_publish_retry(session, run_id=run_id, settings=settings)
 
 
 async def _scan_source(scan_id: UUID, job_id: UUID) -> None:

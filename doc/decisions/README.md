@@ -24,6 +24,7 @@ ADRs capture why consequential choices were made. They are append-only historica
 - [ADR-0011: Preserve originals and import alternate media variants](0011-imported-media-variants.md)
 - [ADR-0012: Capture and deduplicate workflow input media](0012-capture-workflow-input-media.md)
 - [ADR-0013: Orchestrate external spatial conversion](0013-orchestrate-external-spatial-conversion.md)
+- [ADR-0014: Event-driven MSS orchestration](0014-event-driven-mss-orchestration.md)
 
 ## ADR template
 
