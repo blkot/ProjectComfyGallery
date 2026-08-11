@@ -26,8 +26,9 @@
 6. **Use standard indirect gestures.** Look plus pinch, tap, and drag are already
    exposed through SwiftUI gestures. Custom hand tracking would add fatigue,
    permissions, and Full Space requirements with no MVP benefit.
-7. **Use the system AVKit player for video.** Apple recommends
-   `AVPlayerViewController` for windowed visionOS playback.
+7. **Use RealityKit for the custom video surface.** visionOS 26
+   `VideoPlayerComponent` supports ordinary video, spatial styling, portal mode,
+   and app-owned playback controls in a standard window.
 
 ## Scene and anchoring model
 
@@ -170,12 +171,12 @@ The XR MVP therefore focuses on generated spatial scenes from existing 2D images
 
 ## Video presentation
 
-Apple recommends `AVPlayerViewController` for a windowed visionOS playback interface.
-It supplies standard transport controls, platform integration, and familiar behavior.
-The system player supports standard 2D and spatial/3D video without a custom stereo
-renderer. An Apple spatial video uses MV-HEVC in an MPEG-4 or QuickTime-family
-container plus spatial metadata; the metadata opts playback into Vision Pro's
-spatial presentation and comfort treatments.
+Apple recommends AVKit when an app wants the system player interface. This Viewer
+instead requires one custom surface with its own persistent controls, so RealityKit
+`VideoPlayerComponent` is the better fit. On visionOS 26 it supports standard and
+spatial/3D video, spatial styling, and portal presentation without manually
+rendering stereo eye views. An Apple spatial video uses MV-HEVC in an MPEG-4 or
+QuickTime-family container plus spatial metadata.
 
 The Destination Video sample demonstrates a native media library and player; its
 immersive environment is useful reference material but outside this MVP.
@@ -194,38 +195,68 @@ unchanged. The reliable first implementation is:
    variant UUID.
 4. Preserve `video/quicktime` as a local `.mov` file.
 5. Create `AVPlayerItem` from the local file URL.
-6. Present it in `AVPlayerViewController` with monoscopic-only mode disabled.
-7. Configure `experienceController.allowedExperiences = .recommended()`.
-8. Transition the experience controller from `.embedded` to `.expanded`, wait for
-   `.completed`, and only then call `play()` for either representation. AVKit uses
-   the item's metadata to present an ordinary item monoscopically and a valid
-   spatial item with depth.
-9. Keep ordinary and spatial sources in that same expanded player experience;
-   reconcile to `.embedded` only when the player is dismantled.
-10. Keep the `AVPlayer` and `AVPlayerViewController` alive across ordinary/spatial
-    source changes; replace only the current item, without an experience switch.
+6. Render the shared `AVPlayer` in a RealityKit `VideoPlayerComponent`.
+7. For ordinary sources, request `.mono` viewing and `.screen` spatial-video mode.
+8. For spatial MV-HEVC sources, request `.stereo` viewing, `.spatial`
+   spatial-video mode, and `.portal` immersive viewing mode.
+9. Keep the same `AVPlayer` across ordinary/spatial source changes, but install a
+   fresh component for each item generation and representation mode.
+10. Match Apple's RealityKit playback lifecycle: call `play()` only after both the
+    current `AVPlayerItem` is ready to play and the current component's rendering
+    status is ready. Reset both signals for each item generation and discard stale
+    callbacks after replacement.
+11. Replace only the current item; never launch a second player window.
     Loop defaults on as a viewer-wide XR setting, not media metadata, and survives
     navigation and source changes. At end-of-item, resume only after the
     seek-to-zero completion succeeds; invalidate stale completions when replacing
     the item.
-11. Remove the poster layer after the AVKit surface exists rather than stacking a
-    differently sized video surface over the preview.
-12. Put persistent gallery actions in an `AVPlayerViewController` custom **Gallery**
-    info view. Reserve `contextualActions` for time-specific playback actions; using
-    them for permanent Previous/Next controls overlays and obscures the video.
+12. Remove both the poster and the translucent SwiftUI media backdrop after the
+    RealityKit surface exists. Leaving that backdrop mounted at the same window
+    plane veils the RealityKit video with a persistent gray layer.
+13. Put all viewer-owned controls below the video and inset them from the bottom
+    corners. This avoids the system player's transient gray chrome and overlap with
+    visionOS window resizing.
 
-Setting `requiresMonoscopicViewingMode = false` is necessary but does not itself
-request spatial presentation. The physical-device regression in issue #8 confirmed
-that a valid spatial MV-HEVC asset remains monoscopic in the embedded player until
-the AVKit experience transition occurs; the unified player therefore stays expanded
-for both source types.
+Physical-device inspection confirmed that the app-cached MV-HEVC file was
+byte-for-byte identical to the source file that Photos plays spatially. The
+`-11829` / `-12848` failure therefore came from the AVKit presentation path, not
+download corruption. visionOS 26 exposes the required stereo, spatial styling, and
+portal controls directly on RealityKit `VideoPlayerComponent`, which also supports
+a custom playback UI.
+
+The visionOS 26.5 Simulator returns the same `-11829` / `-12848` failure for a
+valid managed MV-HEVC asset. The exact failing cache file parses and decodes with
+FFmpeg, and macOS AVFoundation reports it playable, ruling out a truncated or
+corrupt download. Apple documents a separate frame-reading sample for previewing
+and testing MV-HEVC without supported hardware; based on that documentation and
+the runtime evidence, the XR app treats real-time Simulator spatial playback as
+unsupported. Simulator selects and prefetches the ordinary representation, while
+physical Vision Pro continues to select spatial video by default.
+
+Audio is not created by spatial playback. The affected managed variants contained
+AAC-LC stereo, but GPAC had authored an ISO/MPEG-style version-0 `mp4a` sample
+entry inside the final QuickTime movie. Apple playback therefore did not expose or
+decode the otherwise valid AAC stream. The converter now imports audio with
+`asemode=v1-qt`, producing the QuickTime version-1 `mp4a` structure Apple expects.
+A repaired Gallery variant has been verified on physical Vision Pro: the same
+RealityKit surface presents spatial depth and plays its embedded AAC audio. The
+player's dual item/render readiness gate keeps video and audio startup aligned, but
+the conversion pipeline remains responsible for preserving and correctly muxing
+source audio; XR never borrows audio from the ordinary variant.
+
+See [Spatial Video AAC conformance](spatial-video-aac-conformance.md) for the
+controlled remux evidence and the required converter regression checks.
 
 Primary sources:
 
 - [Adopting the system player interface in visionOS](https://developer.apple.com/documentation/avkit/adopting-the-system-player-interface-in-visionos)
 - [Playing immersive media with AVKit](https://developer.apple.com/documentation/avkit/playing-immersive-media-with-avkit)
+- [Playing immersive media with RealityKit](https://developer.apple.com/documentation/visionos/playing-immersive-media-with-realitykit)
+- [`VideoPlayerComponent`](https://developer.apple.com/documentation/realitykit/videoplayercomponent)
+- [Rendering stereoscopic video with RealityKit](https://developer.apple.com/documentation/realitykit/rendering-stereoscopic-video-with-realitykit)
 - [Support immersive video playback in visionOS apps — WWDC25](https://developer.apple.com/videos/play/wwdc2025/296/)
 - [Converting side-by-side 3D video to multiview HEVC and spatial video](https://developer.apple.com/documentation/avfoundation/converting-side-by-side-3d-video-to-multiview-hevc-and-spatial-video)
+- [Reading multiview 3D video files](https://developer.apple.com/documentation/avfoundation/reading-multiview-3d-video-files)
 - [Destination Video](https://developer.apple.com/documentation/visionos/destination-video)
 - [`AVPlayerItem`](https://developer.apple.com/documentation/avfoundation/avplayeritem)
 

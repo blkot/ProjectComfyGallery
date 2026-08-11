@@ -167,6 +167,29 @@ final class DomainContractTests: XCTestCase {
         XCTAssertEqual(notReady.selectedVideoPlaybackSource?.representation, .ordinary)
     }
 
+    @MainActor
+    func testUnsupportedPlaybackPlatformFallsBackToOrdinaryVideo() throws {
+        let environment = try AppEnvironment(
+            container: PersistenceFactory.makeContainer(inMemory: true)
+        )
+        let model = AppModel(
+            environment: environment,
+            supportsSpatialVideoPlayback: false
+        )
+        model.viewer.detail = try videoDetail(
+            prefersSpatial: false,
+            spatialAvailable: true,
+            variantID: UUID(),
+            variantStatus: "ready"
+        )
+
+        XCTAssertFalse(model.supportsSpatialVideoPlayback)
+        XCTAssertEqual(
+            model.currentVideoPlaybackSource?.representation,
+            .ordinary
+        )
+    }
+
     func testPreferenceMutationPlanWritesOnlyChangedIndependentFields() {
         let desired = MediaPreferences(
             favorite: false,
@@ -555,9 +578,149 @@ final class VideoPlaybackExperienceTests: XCTestCase {
         model.player.stop()
     }
 
-    func testVideoPreviewIsRemovedOnceAVKitPlayerExists() {
+    func testVideoPreviewIsRemovedOnceVideoPlayerExists() {
         XCTAssertTrue(VideoSurfaceLayerPolicy.showsPreview(hasPlayer: false))
         XCTAssertFalse(VideoSurfaceLayerPolicy.showsPreview(hasPlayer: true))
+    }
+
+    func testActiveRealityKitVideoDoesNotMountTranslucentBackdrop() {
+        XCTAssertFalse(
+            VideoSurfaceLayerPolicy.showsBackdrop(
+                hasSpatialPresentation: false,
+                hasVideoPlayer: true
+            )
+        )
+        XCTAssertTrue(
+            VideoSurfaceLayerPolicy.showsBackdrop(
+                hasSpatialPresentation: false,
+                hasVideoPlayer: false
+            )
+        )
+        XCTAssertFalse(
+            VideoSurfaceLayerPolicy.showsBackdrop(
+                hasSpatialPresentation: true,
+                hasVideoPlayer: false
+            )
+        )
+    }
+
+    func testOrdinaryAndSpatialVideoUseOneRealityKitSurface() {
+        XCTAssertEqual(
+            VideoRenderingSurfacePolicy.surface(for: .ordinary),
+            .realityKit
+        )
+        XCTAssertEqual(
+            VideoRenderingSurfacePolicy.surface(
+                for: .spatial(variantID: UUID())
+            ),
+            .realityKit
+        )
+    }
+
+    func testRealityKitSurfaceUsesScreenForOrdinaryAndPortalForSpatialVideo() {
+        XCTAssertEqual(
+            RealityVideoPresentationPolicy.mode(for: .ordinary),
+            .monoScreen
+        )
+        XCTAssertEqual(
+            RealityVideoPresentationPolicy.mode(
+                for: .spatial(variantID: UUID())
+            ),
+            .spatialPortal
+        )
+    }
+
+    func testRealityKitVideoScalingFitsWithoutChangingAspectRatio() {
+        XCTAssertEqual(
+            RealityVideoPresentationScaler.scale(
+                presentationSize: SIMD2(1, 2),
+                availableSize: SIMD2(3, 4)
+            ),
+            SIMD3(repeating: 2)
+        )
+        XCTAssertEqual(
+            RealityVideoPresentationScaler.scale(
+                presentationSize: .zero,
+                availableSize: SIMD2(3, 4)
+            ),
+            SIMD3(repeating: 1)
+        )
+    }
+
+    func testEveryVideoLoadAdvancesRealityKitItemGeneration() {
+        let controller = PlayerController()
+        let initialGeneration = controller.itemGeneration
+
+        controller.load(
+            fileURL: URL(fileURLWithPath: "/tmp/ordinary-generation.mp4"),
+            autoplay: false,
+            presentation: .embedded
+        )
+        let ordinaryGeneration = controller.itemGeneration
+        controller.load(
+            fileURL: URL(fileURLWithPath: "/tmp/spatial-generation.mov"),
+            autoplay: false,
+            presentation: .expanded
+        )
+
+        XCTAssertGreaterThan(ordinaryGeneration, initialGeneration)
+        XCTAssertGreaterThan(controller.itemGeneration, ordinaryGeneration)
+        controller.stop()
+    }
+
+    func testAutoplayWaitsForPlayerItemAndRealityKitRenderingReadiness() {
+        let controller = PlayerController()
+        controller.load(
+            fileURL: URL(fileURLWithPath: "/tmp/spatial-readiness.mov"),
+            autoplay: true,
+            presentation: .expanded
+        )
+
+        controller.startPlaybackIfAppropriate()
+
+        XCTAssertFalse(controller.isPlaying)
+        let itemGeneration = controller.itemGeneration
+        controller.updatePlayerItemReadiness(
+            isReady: true,
+            itemGeneration: itemGeneration
+        )
+        XCTAssertFalse(controller.isPlaying)
+        controller.updateVideoRenderingReadiness(
+            isReady: true,
+            itemGeneration: itemGeneration
+        )
+        XCTAssertTrue(controller.isPlaying)
+        controller.stop()
+    }
+
+    func testPlaybackReadinessRequiresBothCurrentGenerationSignals() {
+        var readiness = VideoPlaybackReadiness()
+        readiness.reset(for: 7)
+
+        XCTAssertFalse(readiness.isReady)
+        XCTAssertTrue(
+            readiness.updatePlayerItem(isReady: true, itemGeneration: 7)
+        )
+        XCTAssertFalse(readiness.isReady)
+        XCTAssertTrue(
+            readiness.updateVideoRendering(isReady: true, itemGeneration: 7)
+        )
+        XCTAssertTrue(readiness.isReady)
+    }
+
+    func testPlaybackReadinessRejectsCallbacksFromReplacedItems() {
+        var readiness = VideoPlaybackReadiness()
+        readiness.reset(for: 7)
+        readiness.reset(for: 8)
+
+        XCTAssertFalse(
+            readiness.updatePlayerItem(isReady: true, itemGeneration: 7)
+        )
+        XCTAssertFalse(
+            readiness.updateVideoRendering(isReady: true, itemGeneration: 7)
+        )
+        XCTAssertFalse(readiness.isReady)
+        XCTAssertEqual(readiness.itemGeneration, 8)
     }
 
     func testExpandedPlayerOffersGalleryNavigationAndLoopActions() {
@@ -604,10 +767,37 @@ final class VideoPlaybackExperienceTests: XCTestCase {
         )
     }
 
-    func testOrdinaryAndSpatialVideosUseOneExpandedPlayerExperience() {
+    func testUnchangedGalleryActionStateDoesNotRebuildPlayerUI() {
+        let state = VideoPlaybackContextActionState(
+            canGoPrevious: true,
+            canGoNext: true,
+            isLooping: true,
+            isFavorite: false,
+            isSpatialPlaybackActive: true,
+            spatialVariantAvailable: true,
+            isPreferenceSyncing: false
+        )
+
+        XCTAssertTrue(
+            VideoPlaybackActionRefreshPolicy.shouldRefresh(
+                hasConfigured: false,
+                currentState: .empty,
+                newState: state
+            )
+        )
+        XCTAssertFalse(
+            VideoPlaybackActionRefreshPolicy.shouldRefresh(
+                hasConfigured: true,
+                currentState: state,
+                newState: state
+            )
+        )
+    }
+
+    func testSpatialPlaybackGetsAFreshExpandedVideoComponent() {
         XCTAssertEqual(
             VideoPlaybackPresentationPolicy.presentation(for: .ordinary),
-            .expanded
+            .embedded
         )
         XCTAssertEqual(
             VideoPlaybackPresentationPolicy.presentation(
@@ -663,7 +853,10 @@ final class VideoPlaybackExperienceTests: XCTestCase {
     func testSpatialVideoOverrideKeepsPlayerAliveWithoutWritingPreference() async throws {
         let container = try PersistenceFactory.makeContainer(inMemory: true)
         let environment = try AppEnvironment(container: container)
-        let model = AppModel(environment: environment)
+        let model = AppModel(
+            environment: environment,
+            supportsSpatialVideoPlayback: true
+        )
         let profile = ServerProfile(baseURL: URL(string: "http://127.0.0.1:1")!)
         let mediaID = UUID()
         let variantID = UUID()

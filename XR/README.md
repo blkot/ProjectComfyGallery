@@ -6,7 +6,7 @@
 
 **Target:** Apple Vision Pro, visionOS 26 or later
 
-**Recommended stack:** Swift 6, SwiftUI, RealityKit, AVKit, URLSession, SwiftData
+**Recommended stack:** Swift 6, SwiftUI, RealityKit, AVFoundation, URLSession, SwiftData
 
 ## Purpose
 
@@ -20,8 +20,8 @@ self-hosted gallery. Its first MVP is intentionally focused:
 5. Navigate with explicit controls or an indirect look-pinch-drag gesture.
 6. Preload neighboring media and cross pagination boundaries without visible stalls.
 7. Optionally convert a compatible 2D image into an on-device spatial scene.
-8. Play a stored Apple spatial MV-HEVC variant when the backend reports it ready
-   and the user prefers spatial playback, with explicit ordinary-video fallback.
+8. Play a stored Apple spatial MV-HEVC variant by default when the backend reports
+   it ready, with an explicit session-only ordinary-video fallback.
 
 Evaluation, workflow metadata, model information, imports, administration, and
 analytics are outside the first XR milestone.
@@ -29,15 +29,21 @@ analytics are outside the first XR milestone.
 ## Platform decision
 
 Build a native visionOS application. SwiftUI supplies the window and spatial scene
-model, RealityKit supplies image/spatial-scene presentation, and AVKit supplies the
-system video player. A web wrapper cannot provide the same spatial window
+model, RealityKit supplies image, spatial-scene, and video presentation, and
+AVFoundation supplies media playback. A web wrapper cannot provide the same spatial window
 restoration, hover behavior, RealityKit spatial-scene generation, or native media
 presentation.
 
 The minimum target is visionOS 26 because Apple introduced
 `ImagePresentationComponent.Spatial3DImage` for converting 2D images into spatial
 scenes in that release. Development and ordinary UI testing can use Simulator, but
-spatial-scene generation must be verified on physical Apple Vision Pro hardware.
+spatial-scene generation and MV-HEVC spatial-video playback must be verified on
+physical Apple Vision Pro hardware. The visionOS 26.5 Simulator rejects otherwise
+valid spatial MOV files with AVFoundation `-11829` / `-12848`, so the app selects
+the ordinary video source there and omits the spatial representation action.
+The RealityKit playback path has been verified on physical Vision Pro with a
+repaired MV-HEVC variant: spatial depth, autoplay, looping, and embedded AAC audio
+all play through the same viewer surface.
 
 ## What “spatially anchored” means in the MVP
 
@@ -117,17 +123,18 @@ The current server implementation remains authoritative:
 - Stored spatial video is selected by default whenever `spatial_available` and a
   ready `spatial_video` variant are present; XR currently ignores
   `prefer_spatial_playback` for video selection.
-- Both ordinary and stored spatial video use one AVKit expanded player experience.
-  The active item's spatial metadata determines whether AVKit presents monoscopic
-  or spatial content; switching representations does not switch player UIs.
-- Ordinary/spatial switching keeps the same AVPlayer and AVPlayerViewController,
-  replaces only the current item, preserves the viewer-wide Loop setting, and
-  removes the poster before the system player surface is shown. Loop defaults on,
-  is local XR playback state rather than a media/backend field, and survives
-  navigation to another video during the app session.
-- Expanded playback exposes Previous, Next, Loop, Favorite, and spatial/2D actions
-  in an AVKit **Gallery** info panel. Persistent gallery buttons are not placed in
-  AVKit's contextual overlay, so they do not cover the video.
+- Ordinary and stored spatial video use one `AVPlayer` rendered by RealityKit's
+  `VideoPlayerComponent`; the Viewer never launches a second system-player UI.
+  Ordinary sources request mono screen presentation. Spatial sources request
+  stereo viewing, spatial styling, and the portal immersive mode.
+- Ordinary/spatial switching keeps the same `AVPlayer`, replaces its current item,
+  and installs a fresh component for that item generation. The viewer-wide Loop
+  setting defaults on, is local XR playback state rather than a media/backend
+  field, and survives navigation to another video during the app session.
+- Play/Pause, Previous, Next, Loop, Favorite, and spatial/2D actions remain in the
+  separate controls region below the video. No transient system chrome or gallery
+  control is placed over the video surface, and the bottom window corners remain
+  clear for resize affordances.
 - **Play in 2D** is a temporary in-viewer override; revisiting a media defaults back
   to its valid spatial variant and no playback-preference field is written.
 - The backend still stores Favorite and playback preference independently for
@@ -152,11 +159,11 @@ The first useful build can:
 - restore the Library window where the user placed it;
 - page a large mixed image/video library smoothly;
 - open one resizable Media card beside the Library;
-- contain images and play videos with system controls;
+- contain images and play videos with viewer-owned controls below the media;
 - select and locally cache an active spatial MV-HEVC variant without changing the
   logical media item or ordinary playback endpoint;
-- transition the system player to AVKit's expanded experience before starting
-  video, and keep that experience while switching ordinary/spatial sources;
+- render both representations through one RealityKit video surface, with portal
+  spatial styling for valid MV-HEVC variants;
 - let the user switch a spatial-capable video between spatial and ordinary playback;
 - auto-play the newly selected video and stop the previous one;
 - navigate through page boundaries with buttons and look-pinch-drag;
@@ -196,5 +203,7 @@ The generated Xcode project is kept in this directory so Xcode can open it direc
 `project.yml` remains the source of truth for target and build settings. Simulator
 can verify connection, library, viewer, gesture, playback, restoration, and
 accessibility behavior. **Make Spatial** intentionally reports unavailable in
-Simulator; validate generation, surface snapping/locking, comfort, and final AVKit
-behavior on physical Apple Vision Pro hardware.
+Simulator. A video record with a ready spatial variant intentionally uses its
+ordinary source in Simulator; validate generation, MV-HEVC spatial presentation,
+surface snapping/locking, comfort, and final video behavior on physical Apple
+Vision Pro hardware.

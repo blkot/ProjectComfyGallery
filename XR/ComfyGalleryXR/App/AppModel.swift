@@ -88,6 +88,16 @@ struct ViewerFeatureState {
     }
 }
 
+enum VideoPlaybackRuntimeCapabilities {
+    static var supportsSpatialVideoPlayback: Bool {
+        #if targetEnvironment(simulator)
+        false
+        #else
+        true
+        #endif
+    }
+}
+
 @MainActor
 @Observable
 final class AppModel {
@@ -101,6 +111,7 @@ final class AppModel {
     let environment: AppEnvironment
     let player = PlayerController()
     let spatial = SpatialImageController()
+    let supportsSpatialVideoPlayback: Bool
 
     /// Viewer-wide video playback preference. This is intentionally not stored
     /// on a Gallery media record and survives navigation between media items.
@@ -126,8 +137,13 @@ final class AppModel {
     @ObservationIgnored private var preferenceSyncTasks: [UUID: Task<Void, Never>] = [:]
     @ObservationIgnored private var videoSourceGeneration = 0
 
-    init(environment: AppEnvironment) {
+    init(
+        environment: AppEnvironment,
+        supportsSpatialVideoPlayback: Bool = VideoPlaybackRuntimeCapabilities
+            .supportsSpatialVideoPlayback
+    ) {
         self.environment = environment
+        self.supportsSpatialVideoPlayback = supportsSpatialVideoPlayback
         let restored = environment.persistence.loadLibraryState()
         library.scope = restored.0
         library.scrollAnchor = restored.1
@@ -466,6 +482,7 @@ final class AppModel {
 
     func toggleSpatialPlaybackForCurrentVideo() {
         guard
+            supportsSpatialVideoPlayback,
             let detail = viewer.detail,
             detail.kind == .video
         else {
@@ -496,7 +513,7 @@ final class AppModel {
             return nil
         }
         return detail.videoPlaybackSource(
-            forceOrdinary: ordinaryVideoOverrideMediaID == detail.id
+            forceOrdinary: shouldForceOrdinaryVideo(for: detail)
         )
     }
 
@@ -586,7 +603,7 @@ final class AppModel {
 
         videoSourceGeneration += 1
         let generation = videoSourceGeneration
-        let forceOrdinary = ordinaryVideoOverrideMediaID == mediaID
+        let forceOrdinary = shouldForceOrdinaryVideo(for: detail)
         videoSourceSwitchTask?.cancel()
         viewer.videoIsPreparing = true
         viewer.videoPlaybackError = nil
@@ -672,7 +689,7 @@ final class AppModel {
                 let fileURL = try await environment.mediaRepository.videoFile(
                     profileID: profile.id,
                     media: detail,
-                    forceOrdinary: ordinaryVideoOverrideMediaID == detail.id
+                    forceOrdinary: shouldForceOrdinaryVideo(for: detail)
                 )
                 guard generation == viewerGeneration else { return }
                 let presentation = VideoPlaybackPresentationPolicy.presentation(
@@ -741,11 +758,14 @@ final class AppModel {
                 media: detail,
                 targetPixelSize: CGSize(width: 1_200, height: 1_200)
             )
-            if (detail.selectedVideoPlaybackSource?.byteSize ?? detail.byteSize)
-                <= 40 * 1_024 * 1_024 {
+            let videoSource = detail.videoPlaybackSource(
+                forceOrdinary: !supportsSpatialVideoPlayback
+            )
+            if (videoSource?.byteSize ?? detail.byteSize) <= 40 * 1_024 * 1_024 {
                 _ = try? await environment.mediaRepository.videoFile(
                     profileID: profile.id,
-                    media: detail
+                    media: detail,
+                    forceOrdinary: !supportsSpatialVideoPlayback
                 )
             }
         } else if detail.kind == .image {
@@ -755,6 +775,10 @@ final class AppModel {
                 targetPixelSize: CGSize(width: 1_600, height: 1_600)
             )
         }
+    }
+
+    private func shouldForceOrdinaryVideo(for detail: XRMediaDetail) -> Bool {
+        !supportsSpatialVideoPlayback || ordinaryVideoOverrideMediaID == detail.id
     }
 
     private func apply(page: MediaPage, replacing: Bool) {

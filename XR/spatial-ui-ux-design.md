@@ -145,38 +145,35 @@ second card.
 ### Video state
 
 - Show poster/loading state immediately.
-- Present `AVPlayerViewController`.
+- Present one RealityKit `VideoPlayerComponent` surface.
 - When the active detail has a ready spatial variant, load that MV-HEVC `.mov` by
   default; the backend playback-preference field is not consulted for video yet.
   A temporary in-viewer 2D override may select ordinary `playback_url`.
-- Configure the player view controller's recommended AVKit experiences.
-- Transition from `.embedded` to `.expanded` and auto-play only after the
-  transition completes, for both ordinary and spatial sources.
-- Keep ordinary and spatial playback in that one expanded AVKit experience. The
-  active item's spatial metadata determines whether its presentation has depth.
-- Keep one `AVPlayer` and one `AVPlayerViewController` alive while switching
-  ordinary/spatial representations; replace only the current item without changing
-  player experiences.
+- In Simulator, select the ordinary representation and omit the representation
+  action. Spatial/2D switching is exposed only where MV-HEVC spatial playback is
+  supported: physical Apple Vision Pro.
+- Configure ordinary sources as mono screen video. Configure spatial sources as
+  stereo spatial video in portal mode.
+- Keep one `AVPlayer` alive while switching ordinary/spatial representations;
+  replace only the current item and attach a fresh component for its generation.
 - Enable Loop by default and treat it as one viewer-wide playback setting, not
   media metadata. Preserve the user's current setting across media navigation and
   representation switches for the app session. Wait for seek-to-zero to complete
   before restarting, and reject stale completions after item replacement or
   deactivation.
-- Remove the poster layer once the AVKit surface exists. Never leave a differently
+- Remove the poster layer once the RealityKit surface exists. Never leave a differently
   sized preview visible behind the player.
-- Use system playback controls.
-- Leave monoscopic-only viewing disabled so Vision Pro can honor valid spatial
-  metadata; this flag permits spatial viewing but does not replace the explicit
-  experience transition.
+- Use viewer-owned playback controls below the media.
 - Pause when the scene becomes inactive or navigation begins.
 - Do not auto-play neighbor videos during prefetch.
 - Do not place custom buttons over the player surface.
-- Let the AVKit surface fill the clean media region without an app-defined inset
+- Let the RealityKit surface fill the clean media region without an app-defined inset
   frame; keep gallery actions in the separate controls region below it.
-- When AVKit enters `.expanded`, expose the same actions in its custom **Gallery**
-  info view: Previous, Next, Loop, Favorite, and the spatial/2D representation
-  action. Do not use the contextual overlay for these persistent controls. The
-  actions remain backed by the same `AppModel` and active `AVPlayer` session.
+- Expose Play/Pause, Previous, Next, Loop, Favorite, and the spatial/2D action in
+  that lower region. Do not present transient system-player chrome over the media.
+  Inset the control strip from both bottom corners so resize affordances remain
+  reachable. The actions remain backed by the same `AppModel` and active
+  `AVPlayer` session.
 
 ### Bottom ornament
 
@@ -210,7 +207,7 @@ The user's “pinch and drag” is implemented as a normal SwiftUI horizontal
 
 - Begin only within the media navigation region.
 - Ignore primarily vertical motion.
-- Do not attach navigation to AVKit transport controls.
+- Do not attach navigation to the lower playback-controls region.
 - A practical starting threshold is the smaller of 120 points or 20% of card width.
 - A high predicted end velocity may commit slightly before the distance threshold.
 - Below threshold, spring/fade back to the current item.

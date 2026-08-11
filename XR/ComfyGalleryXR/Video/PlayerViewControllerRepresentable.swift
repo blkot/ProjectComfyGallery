@@ -9,12 +9,9 @@ enum VideoPlaybackPresentation: Equatable, Sendable {
 
 enum VideoPlaybackPresentationPolicy {
     static func presentation(
-        for _: VideoPlaybackRepresentation
+        for representation: VideoPlaybackRepresentation
     ) -> VideoPlaybackPresentation {
-        // Both ordinary and spatial sources stay in one system-player experience.
-        // AVKit reads the item's spatial metadata and presents ordinary items
-        // monoscopically without forcing an embedded/expanded player transition.
-        .expanded
+        representation.isSpatial ? .expanded : .embedded
     }
 }
 
@@ -116,6 +113,16 @@ enum VideoPlaybackActionLayoutPolicy {
             contextualActions: [],
             galleryInfoActions: actions
         )
+    }
+}
+
+enum VideoPlaybackActionRefreshPolicy {
+    static func shouldRefresh(
+        hasConfigured: Bool,
+        currentState: VideoPlaybackContextActionState,
+        newState: VideoPlaybackContextActionState
+    ) -> Bool {
+        !hasConfigured || currentState != newState
     }
 }
 
@@ -371,7 +378,7 @@ struct PlayerViewControllerRepresentable: UIViewControllerRepresentable {
         private weak var controller: AVPlayerViewController?
         private var contextualActionState = VideoPlaybackContextActionState.empty
         private var contextualActionHandlers = VideoPlaybackContextActionHandlers()
-        private let galleryActionsController = GalleryPlaybackActionsViewController()
+        private var hasConfiguredPlayerActions = false
         private lazy var playbackExperience =
             VideoPlaybackExperienceCoordinator(experience: self)
 
@@ -391,7 +398,6 @@ struct PlayerViewControllerRepresentable: UIViewControllerRepresentable {
             self.controller = controller
             controller.experienceController.allowedExperiences = .recommended()
             controller.experienceController.delegate = self
-            controller.customInfoViewControllers = [galleryActionsController]
         }
 
         func update(
@@ -402,9 +408,17 @@ struct PlayerViewControllerRepresentable: UIViewControllerRepresentable {
             contextualActionState: VideoPlaybackContextActionState,
             contextualActionHandlers: VideoPlaybackContextActionHandlers
         ) {
+            let shouldRefreshActions = VideoPlaybackActionRefreshPolicy.shouldRefresh(
+                hasConfigured: hasConfiguredPlayerActions,
+                currentState: self.contextualActionState,
+                newState: contextualActionState
+            )
             self.contextualActionState = contextualActionState
             self.contextualActionHandlers = contextualActionHandlers
-            configurePlayerActions()
+            if shouldRefreshActions {
+                configurePlayerActions()
+                hasConfiguredPlayerActions = true
+            }
             playbackExperience.update(
                 player: player,
                 presentation: presentation,
@@ -418,21 +432,16 @@ struct PlayerViewControllerRepresentable: UIViewControllerRepresentable {
             let layout = VideoPlaybackActionLayoutPolicy.layout(
                 for: contextualActionState
             )
-            controller.contextualActions = layout.contextualActions
-                .map { descriptor in
-                    UIAction(
-                        title: descriptor.title,
-                        image: UIImage(systemName: descriptor.systemImage),
-                        identifier: UIAction.Identifier(descriptor.id.rawValue),
-                        attributes: descriptor.isEnabled ? [] : [.disabled]
-                    ) { [weak self] _ in
-                        self?.invokeContextualAction(descriptor.id)
-                    }
+            controller.contextualActions = []
+            controller.infoViewActions = layout.galleryInfoActions.map { descriptor in
+                UIAction(
+                    title: descriptor.title,
+                    image: UIImage(systemName: descriptor.systemImage),
+                    identifier: UIAction.Identifier(descriptor.id.rawValue),
+                    attributes: descriptor.isEnabled ? [] : [.disabled]
+                ) { [weak self] _ in
+                    self?.invokeContextualAction(descriptor.id)
                 }
-            galleryActionsController.update(
-                descriptors: layout.galleryInfoActions
-            ) { [weak self] id in
-                self?.invokeContextualAction(id)
             }
         }
 
@@ -514,68 +523,6 @@ struct PlayerViewControllerRepresentable: UIViewControllerRepresentable {
         override func viewDidAppear(_ animated: Bool) {
             super.viewDidAppear(animated)
             onViewDidAppear?()
-        }
-    }
-}
-
-@MainActor
-private final class GalleryPlaybackActionsViewController: UIViewController {
-    private let actionStack = UIStackView()
-
-    init() {
-        super.init(nibName: nil, bundle: nil)
-        title = "Gallery"
-        preferredContentSize = CGSize(width: 760, height: 92)
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        view.backgroundColor = .clear
-        actionStack.axis = .horizontal
-        actionStack.alignment = .center
-        actionStack.distribution = .fillEqually
-        actionStack.spacing = 12
-        actionStack.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(actionStack)
-        NSLayoutConstraint.activate([
-            actionStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
-            actionStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
-            actionStack.topAnchor.constraint(equalTo: view.topAnchor, constant: 12),
-            actionStack.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -12),
-        ])
-    }
-
-    func update(
-        descriptors: [VideoPlaybackContextActionDescriptor],
-        perform: @escaping @MainActor (VideoPlaybackContextActionID) -> Void
-    ) {
-        loadViewIfNeeded()
-        for arrangedView in actionStack.arrangedSubviews {
-            actionStack.removeArrangedSubview(arrangedView)
-            arrangedView.removeFromSuperview()
-        }
-
-        for descriptor in descriptors {
-            var configuration = UIButton.Configuration.bordered()
-            configuration.title = descriptor.title
-            configuration.image = UIImage(systemName: descriptor.systemImage)
-            configuration.imagePadding = 8
-            let action = UIAction(
-                title: descriptor.title,
-                image: UIImage(systemName: descriptor.systemImage),
-                identifier: UIAction.Identifier(descriptor.id.rawValue)
-            ) { _ in
-                perform(descriptor.id)
-            }
-            let button = UIButton(configuration: configuration, primaryAction: action)
-            button.isEnabled = descriptor.isEnabled
-            button.accessibilityIdentifier = "player.gallery.\(descriptor.id.rawValue)"
-            actionStack.addArrangedSubview(button)
         }
     }
 }

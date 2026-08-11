@@ -4,6 +4,24 @@ enum VideoSurfaceLayerPolicy {
     static func showsPreview(hasPlayer: Bool) -> Bool {
         !hasPlayer
     }
+
+    static func showsBackdrop(
+        hasSpatialPresentation: Bool,
+        hasVideoPlayer: Bool
+    ) -> Bool {
+        !hasSpatialPresentation && !hasVideoPlayer
+    }
+}
+
+enum VideoRenderingSurface: Equatable {
+    case avKit
+    case realityKit
+}
+
+enum VideoRenderingSurfacePolicy {
+    static func surface(for representation: VideoPlaybackRepresentation) -> VideoRenderingSurface {
+        .realityKit
+    }
 }
 
 struct MediaViewerView: View {
@@ -14,13 +32,17 @@ struct MediaViewerView: View {
 
     @GestureState private var dragOffset: CGFloat = 0
     @State private var showSpatialExplanation = false
+    @State private var videoPresentation = RealityVideoPresentationController()
     @AppStorage("hasExplainedSpatialGeneration") private var hasExplainedSpatialGeneration = false
 
     var body: some View {
         VStack(spacing: 0) {
             GeometryReader { proxy in
                 ZStack {
-                    if !model.spatial.hasPresentationComponent {
+                    if VideoSurfaceLayerPolicy.showsBackdrop(
+                        hasSpatialPresentation: model.spatial.hasPresentationComponent,
+                        hasVideoPlayer: model.player.player != nil
+                    ) {
                         Color.black.opacity(0.82)
                     }
                     viewerContent
@@ -119,16 +141,15 @@ struct MediaViewerView: View {
                         .scaledToFit()
                         .accessibilityLabel(mediaAccessibilityLabel)
                 }
-                if let player = model.player.player {
-                    PlayerViewControllerRepresentable(
-                        player: player,
-                        presentation: model.player.presentation,
-                        shouldAutoplay: model.player.shouldAutoplay,
-                        isActive: model.player.isActive,
-                        contextualActionState: videoContextualActionState,
-                        contextualActionHandlers: videoContextualActionHandlers
+                if model.player.player != nil {
+                    RealityVideoView(
+                        presentationController: videoPresentation,
+                        playbackController: model.player,
+                        representation: model.currentVideoPlaybackSource?.representation
+                            ?? .ordinary
                     )
                         .accessibilityLabel(mediaAccessibilityLabel)
+                        .allowsHitTesting(false)
                 }
                 if model.viewer.videoIsPreparing || model.viewer.image == nil {
                     ProgressView("Preparing video…")
@@ -137,7 +158,7 @@ struct MediaViewerView: View {
                         .padding()
                         .background(.ultraThinMaterial, in: Capsule())
                 }
-                if let message = model.viewer.videoPlaybackError {
+                if let message = model.viewer.videoPlaybackError ?? model.player.playbackError {
                     VStack {
                         Spacer()
                         Label(message, systemImage: "exclamationmark.triangle")
@@ -219,45 +240,11 @@ struct MediaViewerView: View {
             }
         }
         .buttonStyle(.borderless)
-        .padding(.horizontal, 18)
-        .padding(.vertical, 8)
+        // Keep the bottom corners free for visionOS window-resize affordances.
+        .padding(.horizontal, 44)
+        .padding(.top, 8)
+        .padding(.bottom, 18)
         .background(.regularMaterial)
-    }
-
-    private var videoContextualActionState: VideoPlaybackContextActionState {
-        guard let detail = model.viewer.detail, detail.kind == .video else {
-            return .empty
-        }
-        return VideoPlaybackContextActionState(
-            canGoPrevious: model.viewer.navigation?.previousID != nil,
-            canGoNext: model.viewer.navigation?.nextID != nil,
-            isLooping: model.isVideoLooping,
-            isFavorite: detail.favorite,
-            isSpatialPlaybackActive: model.isCurrentVideoPlayingSpatial,
-            spatialVariantAvailable: detail.activeSpatialVideoVariant != nil,
-            isPreferenceSyncing: model.isPreferenceSyncing(mediaID: detail.id)
-        )
-    }
-
-    private var videoContextualActionHandlers: VideoPlaybackContextActionHandlers {
-        let appModel = model
-        return VideoPlaybackContextActionHandlers(
-            previous: {
-                appModel.navigate(.previous)
-            },
-            next: {
-                appModel.navigate(.next)
-            },
-            loop: {
-                appModel.toggleVideoLooping()
-            },
-            favorite: {
-                appModel.toggleFavoriteForCurrentMedia()
-            },
-            spatial: {
-                appModel.toggleSpatialPlaybackForCurrentVideo()
-            }
-        )
     }
 
     private func controlRow(compact: Bool) -> some View {
@@ -288,6 +275,18 @@ struct MediaViewerView: View {
             .accessibilityIdentifier("viewer.next")
 
             if model.viewer.detail?.kind == .video {
+                Button {
+                    model.player.togglePlayback()
+                } label: {
+                    controlLabel(
+                        model.player.isPlaying ? "Pause" : "Play",
+                        systemImage: model.player.isPlaying ? "pause.fill" : "play.fill",
+                        compact: compact
+                    )
+                }
+                .frame(minHeight: 60)
+                .accessibilityIdentifier("viewer.playPause")
+
                 Button {
                     model.toggleVideoLooping()
                 } label: {
@@ -420,7 +419,10 @@ struct MediaViewerView: View {
                 .frame(minHeight: 60)
                 .accessibilityHint("Temporarily switches this viewer to the ordinary video.")
                 .accessibilityIdentifier("viewer.disableSpatialVideo")
-            } else if detail.activeSpatialVideoVariant != nil {
+            } else if
+                model.supportsSpatialVideoPlayback,
+                detail.activeSpatialVideoVariant != nil
+            {
                 Button {
                     model.toggleSpatialPlaybackForCurrentVideo()
                 } label: {
@@ -452,7 +454,7 @@ struct MediaViewerView: View {
     }
 
     private var gestureMask: GestureMask {
-        model.viewer.detail?.kind == .video ? .none : .all
+        .all
     }
 
     private func navigationGesture(cardWidth: CGFloat) -> some Gesture {
