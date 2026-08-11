@@ -72,8 +72,12 @@ actor MediaRepository {
         return try await cache.store(normalizedData, for: key, mimeType: "image/jpeg")
     }
 
-    func videoFile(profileID: UUID, media: XRMediaDetail) async throws -> URL {
-        guard let source = media.selectedVideoPlaybackSource else {
+    func videoFile(
+        profileID: UUID,
+        media: XRMediaDetail,
+        forceOrdinary: Bool = false
+    ) async throws -> URL {
+        guard let source = media.videoPlaybackSource(forceOrdinary: forceOrdinary) else {
             throw APIClientError.invalidResponse
         }
         let key: MediaCacheKey

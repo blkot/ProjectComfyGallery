@@ -174,11 +174,11 @@ URLSession and downsample to the display target.
 Ordinary `playback_url` may return a browser-compatible proxy or the original when
 no proxy exists. It never switches to MV-HEVC automatically.
 
-The detail response's `variants[]` contains active ready variants only. For a
-video, select its source with this fail-safe rule:
+The detail response's `variants[]` contains active ready variants only. For XR
+video playback, select its source with this fail-safe rule:
 
 ```text
-prefer_spatial_playback
+runtime supports MV-HEVC spatial playback
 && spatial_available
 && variants contains role=spatial_video, status=ready, nonempty content_url
     -> selected variant content_url
@@ -188,8 +188,15 @@ otherwise
 
 Do not construct a variant URL. Ignore unknown roles and use the server-provided
 `content_url`. If the availability projection and variant list ever disagree, the
-ordinary source wins. Preserve a true user preference across this fallback so a
-later valid replacement becomes eligible again.
+ordinary source wins. XR currently decodes `prefer_spatial_playback` for API
+compatibility but does not use it to choose a video by default. **Play in 2D** is a
+session-only local override; **Play Spatial** clears it.
+
+The current visionOS Simulator does not support this real-time MV-HEVC spatial
+presentation path. In Simulator, select and prefetch only `playback_url` and omit
+the spatial/2D representation action. This runtime fallback does not modify
+`spatial_available`, the ready variant, or any backend preference. Physical Apple
+Vision Pro continues to select the ready spatial variant by default.
 
 For MVP:
 
@@ -198,13 +205,28 @@ For MVP:
 3. Write to a temporary path.
 4. Atomically move into the bounded cache.
 5. Keep `video/quicktime` as `.mov`.
-6. Create `AVPlayerItem` from the local URL and present it with
-   `AVPlayerViewController`.
-7. Configure recommended AVKit experiences. For a stored spatial-video source,
-   transition to `.expanded` and wait for completion before playing; for an
-   ordinary source, reconcile to `.embedded`.
-8. When the preference changes, replace the current item in the existing
-   `AVPlayer`; do not destroy the player/controller or reset Loop.
+6. Create `AVPlayerItem` from the local URL and give the Viewer `AVPlayer` to a
+   RealityKit `VideoPlayerComponent`.
+7. For ordinary playback, request `.mono` viewing and `.screen` spatial-video mode.
+   For a valid spatial variant, request `.stereo` viewing, `.spatial` spatial-video
+   mode, and `.portal` immersive viewing mode.
+8. When the temporary representation override changes, replace the current item in
+   the existing `AVPlayer`, advance its item generation, and install a fresh
+   `VideoPlayerComponent`; do not reset the viewer-wide Loop setting, which defaults
+   on for each app session. The override is not sent to or stored by the backend.
+9. Start or resume playback only after both the current `AVPlayerItem` reports
+   `readyToPlay` and that item's RealityKit `VideoPlayerComponent` reports rendering
+   status `ready`. Reset both gates on every item generation and ignore callbacks
+   captured for a replaced generation.
+10. Keep Play/Pause, navigation, Favorite, Loop, and spatial-variant representation
+   controls in the SwiftUI region below the RealityKit surface. Keep that region
+   inset from the bottom window corners and never place playback chrome over the
+   video.
+11. Audio comes from the selected video representation itself. `AVPlayer` plays an
+    embedded audio track when one exists, but XR does not pair, synthesize, or mux
+    audio from the ordinary representation into a silent spatial variant. The
+    spatial-video generation pipeline must preserve or remux the source audio when
+    the final MV-HEVC asset is meant to have sound.
 
 Do not auto-play prefetched neighbors.
 
@@ -255,8 +277,8 @@ One XR image interaction intentionally writes both independent user fields:
   playback preference `true`;
 - Disable Spatial writes Favorite `false` and playback preference `false`;
 - Favorite remains independently editable between those image actions;
-- spatial-video Play Spatial / Play in 2D writes only playback preference and never
-  changes Favorite.
+- spatial-video Play Spatial / Play in 2D changes only the XR session’s temporary
+  representation override and never writes playback preference or Favorite.
 
 The client optimistically retains failed preference writes as retryable session
 intent, but it must write only the field or fields defined by the interaction. The

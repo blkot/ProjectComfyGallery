@@ -96,14 +96,14 @@ scenes without altering the backend original.
 
 1. Open a video whose detail response exposes an active ready `spatial_video`
    variant.
-2. When `prefer_spatial_playback` is true, download and play that variant through
-   the system AVKit player.
-3. Select **Play in 2D** to persist a false playback preference and replace the
-   active item with ordinary `playback_url` in the same AVKit player.
-4. Select **Play Spatial** to restore the preference and spatial variant without
-   rebuilding the player or clearing Loop.
-5. If the variant becomes unavailable while the preference remains true, play the
-   ordinary video and expose a way to disable the stale preference.
+2. Download and play that variant by default through the RealityKit video surface;
+   `prefer_spatial_playback` is not consulted for XR video selection yet.
+3. Select **Play in 2D** to temporarily override the current Viewer with ordinary
+   `playback_url` in the same player. This does not write a backend preference.
+4. Select **Play Spatial** to clear the temporary override without rebuilding the
+   player or clearing Loop.
+5. If the variant becomes unavailable, play the ordinary video and hide the spatial
+   action until a valid variant is available again.
 
 ### Return later
 
@@ -165,7 +165,8 @@ scenes without altering the backend original.
 - **XR-VIEW-001:** Image presentation MUST preserve aspect ratio and contain by
   default.
 - **XR-VIEW-002:** Viewer MUST respond continuously to window resize.
-- **XR-VIEW-003:** Video MUST use the system AVKit playback interface.
+- **XR-VIEW-003:** Video MUST use RealityKit `VideoPlayerComponent` with
+  viewer-owned controls below the media.
 - **XR-VIEW-004:** A newly active video MUST auto-play after it becomes ready.
 - **XR-VIEW-005:** Leaving a video MUST pause it, cancel observers, and release its
   player when outside the neighbor cache.
@@ -174,23 +175,44 @@ scenes without altering the backend original.
   within the card without opening another window.
 - **XR-VIEW-008:** Viewer MUST remain useful when Library is closed.
 - **XR-VIEW-009:** Video source selection MUST use a ready `spatial_video` variant
-  only when preference and availability are both true; all other states MUST use
-  ordinary `playback_url`.
-- **XR-VIEW-010:** Spatial and ordinary video MUST use the system AVKit interface;
-  the app MUST NOT split, reproject, or custom-render MV-HEVC eye views.
-- **XR-VIEW-011:** Changing video playback preference MUST reload the selected
-  representation without changing Favorite.
+  whenever one is available on physical Apple Vision Pro, regardless of
+  `prefer_spatial_playback`; ordinary `playback_url` is used when no valid variant
+  exists, the user has made a temporary in-viewer 2D override, or the app is
+  running in Simulator.
+- **XR-VIEW-010:** Spatial and ordinary video MUST use the same RealityKit surface;
+  the app MUST NOT split, reproject, or manually render MV-HEVC eye views.
+- **XR-VIEW-011:** The Viewer’s temporary Play Spatial/Play in 2D representation
+  override MUST reload the selected source without changing Favorite or writing
+  `prefer_spatial_playback`.
 - **XR-VIEW-012:** A missing, invalidated, or removed spatial variant MUST fall back
-  to ordinary video while preserving the stored user preference.
-- **XR-VIEW-013:** Before starting a selected spatial-video variant, the system
-  player MUST configure recommended AVKit experiences, transition to `.expanded`,
-  and wait for a completed transition.
-- **XR-VIEW-014:** Ordinary playback, navigation, source replacement, and Viewer
-  teardown MUST reconcile the player to `.embedded`; a stale asynchronous
-  transition MUST NOT start an obsolete player.
+  to ordinary video and clear any temporary spatial representation override.
+- **XR-VIEW-012A:** Simulator MUST select and prefetch the ordinary representation
+  and omit spatial/2D switching. This runtime fallback MUST NOT change backend
+  spatial availability or preference state.
+- **XR-VIEW-013:** The Viewer MUST render both ordinary and spatial video through
+  one RealityKit `VideoPlayerComponent` surface. Ordinary playback MUST request
+  mono screen presentation; spatial playback MUST request stereo spatial portal
+  presentation.
+- **XR-VIEW-014:** A changed player identity, item generation, or representation
+  MUST install a fresh video component, and stale source work MUST NOT start an
+  obsolete item.
 - **XR-VIEW-015:** Switching between ordinary and spatial representations MUST
-  preserve the active `AVPlayer`, `AVPlayerViewController`, and Loop setting. The
-  poster MUST stop rendering beneath the player after the player surface exists.
+  preserve the active `AVPlayer` and viewer-wide Loop setting. The poster MUST stop
+  rendering beneath the player after the RealityKit surface exists.
+- **XR-VIEW-016:** The Viewer MUST expose Play/Pause, Previous, Next, Loop, Favorite,
+  and spatial/2D representation actions below the media, with navigation and
+  variant availability reflected in their enabled state. Playback chrome MUST NOT
+  cover the video, and bottom-corner resize affordances MUST remain reachable.
+- **XR-VIEW-017:** Gallery action handlers MUST dispatch to the same viewer model
+  and active player session as the embedded controls; collapsing the expanded
+  experience MUST NOT be required to navigate, change Loop, or choose the temporary
+  2D override.
+- **XR-VIEW-018:** Loop MUST be a viewer-wide playback setting, not a media
+  record field, and MUST be enabled by default for each app session. Toggling it
+  MUST apply to every subsequently selected video and survive media navigation and
+  ordinary/spatial source changes for the current app session. End-of-item restart
+  MUST wait for a successful seek-to-zero completion, and a stale seek completion
+  MUST NOT resume a replaced or inactive item.
 
 ### Navigation
 
@@ -200,7 +222,7 @@ scenes without altering the backend original.
 - **XR-NAV-003:** Gesture navigation MUST require a clear distance or velocity
   threshold and spring back when canceled.
 - **XR-NAV-004:** A gesture MUST NOT be the only navigation method.
-- **XR-NAV-005:** Dragging the AVKit transport controls MUST NOT navigate.
+- **XR-NAV-005:** Dragging within the lower playback-controls region MUST NOT navigate.
 - **XR-NAV-006:** Navigation MUST use the current Library filter/sort scope.
 - **XR-NAV-007:** Navigation MUST cross unloaded Library page boundaries.
 - **XR-NAV-008:** At the scope boundary, the unavailable direction MUST be disabled.
@@ -299,10 +321,11 @@ files. They are not permission to hide truthful loading states.
 10. Cancel spatial generation by navigating away and confirm no stuck task/UI.
 11. Attempt incompatible dimensions/aspect and confirm Make Spatial is unavailable
     or fails safely.
-12. Open a validated MV-HEVC spatial video, verify the AVKit expanded experience
-    presents spatial depth, switch to embedded ordinary playback and back, then
+12. Open a validated MV-HEVC spatial video with compatible embedded audio, verify
+    the RealityKit portal presents spatial depth and plays that audio, switch to
+    ordinary playback and back in place, then
     remove or invalidate the variant and verify ordinary fallback without changing
-    Favorite or the stored preference.
+    Favorite or writing `prefer_spatial_playback`.
 13. Revoke the token, relaunch restored scenes, authenticate again, and recover the
     same Library/Media context.
 14. Inspect UI and logs and confirm no bearer token, filename, UUID, model/workflow

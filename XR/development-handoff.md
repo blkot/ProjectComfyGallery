@@ -233,40 +233,62 @@ Cache keys use server profile + media UUID + resource kind, never filename.
 
 ## Video implementation
 
-Apple recommends `AVPlayerViewController` for windowed visionOS playback. Wrap it for
-SwiftUI only where necessary.
+The Viewer uses RealityKit `VideoPlayerComponent` because it needs one custom video
+surface and app-owned controls for both ordinary and spatial playback.
 
 1. Display the cached poster immediately.
 2. Decode canonical `spatial_available`, `prefer_spatial_playback`, and active ready
-   `variants[]`; use the legacy preference alias only as a decode fallback.
-3. Select a ready `spatial_video` `content_url` only when both preference and
-   availability are true. Any missing or inconsistent condition selects ordinary
-   `playback_url`.
+   `variants[]`; use the legacy preference alias only as a decode fallback. Keep
+   the preference field for compatibility, but do not use it for video defaults.
+3. Select a ready `spatial_video` `content_url` whenever availability and the
+   ready variant agree. Any missing or inconsistent condition selects ordinary
+   `playback_url`; a temporary in-viewer 2D override may also select ordinary.
+   The visionOS 26.5 Simulator also forces the ordinary source because its
+   real-time player rejects valid MV-HEVC spatial assets with AVFoundation
+   `-11829` / `-12848`; physical Vision Pro keeps the spatial default.
 4. Download the selected path through authenticated URLSession.
 5. Atomically cache ordinary video by media UUID and spatial video by media plus
    variant UUID. Map `video/quicktime` to `.mov`.
 6. Create an `AVPlayerItem` and install it in the one Viewer `AVPlayer`.
-7. Keep `AVPlayerViewController.requiresMonoscopicViewingMode` false so valid
-   MV-HEVC spatial metadata is permitted, but do not treat that property as an
-   instruction to present spatially.
-8. Configure `experienceController.allowedExperiences = .recommended()`.
-9. For a selected spatial variant, transition to `.expanded` and call `play()` only
-   after `.completed`; for ordinary video, reconcile to `.embedded` before play.
-10. For an ordinary/spatial preference switch, keep the Viewer `AVPlayer` and
-    `AVPlayerViewController`, replace only the current item, and preserve Loop.
-11. Serialize source/experience transitions and identity-check completions so an
-    obsolete transition cannot start the wrong current item.
-12. Remove the poster as soon as the AVKit surface exists and let that surface fill
-    the media region without an app-defined inset.
-13. Pause and detach the old item before navigation commits, and return the
-    experience to `.embedded` when dismantling the player.
-14. Implement infinite looping without replacing the `AVPlayer`, so toggling Loop
-    does not discard the active spatial experience.
-15. Remove time/status observers on replacement and deinit.
-16. Pause when scene phase becomes inactive.
+7. Install the Viewer player in a RealityKit `VideoPlayerComponent`.
+8. Configure ordinary playback as `.mono` viewing with `.screen` spatial-video mode.
+9. Configure spatial playback as `.stereo` viewing with `.spatial` spatial-video
+   mode and `.portal` immersive viewing mode.
+10. For the temporary ordinary/spatial representation switch, keep the Viewer
+    `AVPlayer`, replace only the current item, advance an item-generation token, and
+    preserve the viewer-wide Loop setting. Do not write `prefer_spatial_playback`
+    for this interaction.
+11. Install a fresh `VideoPlayerComponent` whenever the player identity, item
+    generation, or representation mode changes so stale MV-HEVC rendering state
+    cannot survive source replacement.
+12. Gate autoplay and resume on both `AVPlayerItem.status == .readyToPlay` and
+    RealityKit rendering status `ready`. Reset the gate for every item generation;
+    callbacks captured by an older generation must not start or fail the new item.
+13. Remove the poster and translucent SwiftUI media backdrop as soon as the
+    RealityKit surface exists, scale the component uniformly, and let it fill the
+    clean media region. A backdrop left mounted at the same window plane produces
+    a persistent gray veil over the video.
+14. Keep Play/Pause, navigation, Favorite, Loop, and the spatial/2D action in the
+    SwiftUI controls region below the media. Do not overlay system-player chrome on
+    the video.
+15. Inset the controls from the bottom corners so visionOS window-resize affordances
+    remain reachable. Pause and detach the old item before navigation commits.
+16. Enable the viewer-wide Loop setting by default. Implement infinite looping
+    without replacing the `AVPlayer`: wait for the seek-to-zero completion before
+    resuming, and invalidate stale completions after item replacement. Toggling
+    Loop must not replace the active player or reset on navigation.
+17. Remove time/status observers on replacement and deinit.
+18. Pause when scene phase becomes inactive.
 
-Only the active player has audio. Prefetch downloads never instantiate playing
-players. Use the selected source's byte size for the prefetch budget.
+Only the active player has audio. Audio must be embedded in the selected ordinary
+or spatial asset; XR does not pair the ordinary representation's audio with a
+silent spatial variant. Prefetch downloads never instantiate playing players. Use
+the selected source's byte size for the prefetch budget.
+
+Physical Vision Pro acceptance confirms that a repaired spatial variant authored
+with a QuickTime version-1 `mp4a` audio sample entry plays spatially with its AAC
+audio through this RealityKit path. Treat missing audio from older variants as a
+converter/muxing migration concern, not an XR-side track-pairing feature.
 
 The deployed variant content endpoint supports byte ranges. If device testing proves
 full authenticated download too slow, add an authenticated AVFoundation resource
@@ -428,9 +450,12 @@ Never log media IDs alongside private content in production diagnostics.
 - Runtime spatial-image Favorite/preference coupling and spatial-video preference
   independence.
 - Spatial-video selection truth table and ordinary fallback.
-- Spatial-video expanded transition before autoplay, embedded return for 2D, and
-  stale-transition cancellation across source replacement.
-- Loop toggling preserves the active `AVPlayer` and presentation request.
+- RealityKit screen/portal configuration, fresh component installation for every
+  item generation, dual AVPlayerItem/render readiness gating, and stale-source
+  rejection across representation replacement.
+- Loop toggling updates one viewer-wide setting, preserves it across the active
+  `AVPlayer` and subsequent navigation, waits for seek completion, and rejects
+  stale completion after item replacement.
 - Variant-safe cache identity and QuickTime `.mov` mapping.
 - Spatial eligibility constraints.
 - Late spatial-generation result ignored after selection change.
@@ -455,6 +480,8 @@ Use `uv` for repository Python helpers. Never point automated tests at NAS produ
 - Grid hover/tap/paging.
 - Viewer drag/buttons.
 - Image and local video presentation.
+- Ordinary-video fallback for records with spatial variants; Simulator must not
+  prefetch or attempt the MV-HEVC representation.
 - accessibility identifiers and Reduce Motion.
 - Spatial generation error/unavailable UI only.
 
@@ -464,9 +491,9 @@ Required:
 
 - gaze target comfort and hover behavior;
 - look-pinch-drag tuning;
-- AVKit controls and gesture conflict;
+- custom playback controls and gesture conflict;
 - local MV-HEVC recognition and automatic spatial presentation;
-- ordinary/spatial preference switching and unavailable-variant fallback;
+- ordinary/spatial session override switching and unavailable-variant fallback;
 - authenticated byte-range playback if the streaming follow-up is implemented;
 - surface snap/lock/restoration;
 - dynamic window scale and placement;
@@ -495,7 +522,7 @@ Required:
 
 - single Viewer scene and suggested placement.
 - image contain/resizing.
-- authenticated AVKit video playback and auto-play lifecycle.
+- authenticated RealityKit video playback and auto-play lifecycle.
 - viewer restoration and unavailable state.
 
 ### XR-M3 — Continuous navigation
@@ -531,10 +558,11 @@ Required:
 - No visible metadata inspector or token leakage.
 - Pagination and navigation cross boundaries without forcing a return to Library.
 - Videos auto-play only when active and stop reliably.
-- Ready preferred spatial videos use their variant while all inconsistent or
-  unavailable states fall back to ordinary playback.
-- Backend preference fields and spatial-video playback controls remain independent;
-  runtime spatial-image enable/disable intentionally updates both fields.
+- Ready spatial videos use their variant by default while all inconsistent or
+  unavailable states fall back to ordinary playback. Play in 2D is session-only.
+- Backend preference fields remain available for compatibility and image behavior;
+  current XR spatial-video controls do not write them. Runtime spatial-image
+  enable/disable intentionally continues to update both image fields.
 - Neighbor prefetch remains bounded under a long session.
 - Spatial generation works on physical hardware and always retains 2D fallback.
 - Simulator and device test responsibilities are documented.

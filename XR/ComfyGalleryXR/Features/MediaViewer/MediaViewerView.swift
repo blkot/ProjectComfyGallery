@@ -4,6 +4,24 @@ enum VideoSurfaceLayerPolicy {
     static func showsPreview(hasPlayer: Bool) -> Bool {
         !hasPlayer
     }
+
+    static func showsBackdrop(
+        hasSpatialPresentation: Bool,
+        hasVideoPlayer: Bool
+    ) -> Bool {
+        !hasSpatialPresentation && !hasVideoPlayer
+    }
+}
+
+enum VideoRenderingSurface: Equatable {
+    case avKit
+    case realityKit
+}
+
+enum VideoRenderingSurfacePolicy {
+    static func surface(for representation: VideoPlaybackRepresentation) -> VideoRenderingSurface {
+        .realityKit
+    }
 }
 
 struct MediaViewerView: View {
@@ -14,13 +32,17 @@ struct MediaViewerView: View {
 
     @GestureState private var dragOffset: CGFloat = 0
     @State private var showSpatialExplanation = false
+    @State private var videoPresentation = RealityVideoPresentationController()
     @AppStorage("hasExplainedSpatialGeneration") private var hasExplainedSpatialGeneration = false
 
     var body: some View {
         VStack(spacing: 0) {
             GeometryReader { proxy in
                 ZStack {
-                    if !model.spatial.hasPresentationComponent {
+                    if VideoSurfaceLayerPolicy.showsBackdrop(
+                        hasSpatialPresentation: model.spatial.hasPresentationComponent,
+                        hasVideoPlayer: model.player.player != nil
+                    ) {
                         Color.black.opacity(0.82)
                     }
                     viewerContent
@@ -119,14 +141,15 @@ struct MediaViewerView: View {
                         .scaledToFit()
                         .accessibilityLabel(mediaAccessibilityLabel)
                 }
-                if let player = model.player.player {
-                    PlayerViewControllerRepresentable(
-                        player: player,
-                        presentation: model.player.presentation,
-                        shouldAutoplay: model.player.shouldAutoplay,
-                        isActive: model.player.isActive
+                if model.player.player != nil {
+                    RealityVideoView(
+                        presentationController: videoPresentation,
+                        playbackController: model.player,
+                        representation: model.currentVideoPlaybackSource?.representation
+                            ?? .ordinary
                     )
                         .accessibilityLabel(mediaAccessibilityLabel)
+                        .allowsHitTesting(false)
                 }
                 if model.viewer.videoIsPreparing || model.viewer.image == nil {
                     ProgressView("Preparing video…")
@@ -135,7 +158,7 @@ struct MediaViewerView: View {
                         .padding()
                         .background(.ultraThinMaterial, in: Capsule())
                 }
-                if let message = model.viewer.videoPlaybackError {
+                if let message = model.viewer.videoPlaybackError ?? model.player.playbackError {
                     VStack {
                         Spacer()
                         Label(message, systemImage: "exclamationmark.triangle")
@@ -217,8 +240,10 @@ struct MediaViewerView: View {
             }
         }
         .buttonStyle(.borderless)
-        .padding(.horizontal, 18)
-        .padding(.vertical, 8)
+        // Keep the bottom corners free for visionOS window-resize affordances.
+        .padding(.horizontal, 44)
+        .padding(.top, 8)
+        .padding(.bottom, 18)
         .background(.regularMaterial)
     }
 
@@ -251,16 +276,28 @@ struct MediaViewerView: View {
 
             if model.viewer.detail?.kind == .video {
                 Button {
-                    model.player.toggleLooping()
+                    model.player.togglePlayback()
                 } label: {
                     controlLabel(
-                        model.player.isLooping ? "Looping" : "Loop",
-                        systemImage: model.player.isLooping ? "repeat.circle.fill" : "repeat",
+                        model.player.isPlaying ? "Pause" : "Play",
+                        systemImage: model.player.isPlaying ? "pause.fill" : "play.fill",
                         compact: compact
                     )
                 }
                 .frame(minHeight: 60)
-                .accessibilityValue(model.player.isLooping ? "On" : "Off")
+                .accessibilityIdentifier("viewer.playPause")
+
+                Button {
+                    model.toggleVideoLooping()
+                } label: {
+                    controlLabel(
+                        model.isVideoLooping ? "Looping" : "Loop",
+                        systemImage: model.isVideoLooping ? "repeat.circle.fill" : "repeat",
+                        compact: compact
+                    )
+                }
+                .frame(minHeight: 60)
+                .accessibilityValue(model.isVideoLooping ? "On" : "Off")
                 .accessibilityIdentifier("viewer.loop")
             }
 
@@ -369,26 +406,23 @@ struct MediaViewerView: View {
     @ViewBuilder
     private func videoSpatialAction(compact: Bool) -> some View {
         if let detail = model.viewer.detail {
-            if detail.prefersSpatialPlayback {
+            if model.isCurrentVideoPlayingSpatial {
                 Button {
                     model.toggleSpatialPlaybackForCurrentVideo()
                 } label: {
                     controlLabel(
-                        detail.activeSpatialVideoVariant == nil
-                            ? "Disable Spatial Preference"
-                            : "Play in 2D",
+                        "Play in 2D",
                         systemImage: "rectangle",
                         compact: compact
                     )
                 }
                 .frame(minHeight: 60)
-                .accessibilityHint(
-                    detail.activeSpatialVideoVariant == nil
-                        ? "The spatial variant is unavailable, so ordinary video is playing."
-                        : "Switches this media to its ordinary video."
-                )
+                .accessibilityHint("Temporarily switches this viewer to the ordinary video.")
                 .accessibilityIdentifier("viewer.disableSpatialVideo")
-            } else if detail.activeSpatialVideoVariant != nil {
+            } else if
+                model.supportsSpatialVideoPlayback,
+                detail.activeSpatialVideoVariant != nil
+            {
                 Button {
                     model.toggleSpatialPlaybackForCurrentVideo()
                 } label: {
@@ -399,7 +433,7 @@ struct MediaViewerView: View {
                     )
                 }
                 .frame(minHeight: 60)
-                .accessibilityHint("Switches this media to its spatial video variant.")
+                .accessibilityHint("Plays the valid spatial video variant for this media.")
                 .accessibilityIdentifier("viewer.enableSpatialVideo")
             }
         }
@@ -420,7 +454,7 @@ struct MediaViewerView: View {
     }
 
     private var gestureMask: GestureMask {
-        model.viewer.detail?.kind == .video ? .none : .all
+        .all
     }
 
     private func navigationGesture(cardWidth: CGFloat) -> some Gesture {

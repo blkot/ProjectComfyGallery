@@ -97,8 +97,8 @@ Do not create floating custom 3D text or controls.
   least 60 points.
 - Aspect-fill preview clipped to a rounded rectangle.
 - Video glyph in one corner.
-- A compact cube badge distinguishes a video with a ready spatial variant; the
-  filled state also indicates that spatial playback is preferred.
+- A compact cube badge distinguishes a video with a ready spatial variant; it
+  indicates availability, not the backend playback-preference field.
 - Optional subtle Trash treatment.
 - No filename, UUID, hash, dimensions, prompt, or model/workflow text.
 - Use a system hover effect: slight lift/brightness, not a large scale jump.
@@ -145,28 +145,35 @@ second card.
 ### Video state
 
 - Show poster/loading state immediately.
-- Present `AVPlayerViewController`.
-- When the active detail has a ready spatial variant and spatial playback is
-  preferred, load that MV-HEVC `.mov`; otherwise load ordinary `playback_url`.
-- Configure the player view controller's recommended AVKit experiences.
-- For a spatial variant, transition from `.embedded` to `.expanded` and auto-play
-  only after the transition completes.
-- For ordinary video, remain in or return to `.embedded` before auto-play.
-- Keep one `AVPlayer` and one `AVPlayerViewController` alive while switching
-  ordinary/spatial representations; replace only the current item and let AVKit
-  animate the embedded/expanded experience transition.
-- Preserve Loop across representation switches.
-- Remove the poster layer once the AVKit surface exists. Never leave a differently
+- Present one RealityKit `VideoPlayerComponent` surface.
+- When the active detail has a ready spatial variant, load that MV-HEVC `.mov` by
+  default; the backend playback-preference field is not consulted for video yet.
+  A temporary in-viewer 2D override may select ordinary `playback_url`.
+- In Simulator, select the ordinary representation and omit the representation
+  action. Spatial/2D switching is exposed only where MV-HEVC spatial playback is
+  supported: physical Apple Vision Pro.
+- Configure ordinary sources as mono screen video. Configure spatial sources as
+  stereo spatial video in portal mode.
+- Keep one `AVPlayer` alive while switching ordinary/spatial representations;
+  replace only the current item and attach a fresh component for its generation.
+- Enable Loop by default and treat it as one viewer-wide playback setting, not
+  media metadata. Preserve the user's current setting across media navigation and
+  representation switches for the app session. Wait for seek-to-zero to complete
+  before restarting, and reject stale completions after item replacement or
+  deactivation.
+- Remove the poster layer once the RealityKit surface exists. Never leave a differently
   sized preview visible behind the player.
-- Use system playback controls.
-- Leave monoscopic-only viewing disabled so Vision Pro can honor valid spatial
-  metadata; this flag permits spatial viewing but does not replace the explicit
-  experience transition.
+- Use viewer-owned playback controls below the media.
 - Pause when the scene becomes inactive or navigation begins.
 - Do not auto-play neighbor videos during prefetch.
 - Do not place custom buttons over the player surface.
-- Let the AVKit surface fill the clean media region without an app-defined inset
+- Let the RealityKit surface fill the clean media region without an app-defined inset
   frame; keep gallery actions in the separate controls region below it.
+- Expose Play/Pause, Previous, Next, Loop, Favorite, and the spatial/2D action in
+  that lower region. Do not present transient system-player chrome over the media.
+  Inset the control strip from both bottom corners so resize affordances remain
+  reachable. The actions remain backed by the same `AppModel` and active
+  `AVPlayer` session.
 
 ### Bottom ornament
 
@@ -183,10 +190,10 @@ second card.
 - A Favorite control appears for all media and remains independently editable.
   Make Spatial forces Favorite on at that moment; Disable Spatial forces it off,
   regardless of any Favorite changes made between those actions.
-- A video with a ready spatial variant shows **Play Spatial** while ordinary
-  playback is selected and **Play in 2D** while the variant is selected.
-- When a video preference remains true but its variant is unavailable, ordinary
-  playback is the fallback and **Disable Spatial Preference** remains available.
+- A video with a ready spatial variant starts spatial and shows **Play in 2D**;
+  after the temporary override it shows **Play Spatial**.
+- When no valid spatial variant is available, ordinary playback is used and the
+  spatial action is hidden until the variant becomes available.
 
 Keep ornament width no wider than the card and use borderless system buttons on its
 glass background.
@@ -200,7 +207,7 @@ The user's “pinch and drag” is implemented as a normal SwiftUI horizontal
 
 - Begin only within the media navigation region.
 - Ignore primarily vertical motion.
-- Do not attach navigation to AVKit transport controls.
+- Do not attach navigation to the lower playback-controls region.
 - A practical starting threshold is the smaller of 120 points or 20% of card width.
 - A high predicted end velocity may commit slightly before the distance threshold.
 - Below threshold, spring/fade back to the current item.
