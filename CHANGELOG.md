@@ -4,6 +4,11 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.22 — 2026-08-11
+
+- Accept valid MPO/JPEG workflow input images and allow existing unsupported
+  captures to be retried through the workflow-input resolve path.
+
 ## 0.1.0-rc.21 — 2026-08-10
 
 - Shorten the Alembic 0014 revision identifier to fit PostgreSQL's standard

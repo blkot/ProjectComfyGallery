@@ -200,8 +200,12 @@ def _probe_image(path: Path, signature: MediaSignature) -> ProbeResult:
     try:
         with Image.open(path) as image:
             detected = (image.format or "").casefold()
-            expected = "jpeg" if signature.detected_format == "jpeg" else signature.detected_format
-            if detected.casefold() != expected:
+            expected = (
+                {"jpeg", "mpo"}
+                if signature.detected_format == "jpeg"
+                else {signature.detected_format}
+            )
+            if detected not in expected:
                 raise IngestionError(
                     code="MEDIA_TYPE_MISMATCH",
                     message="The file content does not match its detected image type.",

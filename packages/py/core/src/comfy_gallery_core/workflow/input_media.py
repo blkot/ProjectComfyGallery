@@ -47,7 +47,14 @@ from comfy_gallery_core.registry.client import normalize_comfyui_url
 INPUT_MEDIA_SEMANTIC_TYPE = "input_media_reference"
 CAPTURE_JOB_KIND = "capture_workflow_inputs"
 CAPTURE_QUEUE = "workflow"
-CAPTURABLE_STATUSES = {"pending", "resolving", "missing", "failed", "unavailable"}
+CAPTURABLE_STATUSES = {
+    "pending",
+    "resolving",
+    "missing",
+    "failed",
+    "unsupported",
+    "unavailable",
+}
 INPUT_FILE_EXTENSIONS = {
     "jpeg",
     "jpg",

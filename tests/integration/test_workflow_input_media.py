@@ -17,6 +17,7 @@ from comfy_gallery_api.routes.workflow_inputs import (
 from comfy_gallery_core.config import Settings
 from comfy_gallery_core.db.base import Base
 from comfy_gallery_core.db.models import (
+    Job,
     Media,
     NodeDefinition,
     NodeSemanticMapping,
@@ -273,6 +274,84 @@ async def test_missing_comfyui_input_is_recorded_without_failing_capture_job(
         assert reference is not None
         assert reference.status == "missing"
         assert reference.last_error_code == "WORKFLOW_INPUT_NOT_FOUND"
+
+    await engine.dispose()
+
+
+async def test_existing_unsupported_input_can_be_retried_to_ready(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    settings = _settings(tmp_path)
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
+    queued: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        "comfy_gallery_api.routes.workflow_inputs.enqueue_workflow_input_capture",
+        lambda *, media_id, job_id: queued.append((media_id, job_id)) or "message-id",
+    )
+    content = _png_bytes((145, 88, 31))
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            stream=_AsyncBytes(content),
+            headers={"Content-Type": "image/png"},
+        )
+
+    async with session_factory() as session:
+        media, snapshot = await _add_media_with_input(session, filename="stale.png")
+        await discover_workflow_inputs(session, snapshot_id=snapshot.id, settings=settings)
+        reference = await session.scalar(select(WorkflowInputReference))
+        assert reference is not None
+        reference.status = "unsupported"
+        reference.last_error_code = "MEDIA_TYPE_MISMATCH"
+        reference.last_error_message = "The file content does not match its detected image type."
+        await session.commit()
+
+        rediscovery = await discover_workflow_inputs(
+            session,
+            snapshot_id=snapshot.id,
+            settings=settings,
+        )
+        assert rediscovery.pending_count == 1
+
+        accepted = await resolve_workflow_inputs(
+            media_id=media.id,
+            _principal=None,  # type: ignore[arg-type]
+            session=session,
+            settings=settings,
+        )
+        assert queued == [(str(media.id), str(accepted.job.id))]
+        idempotent = await resolve_workflow_inputs(
+            media_id=media.id,
+            _principal=None,  # type: ignore[arg-type]
+            session=session,
+            settings=settings,
+        )
+        assert idempotent.job.id == accepted.job.id
+        assert queued == [(str(media.id), str(accepted.job.id))]
+
+        outcome = await process_workflow_input_job(
+            session,
+            media_id=media.id,
+            job_id=accepted.job.id,
+            settings=settings,
+            transport=httpx.MockTransport(handler),
+        )
+        assert outcome is not None
+        assert outcome.ready_count == 1
+        assert outcome.unsupported_count == 0
+        await session.refresh(reference)
+        assert reference.status == "ready"
+        assert reference.last_error_code is None
+        assert reference.input_asset_id is not None
+        job = await session.get(Job, accepted.job.id)
+        assert job is not None
+        assert job.status == "succeeded"
 
     await engine.dispose()
 

@@ -54,6 +54,23 @@ def test_image_signature_probe_hash_and_thumbnail(tmp_path: Path) -> None:
     assert derivatives[0].height == 320
 
 
+def test_mpo_jpeg_is_accepted_as_jpeg_image(tmp_path: Path) -> None:
+    source = tmp_path / "captured.jpg"
+    primary = Image.new("RGB", (640, 320), (31, 88, 145))
+    secondary = Image.new("RGB", (640, 320), (145, 88, 31))
+    primary.save(source, format="MPO", save_all=True, append_images=[secondary])
+    settings = _settings(tmp_path)
+
+    signature = sniff_media(source)
+    probe = probe_media(source, settings)
+
+    assert signature.kind == "image"
+    assert signature.detected_format == "jpeg"
+    assert signature.mime_type == "image/jpeg"
+    assert signature.normalized_extension == "jpg"
+    assert (probe.width, probe.height) == (640, 320)
+
+
 def test_unknown_bytes_are_rejected_by_content(tmp_path: Path) -> None:
     source = tmp_path / "looks-like-an-image.png"
     source.write_bytes(b"not really a png")
