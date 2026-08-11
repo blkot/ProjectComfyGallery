@@ -200,15 +200,17 @@ For MVP:
 5. Keep `video/quicktime` as `.mov`.
 6. Create `AVPlayerItem` from the local URL and present it with
    `AVPlayerViewController`.
-7. Configure recommended AVKit experiences. For a stored spatial-video source,
-   transition to `.expanded` and wait for completion before playing; for an
-   ordinary source, reconcile to `.embedded`.
+7. Configure recommended AVKit experiences. Transition to `.expanded` and wait for
+   completion before playing either source; AVKit uses the item's metadata for
+   monoscopic or spatial presentation.
 8. When the temporary representation override changes, replace the current item in
    the existing `AVPlayer`; do not destroy the player/controller or reset the
-   viewer-wide Loop setting. The override is not sent to or stored by the backend.
-9. Configure the visionOS `AVPlayerViewController.contextualActions` with the
-   current navigation, Favorite, Loop, and spatial-variant representation state so
-   expanded playback does not strand the viewer in a system-only control path.
+   viewer-wide Loop setting, which defaults on for each app session. The override
+   is not sent to or stored by the backend.
+9. Expose current navigation, Favorite, Loop, and spatial-variant representation
+   state in an AVKit custom **Gallery** info view. Leave persistent actions out of
+   `contextualActions` so expanded playback remains navigable without covering the
+   video.
 
 Do not auto-play prefetched neighbors.
 

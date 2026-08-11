@@ -112,20 +112,22 @@ The current server implementation remains authoritative:
 - Default grid cell aspect ratio is 2:3.
 - Air tap opens or updates the single Media card.
 - Video auto-plays only after it becomes the active card item.
+- Video Loop is enabled by default. It remains a viewer-wide session setting, and
+  the user can turn it off for all subsequently selected videos.
 - Stored spatial video is selected by default whenever `spatial_available` and a
   ready `spatial_video` variant are present; XR currently ignores
   `prefer_spatial_playback` for video selection.
-- Stored spatial video uses AVKit's recommended experiences and transitions to the
-  expanded experience before playback begins. Ordinary video remains in, or returns
-  to, the embedded experience.
+- Both ordinary and stored spatial video use one AVKit expanded player experience.
+  The active item's spatial metadata determines whether AVKit presents monoscopic
+  or spatial content; switching representations does not switch player UIs.
 - Ordinary/spatial switching keeps the same AVPlayer and AVPlayerViewController,
   replaces only the current item, preserves the viewer-wide Loop setting, and
-  removes the poster before the system player surface is shown. Loop is local XR
-  playback state, not a media/backend field, and survives navigation to another
-  video during the app session.
-- Expanded spatial playback carries Previous, Next, Loop, Favorite, and spatial/2D
-  actions through AVKit's visionOS contextual controls, so the viewer does not need
-  to collapse before navigating.
+  removes the poster before the system player surface is shown. Loop defaults on,
+  is local XR playback state rather than a media/backend field, and survives
+  navigation to another video during the app session.
+- Expanded playback exposes Previous, Next, Loop, Favorite, and spatial/2D actions
+  in an AVKit **Gallery** info panel. Persistent gallery buttons are not placed in
+  AVKit's contextual overlay, so they do not cover the video.
 - **Play in 2D** is a temporary in-viewer override; revisiting a media defaults back
   to its valid spatial variant and no playback-preference field is written.
 - The backend still stores Favorite and playback preference independently for
@@ -153,8 +155,8 @@ The first useful build can:
 - contain images and play videos with system controls;
 - select and locally cache an active spatial MV-HEVC variant without changing the
   logical media item or ordinary playback endpoint;
-- transition the system player to AVKit's expanded experience before starting a
-  selected spatial-video variant;
+- transition the system player to AVKit's expanded experience before starting
+  video, and keep that experience while switching ordinary/spatial sources;
 - let the user switch a spatial-capable video between spatial and ordinary playback;
 - auto-play the newly selected video and stop the previous one;
 - navigate through page boundaries with buttons and look-pinch-drag;

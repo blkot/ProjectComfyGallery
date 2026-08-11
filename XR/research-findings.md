@@ -196,24 +196,29 @@ unchanged. The reliable first implementation is:
 5. Create `AVPlayerItem` from the local file URL.
 6. Present it in `AVPlayerViewController` with monoscopic-only mode disabled.
 7. Configure `experienceController.allowedExperiences = .recommended()`.
-8. For spatial-video playback, transition the experience controller from
-   `.embedded` to `.expanded`, wait for `.completed`, and only then call `play()`.
-9. Reconcile back to `.embedded` before ordinary 2D playback and when the player is
-   dismantled.
+8. Transition the experience controller from `.embedded` to `.expanded`, wait for
+   `.completed`, and only then call `play()` for either representation. AVKit uses
+   the item's metadata to present an ordinary item monoscopically and a valid
+   spatial item with depth.
+9. Keep ordinary and spatial sources in that same expanded player experience;
+   reconcile to `.embedded` only when the player is dismantled.
 10. Keep the `AVPlayer` and `AVPlayerViewController` alive across ordinary/spatial
-    source changes; replace only the current item so AVKit owns the visible
-    embedded/expanded transition. Loop is a viewer-wide XR setting, not media
-    metadata, and survives navigation and source changes.
+    source changes; replace only the current item, without an experience switch.
+    Loop defaults on as a viewer-wide XR setting, not media metadata, and survives
+    navigation and source changes. At end-of-item, resume only after the
+    seek-to-zero completion succeeds; invalidate stale completions when replacing
+    the item.
 11. Remove the poster layer after the AVKit surface exists rather than stacking a
     differently sized video surface over the preview.
-12. Use `AVPlayerViewController.contextualActions` for app actions that must remain
-    reachable while `.expanded` consumes the window scene; a SwiftUI toolbar
-    outside the controller cannot remain visible in that experience.
+12. Put persistent gallery actions in an `AVPlayerViewController` custom **Gallery**
+    info view. Reserve `contextualActions` for time-specific playback actions; using
+    them for permanent Previous/Next controls overlays and obscures the video.
 
 Setting `requiresMonoscopicViewingMode = false` is necessary but does not itself
 request spatial presentation. The physical-device regression in issue #8 confirmed
 that a valid spatial MV-HEVC asset remains monoscopic in the embedded player until
-the AVKit experience transition occurs.
+the AVKit experience transition occurs; the unified player therefore stays expanded
+for both source types.
 
 Primary sources:
 

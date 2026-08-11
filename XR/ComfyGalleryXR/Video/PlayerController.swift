@@ -2,6 +2,61 @@ import AVFoundation
 import Foundation
 import Observation
 
+enum VideoPlaybackDefaults {
+    static let autoplay = true
+    static let looping = true
+}
+
+@MainActor
+protocol VideoLoopPlaybackControlling: AnyObject {
+    func play()
+    func seekToStart(completion: @escaping @MainActor (Bool) -> Void)
+}
+
+extension AVPlayer: VideoLoopPlaybackControlling {
+    func seekToStart(completion: @escaping @MainActor (Bool) -> Void) {
+        seek(
+            to: .zero,
+            toleranceBefore: .zero,
+            toleranceAfter: .zero
+        ) { finished in
+            Task { @MainActor in
+                completion(finished)
+            }
+        }
+    }
+}
+
+@MainActor
+final class VideoLoopPlaybackCoordinator {
+    private var generation = 0
+
+    func invalidate() {
+        generation += 1
+    }
+
+    func restartAfterPlaybackEnd(
+        player: any VideoLoopPlaybackControlling,
+        canRestart: @escaping @MainActor () -> Bool
+    ) {
+        let requestGeneration = generation
+        guard canRestart() else { return }
+
+        player.seekToStart { [weak self, weak player] finished in
+            guard
+                let self,
+                let player,
+                finished,
+                requestGeneration == self.generation,
+                canRestart()
+            else {
+                return
+            }
+            player.play()
+        }
+    }
+}
+
 @MainActor
 @Observable
 final class PlayerController {
@@ -10,10 +65,11 @@ final class PlayerController {
     private(set) var isActive = true
     // This mirrors AppModel's viewer-wide preference. It is deliberately not
     // reset when the current item is released or replaced.
-    private(set) var isLooping = false
+    private(set) var isLooping = VideoPlaybackDefaults.looping
     private(set) var presentation: VideoPlaybackPresentation = .embedded
 
     @ObservationIgnored private var playbackEndObserver: NSObjectProtocol?
+    @ObservationIgnored private let loopPlayback = VideoLoopPlaybackCoordinator()
 
     func load(
         fileURL: URL,
@@ -22,6 +78,7 @@ final class PlayerController {
     ) {
         player?.pause()
         removePlaybackEndObserver()
+        loopPlayback.invalidate()
         shouldAutoplay = autoplay
         self.presentation = presentation
         replaceCurrentItem(fileURL: fileURL)
@@ -44,12 +101,13 @@ final class PlayerController {
         isActive = true
         // PlayerViewControllerRepresentable resumes only after its requested
         // AVKit experience is ready. Playing here could bypass a pending
-        // embedded-to-expanded transition for spatial video.
+        // embedded-to-expanded transition for the active video.
     }
 
     func stop() {
         player?.pause()
         removePlaybackEndObserver()
+        loopPlayback.invalidate()
         player?.replaceCurrentItem(with: nil)
         player = nil
         shouldAutoplay = false
@@ -81,19 +139,12 @@ final class PlayerController {
     }
 
     private func handlePlaybackEnded(_ endedPlayer: AVPlayer) {
-        guard
-            player === endedPlayer,
-            isLooping
-        else {
-            return
-        }
-        endedPlayer.seek(
-            to: .zero,
-            toleranceBefore: .zero,
-            toleranceAfter: .zero
-        )
-        if shouldAutoplay, isActive {
-            endedPlayer.play()
+        loopPlayback.restartAfterPlaybackEnd(player: endedPlayer) { [weak self] in
+            guard let self else { return false }
+            return self.player === endedPlayer
+                && self.isLooping
+                && self.shouldAutoplay
+                && self.isActive
         }
     }
 

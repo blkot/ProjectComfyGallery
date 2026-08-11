@@ -184,28 +184,32 @@ scenes without altering the backend original.
   `prefer_spatial_playback`.
 - **XR-VIEW-012:** A missing, invalidated, or removed spatial variant MUST fall back
   to ordinary video and clear any temporary spatial representation override.
-- **XR-VIEW-013:** Before starting a selected spatial-video variant, the system
+- **XR-VIEW-013:** Before starting either ordinary or spatial video, the system
   player MUST configure recommended AVKit experiences, transition to `.expanded`,
-  and wait for a completed transition.
-- **XR-VIEW-014:** Ordinary playback, navigation, source replacement, and Viewer
-  teardown MUST reconcile the player to `.embedded`; a stale asynchronous
-  transition MUST NOT start an obsolete player.
+  and wait for a completed transition. AVKit MUST use the active item's metadata to
+  determine monoscopic or spatial presentation within that one experience.
+- **XR-VIEW-014:** Ordinary/spatial source replacement MUST remain in `.expanded`;
+  Viewer teardown MUST reconcile the player to `.embedded`, and a stale
+  asynchronous transition MUST NOT start an obsolete player.
 - **XR-VIEW-015:** Switching between ordinary and spatial representations MUST
   preserve the active `AVPlayer`, `AVPlayerViewController`, and viewer-wide Loop
   setting. The poster MUST stop rendering beneath the player after the player
   surface exists.
-- **XR-VIEW-016:** The expanded spatial player MUST expose Previous, Next, Loop,
-  Favorite, and spatial/2D representation actions through AVKit's visionOS
-  contextual action surface, with navigation and variant availability reflected in
-  their enabled state.
-- **XR-VIEW-017:** Contextual action handlers MUST dispatch to the same viewer
-  model and active player session as the embedded controls; collapsing the
-  expanded experience MUST NOT be required to navigate, change Loop, or choose the
-  temporary 2D override.
+- **XR-VIEW-016:** The expanded player MUST expose Previous, Next, Loop, Favorite,
+  and spatial/2D representation actions in an AVKit custom **Gallery** info view,
+  with navigation and variant availability reflected in their enabled state.
+  Persistent gallery actions MUST NOT occupy AVKit's contextual overlay or cover
+  the video.
+- **XR-VIEW-017:** Gallery action handlers MUST dispatch to the same viewer model
+  and active player session as the embedded controls; collapsing the expanded
+  experience MUST NOT be required to navigate, change Loop, or choose the temporary
+  2D override.
 - **XR-VIEW-018:** Loop MUST be a viewer-wide playback setting, not a media
-  record field. Toggling it MUST apply to every subsequently selected video and
-  survive media navigation, ordinary/spatial source changes, and AVKit
-  embedded/expanded transitions for the current app session.
+  record field, and MUST be enabled by default for each app session. Toggling it
+  MUST apply to every subsequently selected video and survive media navigation and
+  ordinary/spatial source changes for the current app session. End-of-item restart
+  MUST wait for a successful seek-to-zero completion, and a stale seek completion
+  MUST NOT resume a replaced or inactive item.
 
 ### Navigation
 
@@ -315,7 +319,7 @@ files. They are not permission to hide truthful loading states.
 11. Attempt incompatible dimensions/aspect and confirm Make Spatial is unavailable
     or fails safely.
 12. Open a validated MV-HEVC spatial video, verify the AVKit expanded experience
-    presents spatial depth, switch to embedded ordinary playback and back, then
+    presents spatial depth, switch to ordinary playback and back in place, then
     remove or invalidate the variant and verify ordinary fallback without changing
     Favorite or writing `prefer_spatial_playback`.
 13. Revoke the token, relaunch restored scenes, authenticate again, and recover the

@@ -150,15 +150,18 @@ second card.
   default; the backend playback-preference field is not consulted for video yet.
   A temporary in-viewer 2D override may select ordinary `playback_url`.
 - Configure the player view controller's recommended AVKit experiences.
-- For a spatial variant, transition from `.embedded` to `.expanded` and auto-play
-  only after the transition completes.
-- For ordinary video, remain in or return to `.embedded` before auto-play.
+- Transition from `.embedded` to `.expanded` and auto-play only after the
+  transition completes, for both ordinary and spatial sources.
+- Keep ordinary and spatial playback in that one expanded AVKit experience. The
+  active item's spatial metadata determines whether its presentation has depth.
 - Keep one `AVPlayer` and one `AVPlayerViewController` alive while switching
-  ordinary/spatial representations; replace only the current item and let AVKit
-  animate the embedded/expanded experience transition.
-- Treat Loop as one viewer-wide playback setting, not media metadata. Preserve
-  it across media navigation, representation switches, and embedded/expanded
-  AVKit transitions for the current app session.
+  ordinary/spatial representations; replace only the current item without changing
+  player experiences.
+- Enable Loop by default and treat it as one viewer-wide playback setting, not
+  media metadata. Preserve the user's current setting across media navigation and
+  representation switches for the app session. Wait for seek-to-zero to complete
+  before restarting, and reject stale completions after item replacement or
+  deactivation.
 - Remove the poster layer once the AVKit surface exists. Never leave a differently
   sized preview visible behind the player.
 - Use system playback controls.
@@ -170,10 +173,10 @@ second card.
 - Do not place custom buttons over the player surface.
 - Let the AVKit surface fill the clean media region without an app-defined inset
   frame; keep gallery actions in the separate controls region below it.
-- When AVKit enters `.expanded`, expose the same gallery actions through its
-  visionOS contextual action surface: Previous, Next, Loop, Favorite, and the
-  spatial/2D representation action. These actions must remain backed by the same
-  `AppModel` and active `AVPlayer` session.
+- When AVKit enters `.expanded`, expose the same actions in its custom **Gallery**
+  info view: Previous, Next, Loop, Favorite, and the spatial/2D representation
+  action. Do not use the contextual overlay for these persistent controls. The
+  actions remain backed by the same `AppModel` and active `AVPlayer` session.
 
 ### Bottom ornament
 

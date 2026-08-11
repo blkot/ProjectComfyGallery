@@ -104,7 +104,7 @@ final class AppModel {
 
     /// Viewer-wide video playback preference. This is intentionally not stored
     /// on a Gallery media record and survives navigation between media items.
-    private(set) var isVideoLooping = false
+    private(set) var isVideoLooping = VideoPlaybackDefaults.looping
 
     var connectionPhase: ConnectionPhase = .bootstrapping
     var activeProfile: ServerProfile?
@@ -613,12 +613,12 @@ final class AppModel {
                     return
                 }
 
-                let presentation: VideoPlaybackPresentation = representation.isSpatial
-                    ? .expandedSpatial
-                    : .embedded
+                let presentation = VideoPlaybackPresentationPolicy.presentation(
+                    for: representation
+                )
                 player.load(
                     fileURL: fileURL,
-                    autoplay: true,
+                    autoplay: VideoPlaybackDefaults.autoplay,
                     presentation: presentation
                 )
             } catch is CancellationError {
@@ -675,13 +675,12 @@ final class AppModel {
                     forceOrdinary: ordinaryVideoOverrideMediaID == detail.id
                 )
                 guard generation == viewerGeneration else { return }
-                let presentation: VideoPlaybackPresentation =
-                    currentVideoPlaybackSource?.representation.isSpatial == true
-                    ? .expandedSpatial
-                    : .embedded
+                let presentation = VideoPlaybackPresentationPolicy.presentation(
+                    for: currentVideoPlaybackSource?.representation ?? .ordinary
+                )
                 player.load(
                     fileURL: fileURL,
-                    autoplay: true,
+                    autoplay: VideoPlaybackDefaults.autoplay,
                     presentation: presentation
                 )
                 viewer.videoIsPreparing = false

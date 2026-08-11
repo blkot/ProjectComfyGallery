@@ -251,8 +251,8 @@ SwiftUI only where necessary.
    MV-HEVC spatial metadata is permitted, but do not treat that property as an
    instruction to present spatially.
 8. Configure `experienceController.allowedExperiences = .recommended()`.
-9. For a selected spatial variant, transition to `.expanded` and call `play()` only
-   after `.completed`; for ordinary video, reconcile to `.embedded` before play.
+9. For either representation, transition to `.expanded` and call `play()` only
+   after `.completed`; let AVKit interpret the active item's spatial metadata.
 10. For the temporary ordinary/spatial representation switch, keep the Viewer
     `AVPlayer` and `AVPlayerViewController`, replace only the current item, and
     preserve the viewer-wide Loop setting. Do not write `prefer_spatial_playback`
@@ -261,14 +261,17 @@ SwiftUI only where necessary.
     obsolete transition cannot start the wrong current item.
 12. Remove the poster as soon as the AVKit surface exists and let that surface fill
     the media region without an app-defined inset.
-13. Populate visionOS `contextualActions` from the current navigation, Favorite,
-    Loop, and spatial-variant representation state. Their handlers must call the
-    same viewer model actions used by the embedded controls.
-14. Pause and detach the old item before navigation commits, and return the
-    experience to `.embedded` when dismantling the player.
-15. Implement infinite looping without replacing the `AVPlayer`, so toggling the
-    viewer-wide Loop setting does not discard the active spatial experience or
-    reset when the user navigates to another video.
+13. Populate an AVKit custom **Gallery** info view from the current navigation,
+    Favorite, Loop, and spatial-variant representation state. Keep persistent
+    controls out of `contextualActions`; handlers call the same viewer model actions
+    used by the embedded controls.
+14. Keep `.expanded` across ordinary/spatial source replacement. Pause and detach
+    the old item before navigation commits, and return the experience to `.embedded`
+    only when dismantling the player.
+15. Enable the viewer-wide Loop setting by default. Implement infinite looping
+    without replacing the `AVPlayer`: wait for the seek-to-zero completion before
+    resuming, and invalidate stale completions after item replacement. Toggling
+    Loop must not discard the active experience or reset on navigation.
 16. Remove time/status observers on replacement and deinit.
 17. Pause when scene phase becomes inactive.
 
@@ -435,10 +438,11 @@ Never log media IDs alongside private content in production diagnostics.
 - Runtime spatial-image Favorite/preference coupling and spatial-video preference
   independence.
 - Spatial-video selection truth table and ordinary fallback.
-- Spatial-video expanded transition before autoplay, embedded return for 2D, and
-  stale-transition cancellation across source replacement.
-- Loop toggling updates one viewer-wide setting and preserves it across the
-  active `AVPlayer`, presentation requests, and subsequent media navigation.
+- Unified ordinary/spatial expanded transition before autoplay and stale-transition
+  cancellation across source replacement.
+- Loop toggling updates one viewer-wide setting, preserves it across the active
+  `AVPlayer` and subsequent navigation, waits for seek completion, and rejects
+  stale completion after item replacement.
 - Variant-safe cache identity and QuickTime `.mov` mapping.
 - Spatial eligibility constraints.
 - Late spatial-generation result ignored after selection change.
