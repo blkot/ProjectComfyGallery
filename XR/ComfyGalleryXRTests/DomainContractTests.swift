@@ -1,4 +1,6 @@
+import AVFoundation
 import Foundation
+import RealityKit
 import XCTest
 @testable import ComfyGalleryXR
 
@@ -645,6 +647,165 @@ final class VideoPlaybackExperienceTests: XCTestCase {
             ),
             SIMD3(repeating: 1)
         )
+    }
+
+    func testStaleRealityVideoTeardownDoesNotClearReplacementGeneration() {
+        let playbackController = PlayerController()
+        let presentationController = RealityVideoPresentationController()
+        let staleLease = RealityVideoPresentationLease()
+        let replacementLease = RealityVideoPresentationLease()
+
+        playbackController.load(
+            fileURL: URL(fileURLWithPath: "/tmp/stale-reality-video.mp4"),
+            autoplay: false,
+            presentation: .embedded
+        )
+        let firstGeneration = playbackController.itemGeneration
+        let staleOwnership = RealityVideoPresentationOwnership(
+            lease: staleLease,
+            itemGeneration: firstGeneration
+        )
+        _ = presentationController.configure(
+            player: try! XCTUnwrap(playbackController.player),
+            ownership: staleOwnership,
+            representation: .ordinary
+        )
+
+        playbackController.load(
+            fileURL: URL(fileURLWithPath: "/tmp/replacement-reality-video.mov"),
+            autoplay: false,
+            presentation: .expanded
+        )
+        let replacementGeneration = playbackController.itemGeneration
+        let replacementOwnership = RealityVideoPresentationOwnership(
+            lease: replacementLease,
+            itemGeneration: replacementGeneration
+        )
+        _ = presentationController.configure(
+            player: try! XCTUnwrap(playbackController.player),
+            ownership: replacementOwnership,
+            representation: .spatial(variantID: UUID())
+        )
+        playbackController.updatePlayerItemReadiness(
+            isReady: true,
+            itemGeneration: replacementGeneration
+        )
+        playbackController.updateVideoRenderingReadiness(
+            isReady: true,
+            itemGeneration: replacementGeneration
+        )
+
+        XCTAssertFalse(
+            presentationController.teardown(
+                ownedBy: staleOwnership,
+                playbackController: playbackController
+            )
+        )
+        XCTAssertNotNil(
+            presentationController.entity.components[VideoPlayerComponent.self]
+        )
+        XCTAssertTrue(playbackController.isReadyForPlayback)
+        playbackController.stop()
+    }
+
+    func testSameLeaseStaleRealityVideoTeardownDoesNotClearReplacementGeneration() {
+        let playbackController = PlayerController()
+        let presentationController = RealityVideoPresentationController()
+        let lease = RealityVideoPresentationLease()
+
+        playbackController.load(
+            fileURL: URL(fileURLWithPath: "/tmp/same-lease-first-reality-video.mp4"),
+            autoplay: false,
+            presentation: .embedded
+        )
+        let firstGeneration = playbackController.itemGeneration
+        let staleOwnership = RealityVideoPresentationOwnership(
+            lease: lease,
+            itemGeneration: firstGeneration
+        )
+        _ = presentationController.configure(
+            player: try! XCTUnwrap(playbackController.player),
+            ownership: staleOwnership,
+            representation: .ordinary
+        )
+
+        playbackController.load(
+            fileURL: URL(fileURLWithPath: "/tmp/same-lease-replacement-reality-video.mov"),
+            autoplay: false,
+            presentation: .expanded
+        )
+        let replacementGeneration = playbackController.itemGeneration
+        let replacementOwnership = RealityVideoPresentationOwnership(
+            lease: lease,
+            itemGeneration: replacementGeneration
+        )
+        _ = presentationController.configure(
+            player: try! XCTUnwrap(playbackController.player),
+            ownership: replacementOwnership,
+            representation: .spatial(variantID: UUID())
+        )
+        playbackController.updatePlayerItemReadiness(
+            isReady: true,
+            itemGeneration: replacementGeneration
+        )
+        playbackController.updateVideoRenderingReadiness(
+            isReady: true,
+            itemGeneration: replacementGeneration
+        )
+
+        XCTAssertFalse(
+            presentationController.teardown(
+                ownedBy: staleOwnership,
+                playbackController: playbackController
+            )
+        )
+        XCTAssertNotNil(
+            presentationController.entity.components[VideoPlayerComponent.self]
+        )
+        XCTAssertTrue(playbackController.isReadyForPlayback)
+        playbackController.stop()
+    }
+
+    func testCurrentRealityVideoTeardownClearsOwnedGeneration() {
+        let playbackController = PlayerController()
+        let presentationController = RealityVideoPresentationController()
+        let lease = RealityVideoPresentationLease()
+
+        playbackController.load(
+            fileURL: URL(fileURLWithPath: "/tmp/current-reality-video.mov"),
+            autoplay: false,
+            presentation: .expanded
+        )
+        let itemGeneration = playbackController.itemGeneration
+        let ownership = RealityVideoPresentationOwnership(
+            lease: lease,
+            itemGeneration: itemGeneration
+        )
+        _ = presentationController.configure(
+            player: try! XCTUnwrap(playbackController.player),
+            ownership: ownership,
+            representation: .spatial(variantID: UUID())
+        )
+        playbackController.updatePlayerItemReadiness(
+            isReady: true,
+            itemGeneration: itemGeneration
+        )
+        playbackController.updateVideoRenderingReadiness(
+            isReady: true,
+            itemGeneration: itemGeneration
+        )
+
+        XCTAssertTrue(
+            presentationController.teardown(
+                ownedBy: ownership,
+                playbackController: playbackController
+            )
+        )
+        XCTAssertNil(
+            presentationController.entity.components[VideoPlayerComponent.self]
+        )
+        XCTAssertFalse(playbackController.isReadyForPlayback)
+        playbackController.stop()
     }
 
     func testEveryVideoLoadAdvancesRealityKitItemGeneration() {

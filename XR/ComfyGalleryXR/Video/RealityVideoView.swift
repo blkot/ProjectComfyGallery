@@ -7,6 +7,15 @@ enum RealityVideoViewingMode: Equatable, Sendable {
     case spatialPortal
 }
 
+struct RealityVideoPresentationLease: Hashable {
+    private let identifier = UUID()
+}
+
+struct RealityVideoPresentationOwnership: Equatable, Hashable {
+    let lease: RealityVideoPresentationLease
+    let itemGeneration: Int
+}
+
 enum RealityVideoPresentationPolicy {
     static func mode(
         for representation: VideoPlaybackRepresentation
@@ -45,40 +54,46 @@ final class RealityVideoPresentationController {
     let entity = Entity()
 
     private var playerIdentity: ObjectIdentifier?
-    private var itemGeneration: Int?
     private var mode: RealityVideoViewingMode?
+    private var owner: RealityVideoPresentationOwnership?
     private var renderingStatusSubscription: EventSubscription?
 
     @discardableResult
     func configure(
         player: AVPlayer,
-        itemGeneration: Int,
+        ownership: RealityVideoPresentationOwnership,
         representation: VideoPlaybackRepresentation
     ) -> Bool {
         let requestedMode = RealityVideoPresentationPolicy.mode(for: representation)
         let playerIdentity = ObjectIdentifier(player)
         guard
             self.playerIdentity != playerIdentity
-                || self.itemGeneration != itemGeneration
+                || self.owner?.itemGeneration != ownership.itemGeneration
                 || mode != requestedMode
+                || self.owner != ownership
         else {
             return false
         }
 
-        var component = VideoPlayerComponent(avPlayer: player)
-        switch requestedMode {
-        case .monoScreen:
-            component.desiredViewingMode = .mono
-            component.desiredSpatialVideoMode = .screen
-        case .spatialPortal:
-            component.desiredViewingMode = .stereo
-            component.desiredSpatialVideoMode = .spatial
-            component.desiredImmersiveViewingMode = .portal
+        if
+            self.playerIdentity != playerIdentity
+                || self.owner?.itemGeneration != ownership.itemGeneration
+                || mode != requestedMode {
+            var component = VideoPlayerComponent(avPlayer: player)
+            switch requestedMode {
+            case .monoScreen:
+                component.desiredViewingMode = .mono
+                component.desiredSpatialVideoMode = .screen
+            case .spatialPortal:
+                component.desiredViewingMode = .stereo
+                component.desiredSpatialVideoMode = .spatial
+                component.desiredImmersiveViewingMode = .portal
+            }
+            entity.components.set(component)
         }
-        entity.components.set(component)
         self.playerIdentity = playerIdentity
-        self.itemGeneration = itemGeneration
         mode = requestedMode
+        self.owner = ownership
         return true
     }
 
@@ -111,13 +126,26 @@ final class RealityVideoPresentationController {
         entity.setPosition(SIMD3(position.x, position.y, 0), relativeTo: nil)
     }
 
-    func clear() {
+    @discardableResult
+    func teardown(
+        ownedBy ownership: RealityVideoPresentationOwnership,
+        playbackController: PlayerController
+    ) -> Bool {
+        guard owner == ownership else {
+            return false
+        }
+
         renderingStatusSubscription?.cancel()
         renderingStatusSubscription = nil
         entity.components.remove(VideoPlayerComponent.self)
         playerIdentity = nil
-        itemGeneration = nil
         mode = nil
+        owner = nil
+        playbackController.updateVideoRenderingReadiness(
+            isReady: false,
+            itemGeneration: ownership.itemGeneration
+        )
+        return true
     }
 }
 
@@ -125,44 +153,63 @@ struct RealityVideoView: View {
     let presentationController: RealityVideoPresentationController
     let playbackController: PlayerController
     let representation: VideoPlaybackRepresentation
+    @State private var ownerLease = RealityVideoPresentationLease()
 
     var body: some View {
+        let ownership = RealityVideoPresentationOwnership(
+            lease: ownerLease,
+            itemGeneration: playbackController.itemGeneration
+        )
         GeometryReader3D { proxy in
             RealityView { content in
                 content.add(presentationController.entity)
-                configureAndFit(using: content, proxy: proxy)
+                configureAndFit(
+                    using: content,
+                    proxy: proxy,
+                    ownership: ownership
+                )
             } update: { content in
-                configureAndFit(using: content, proxy: proxy)
+                configureAndFit(
+                    using: content,
+                    proxy: proxy,
+                    ownership: ownership
+                )
             }
-        }
-        .onDisappear {
-            playbackController.updateVideoRenderingReadiness(
-                isReady: false,
-                itemGeneration: playbackController.itemGeneration
-            )
-            presentationController.clear()
+            .id(ownership)
+            .onDisappear {
+                presentationController.teardown(
+                    ownedBy: ownership,
+                    playbackController: playbackController
+                )
+            }
         }
     }
 
     private func configureAndFit(
         using content: RealityViewContent,
-        proxy: GeometryProxy3D
+        proxy: GeometryProxy3D,
+        ownership: RealityVideoPresentationOwnership
     ) {
-        guard let player = playbackController.player else { return }
+        guard
+            ownership.itemGeneration == playbackController.itemGeneration,
+            let player = playbackController.player
+        else {
+            return
+        }
         let didReplaceComponent = presentationController.configure(
             player: player,
-            itemGeneration: playbackController.itemGeneration,
+            ownership: ownership,
             representation: representation
         )
         if didReplaceComponent {
             playbackController.updateVideoRenderingReadiness(
                 isReady: false,
-                itemGeneration: playbackController.itemGeneration
+                itemGeneration: ownership.itemGeneration
             )
             presentationController.observeRenderingStatus(
                 using: content,
                 playbackController: playbackController,
-                itemGeneration: playbackController.itemGeneration
+                itemGeneration: ownership.itemGeneration
             )
         }
 
@@ -173,7 +220,7 @@ struct RealityVideoView: View {
             .currentRenderingStatus {
             playbackController.updateVideoRenderingReadiness(
                 isReady: renderingStatus == .ready,
-                itemGeneration: playbackController.itemGeneration
+                itemGeneration: ownership.itemGeneration
             )
         }
 

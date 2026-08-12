@@ -193,6 +193,14 @@ scenes without altering the backend original.
   one RealityKit `VideoPlayerComponent` surface. Ordinary playback MUST request
   mono screen presentation; spatial playback MUST request stereo spatial portal
   presentation.
+- **XR-VIEW-013A:** Each mounted RealityKit video surface MUST own an immutable
+  presentation token containing its lease and item generation. A disappearing
+  surface may clear the shared component and mark rendering unready only when both
+  values still own the configured item generation; a stale teardown MUST leave a
+  replacement generation intact. Permanent distinct-lease, same-lease/different-
+  generation, and current-owner XCTest regressions enforce this
+  invariant; repeated playback remains a manual physical Vision Pro acceptance
+  check, not Simulator automation.
 - **XR-VIEW-014:** A changed player identity, item generation, or representation
   MUST install a fresh video component, and stale source work MUST NOT start an
   obsolete item.

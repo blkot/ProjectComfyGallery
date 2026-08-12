@@ -205,6 +205,11 @@ unchanged. The reliable first implementation is:
     current `AVPlayerItem` is ready to play and the current component's rendering
     status is ready. Reset both signals for each item generation and discard stale
     callbacks after replacement.
+    Each mounted `RealityVideoView` also captures presentation ownership as its
+    lease plus item generation. A disappearing view may tear down the shared
+    component only while both values are current; a stale teardown must preserve
+    the replacement component and its readiness. Permanent XCTest coverage exercises
+    distinct-lease, same-lease/different-generation, and current-owner teardown.
 11. Replace only the current item; never launch a second player window.
     Loop defaults on as a viewer-wide XR setting, not media metadata, and survives
     navigation and source changes. At end-of-item, resume only after the
@@ -232,6 +237,10 @@ and testing MV-HEVC without supported hardware; based on that documentation and
 the runtime evidence, the XR app treats real-time Simulator spatial playback as
 unsupported. Simulator selects and prefetches the ordinary representation, while
 physical Vision Pro continues to select spatial video by default.
+
+The Simulator remains intentionally limited to ordinary 2D video. The owner-lease
+tests cover deterministic lifecycle ownership only; repeated spatial playback and
+ordinary/spatial switching still require manual Vision Pro acceptance.
 
 Audio is not created by spatial playback. The affected managed variants contained
 AAC-LC stereo, but GPAC had authored an ISO/MPEG-style version-0 `mp4a` sample

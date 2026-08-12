@@ -264,6 +264,16 @@ surface and app-owned controls for both ordinary and spatial playback.
 12. Gate autoplay and resume on both `AVPlayerItem.status == .readyToPlay` and
     RealityKit rendering status `ready`. Reset the gate for every item generation;
     callbacks captured by an older generation must not start or fail the new item.
+    Give each mounted `RealityVideoView` an immutable owner token of its stable
+    lease and captured item generation. The shared presentation controller must
+    accept teardown only when both token values match; that teardown cancels its
+    subscription, removes the component, clears identity, and marks that exact
+    generation rendering-unready. A stale lease or generation must do none of those
+    things to a replacement generation. Keep permanent focused tests for
+    distinct-lease stale, same-lease/different-generation stale, and current-owner
+    teardown. Simulator verifies the ownership invariant and intentionally uses
+    ordinary 2D playback; repeat spatial playback must be checked manually on
+    physical Vision Pro.
 13. Remove the poster and translucent SwiftUI media backdrop as soon as the
     RealityKit surface exists, scale the component uniformly, and let it fill the
     clean media region. A backdrop left mounted at the same window plane produces
