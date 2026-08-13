@@ -412,12 +412,15 @@ function ModelUsagePanel({
         emptyMessage="No checkpoint reference was extracted."
         usages={checkpointUsages}
         fallback={checkpointFallback}
+        observations={observations}
       />
       <ModelUsageGroup
         title="LoRAs"
         emptyMessage="No LoRA reference was extracted."
         usages={loraUsages}
         fallback={loraFallback}
+        observations={observations}
+        showStrength
       />
     </article>
   );
@@ -428,11 +431,15 @@ function ModelUsageGroup({
   emptyMessage,
   usages,
   fallback,
+  observations,
+  showStrength = false,
 }: {
   title: string;
   emptyMessage: string;
   usages: WorkflowModelUsage[];
   fallback: SemanticObservation[];
+  observations: SemanticObservation[];
+  showStrength?: boolean;
 }) {
   return (
     <section className="model-evidence-group">
@@ -445,6 +452,9 @@ function ModelUsageGroup({
           <strong>{usage.artifact_display_name || usage.raw_reference}</strong>
           <small>
             {titleCase(usage.slot)} · {titleCase(usage.pipeline_pattern)}
+            {showStrength
+              ? formatStrengthSuffix(findLoraStrength(usage, observations))
+              : null}
           </small>
           <span>
             {usage.architecture_family || "Architecture unknown"}
@@ -460,6 +470,9 @@ function ModelUsageGroup({
               <small>
                 {titleCase(observation.role ?? "unclassified")} · unresolved registry
                 usage
+                {showStrength
+                  ? formatStrengthSuffix(readStrength(observation.evidence?.strength))
+                  : null}
               </small>
             </div>
           ))
@@ -469,6 +482,32 @@ function ModelUsageGroup({
       ) : null}
     </section>
   );
+}
+
+function findLoraStrength(
+  usage: WorkflowModelUsage,
+  observations: SemanticObservation[],
+): number | string | null {
+  const usageStrength = readStrength(usage.evidence?.strength);
+  if (usageStrength !== null) return usageStrength;
+
+  const observation = observations.find(
+    (candidate) =>
+      candidate.observation_type === "lora_reference" &&
+      candidate.node_id === usage.node_id &&
+      candidate.value === usage.raw_reference,
+  );
+  return readStrength(observation?.evidence?.strength);
+}
+
+function readStrength(value: unknown): number | string | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) return value.trim();
+  return null;
+}
+
+function formatStrengthSuffix(value: number | string | null): string {
+  return value === null ? "" : ` · Strength ${value}`;
 }
 
 function PromptPanel({
