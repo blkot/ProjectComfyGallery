@@ -66,7 +66,20 @@ describe("WorkflowInspector LoRA evidence", () => {
     );
 
     const loraName = await screen.findByText("style.safetensors");
-    expect(loraName.parentElement).toHaveTextContent("Strength 0.75");
+    const loraRow = loraName.closest(".model-evidence-row");
+    expect(loraRow).not.toBeNull();
+    expect(loraRow?.querySelector(".model-evidence-details > small")?.textContent).toBe(
+      "Adapter · Adapter Only Or Unresolved",
+    );
+    expect(
+      loraRow?.querySelector(".model-evidence-details > small")?.textContent,
+    ).not.toContain("Strength");
+    expect(loraRow?.querySelector(".model-evidence-strength")?.textContent).toContain(
+      "Strength",
+    );
+    expect(loraRow?.querySelector(".model-evidence-strength")?.textContent).toContain(
+      "0.30",
+    );
   });
 });
 
@@ -148,7 +161,7 @@ const workflowWithLora: WorkflowDetail = {
       value: "style.safetensors",
       confidence: 0.99,
       correction_state: "original",
-      evidence: { strength: 0.75, clip_strength: 0.5 },
+      evidence: { strength: 0.3, clip_strength: 0.5 },
       created_at: "2026-08-04T00:00:00Z",
     },
   ],

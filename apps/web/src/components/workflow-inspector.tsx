@@ -448,32 +448,42 @@ function ModelUsageGroup({
         <span>{usages.length || fallback.length}</span>
       </header>
       {usages.map((usage) => (
-        <div className="model-evidence-row" key={usage.id}>
-          <strong>{usage.artifact_display_name || usage.raw_reference}</strong>
-          <small>
-            {titleCase(usage.slot)} · {titleCase(usage.pipeline_pattern)}
-            {showStrength
-              ? formatStrengthSuffix(findLoraStrength(usage, observations))
-              : null}
-          </small>
-          <span>
-            {usage.architecture_family || "Architecture unknown"}
-            {usage.lineage ? ` · ${usage.lineage}` : ""}
-          </span>
-          {usage.artifact_display_name ? <code>{usage.raw_reference}</code> : null}
+        <div
+          className={`model-evidence-row${showStrength ? " model-evidence-row--with-strength" : ""}`}
+          key={usage.id}
+        >
+          <div className="model-evidence-details">
+            <strong>{usage.artifact_display_name || usage.raw_reference}</strong>
+            <small>
+              {titleCase(usage.slot)} · {titleCase(usage.pipeline_pattern)}
+            </small>
+            <span>
+              {usage.architecture_family || "Architecture unknown"}
+              {usage.lineage ? ` · ${usage.lineage}` : ""}
+            </span>
+            {usage.artifact_display_name ? <code>{usage.raw_reference}</code> : null}
+          </div>
+          {showStrength ? (
+            <StrengthCell value={findLoraStrength(usage, observations)} />
+          ) : null}
         </div>
       ))}
       {usages.length === 0
         ? fallback.map((observation) => (
-            <div className="model-evidence-row" key={observation.id}>
-              <strong>{displayValue(observation.value)}</strong>
-              <small>
-                {titleCase(observation.role ?? "unclassified")} · unresolved registry
-                usage
-                {showStrength
-                  ? formatStrengthSuffix(readStrength(observation.evidence?.strength))
-                  : null}
-              </small>
+            <div
+              className={`model-evidence-row${showStrength ? " model-evidence-row--with-strength" : ""}`}
+              key={observation.id}
+            >
+              <div className="model-evidence-details">
+                <strong>{displayValue(observation.value)}</strong>
+                <small>
+                  {titleCase(observation.role ?? "unclassified")} · unresolved registry
+                  usage
+                </small>
+              </div>
+              {showStrength ? (
+                <StrengthCell value={readStrength(observation.evidence?.strength)} />
+              ) : null}
             </div>
           ))
         : null}
@@ -506,8 +516,18 @@ function readStrength(value: unknown): number | string | null {
   return null;
 }
 
-function formatStrengthSuffix(value: number | string | null): string {
-  return value === null ? "" : ` · Strength ${value}`;
+function StrengthCell({ value }: { value: number | string | null }) {
+  return (
+    <div className="model-evidence-strength" aria-label="LoRA strength">
+      <span>Strength</span>
+      <strong>{formatStrengthValue(value)}</strong>
+    </div>
+  );
+}
+
+function formatStrengthValue(value: number | string | null): string {
+  if (value === null) return "—";
+  return typeof value === "number" ? value.toFixed(2) : value;
 }
 
 function PromptPanel({
