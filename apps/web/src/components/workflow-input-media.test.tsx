@@ -65,6 +65,32 @@ describe("WorkflowInputMedia", () => {
     });
   });
 
+  it("does not call queued references capturing before a resolver starts", async () => {
+    apiRequestMock.mockResolvedValue({
+      ...workflowInputs,
+      items: [
+        reference({
+          status: "pending",
+          asset: null,
+          content_url: null,
+        }),
+      ],
+      total: 1,
+      ready_count: 0,
+      unresolved_count: 1,
+    } satisfies WorkflowInputList);
+
+    renderInputMedia();
+
+    await screen.findByText("reference.png");
+    expect(
+      document.querySelector(".workflow-input-media-progress"),
+    ).toHaveTextContent("Waiting for capture");
+    expect(
+      document.querySelector(".workflow-input-media-progress"),
+    ).not.toHaveTextContent("Capturing");
+  });
+
   it("explains when a workflow has no detected input media", async () => {
     apiRequestMock.mockResolvedValue({
       media_id: "media-1",

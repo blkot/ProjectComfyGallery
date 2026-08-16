@@ -89,11 +89,18 @@ export function WorkflowInputMedia({ mediaId }: WorkflowInputMediaProps) {
   }
 
   const data = inputs.data;
-  const activeItems = data.items.filter((item) => activeStatuses.has(item.status));
+  const capturingItems = data.items.filter((item) => item.status === "resolving");
+  const pendingItems = data.items.filter((item) => item.status === "pending");
   const retryableItems = data.items.filter(
     (item) => item.status !== "ready" && !activeStatuses.has(item.status),
   );
   const canResolve = retryableItems.length > 0 && !resolve.isPending;
+  const captureProgressLabel =
+    capturingItems.length > 0
+      ? "Capturing…"
+      : pendingItems.length > 0
+        ? "Waiting for capture"
+        : null;
 
   return (
     <section className="workflow-input-media" aria-labelledby="workflow-input-media-title">
@@ -114,8 +121,10 @@ export function WorkflowInputMedia({ mediaId }: WorkflowInputMediaProps) {
             >
               Retry capture
             </button>
-          ) : activeItems.length > 0 ? (
-            <span className="workflow-input-media-progress">Capturing…</span>
+          ) : captureProgressLabel ? (
+            <span className="workflow-input-media-progress">
+              {captureProgressLabel}
+            </span>
           ) : null}
         </div>
       </header>
