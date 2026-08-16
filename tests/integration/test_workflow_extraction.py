@@ -3,8 +3,9 @@ import shutil
 from pathlib import Path
 
 from PIL import Image, PngImagePlugin
-from sqlalchemy import func, select
+from sqlalchemy import event, func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.orm import Session
 from uuid6 import uuid7
 
 from comfy_gallery_core.config import Settings
@@ -38,8 +39,13 @@ def _settings(tmp_path: Path) -> Settings:
     return settings
 
 
-def _make_workflow_image(path: Path, *, malformed_prompt: bool = False) -> None:
-    prompt: object = {
+def _make_workflow_image(
+    path: Path,
+    *,
+    malformed_prompt: bool = False,
+    non_finite_prompt: bool = False,
+) -> None:
+    prompt: dict[str, object] = {
         "1": {
             "class_type": "UNETLoader",
             "inputs": {"unet_name": "checkpoint.safetensors"},
@@ -56,6 +62,12 @@ def _make_workflow_image(path: Path, *, malformed_prompt: bool = False) -> None:
             "inputs": {"text": "plain prompt text"},
         },
     }
+    if non_finite_prompt:
+        prompt["4"] = {
+            "class_type": "CustomNode",
+            "inputs": {},
+            "is_changed": float("nan"),
+        }
     workflow = {
         "nodes": [
             {"id": 1, "type": "UNETLoader", "widgets_values": ["checkpoint.safetensors"]},
@@ -189,3 +201,111 @@ async def test_malformed_prompt_is_non_blocking_and_preserved(tmp_path: Path) ->
         assert snapshot.visual_workflow is not None
 
     await engine.dispose()
+
+
+async def test_non_finite_workflow_values_do_not_block_ingestion(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    source = tmp_path / "non-finite.png"
+    staged = settings.resolved_staging_root / "non-finite.upload"
+    _make_workflow_image(source, non_finite_prompt=True)
+    shutil.copy2(source, staged)
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
+    async with session_factory() as session:
+        job = Job(
+            kind="test_non_finite",
+            queue="test",
+            resource_type="test",
+            resource_id=uuid7(),
+            progress_total=1,
+        )
+        session.add(job)
+        await session.commit()
+        assert await begin_job(session, job)
+
+        outcome = await ingest_staged_file(
+            session,
+            staged_path=staged,
+            original_filename=source.name,
+            job=job,
+            settings=settings,
+        )
+
+        media = await session.get(Media, outcome.media_id)
+        snapshot = await session.scalar(
+            select(WorkflowSnapshot).where(WorkflowSnapshot.media_id == outcome.media_id)
+        )
+        run = await session.scalar(
+            select(ExtractionRun).where(ExtractionRun.snapshot_id == snapshot.id)
+        )
+        assert media is not None
+        assert snapshot is not None
+        assert run is not None
+        assert media.status == "ready_with_warnings"
+        assert outcome.ready_with_warnings
+        assert snapshot.raw_api_prompt_text is not None
+        assert '"is_changed": NaN' in snapshot.raw_api_prompt_text
+        assert snapshot.api_prompt is not None
+        assert snapshot.api_prompt["4"]["is_changed"] is None
+        assert snapshot.issue_details["issues"][0]["code"] == (
+            "WORKFLOW_NON_FINITE_NUMBER_NORMALIZED"
+        )
+        assert run.status == "completed_with_warnings"
+
+    await engine.dispose()
+
+
+async def test_snapshot_persistence_failure_is_non_blocking(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    source = tmp_path / "persistence-failure.png"
+    staged = settings.resolved_staging_root / "persistence-failure.upload"
+    _make_workflow_image(source)
+    shutil.copy2(source, staged)
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
+    def reject_workflow_snapshot(session: Session, *_args: object) -> None:
+        if any(isinstance(record, WorkflowSnapshot) for record in session.new):
+            raise ValueError("synthetic JSON persistence failure")
+
+    event.listen(Session, "before_flush", reject_workflow_snapshot)
+    try:
+        async with session_factory() as session:
+            job = Job(
+                kind="test_snapshot_failure",
+                queue="test",
+                resource_type="test",
+                resource_id=uuid7(),
+                progress_total=1,
+            )
+            session.add(job)
+            await session.commit()
+            assert await begin_job(session, job)
+
+            outcome = await ingest_staged_file(
+                session,
+                staged_path=staged,
+                original_filename=source.name,
+                job=job,
+                settings=settings,
+            )
+
+            media = await session.get(Media, outcome.media_id)
+            snapshot = await session.scalar(
+                select(WorkflowSnapshot).where(WorkflowSnapshot.media_id == outcome.media_id)
+            )
+            assert media is not None
+            assert snapshot is None
+            assert media.status == "ready_with_warnings"
+            assert media.last_error_code == "WORKFLOW_SNAPSHOT_PERSIST_FAILED"
+            assert outcome.ready_with_warnings
+    finally:
+        event.remove(Session, "before_flush", reject_workflow_snapshot)
+        await engine.dispose()

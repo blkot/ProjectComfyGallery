@@ -61,7 +61,7 @@ class WorkflowExtractionOutcome:
 
     @property
     def has_warnings(self) -> bool:
-        return self.parse_status in {"partial", "malformed", "failed"}
+        return self.issue_count > 0 or self.parse_status in {"partial", "malformed", "failed"}
 
 
 async def extract_workflow_for_media(
@@ -149,11 +149,7 @@ async def extract_workflow_for_media(
             .values(is_current=False)
         )
         issue_count = len(_snapshot_issues(snapshot))
-        run.status = (
-            "completed_with_warnings"
-            if snapshot.parse_status in {"partial", "malformed"}
-            else "succeeded"
-        )
+        run.status = "completed_with_warnings" if issue_count else "succeeded"
         run.is_current = True
         run.observation_count = observation_count
         run.configuration_hash = await _configuration_hash(session)
@@ -267,15 +263,27 @@ async def _capture_snapshot(
             error_code=error.code,
             error_message=error.message,
         )
-        session.add(snapshot)
-        await session.commit()
+        await _persist_snapshot(session, snapshot)
         raise
 
     snapshot = _snapshot_from_evidence(media_id, evidence)
-    session.add(snapshot)
-    await session.commit()
+    await _persist_snapshot(session, snapshot)
     await session.refresh(snapshot)
     return snapshot
+
+
+async def _persist_snapshot(session: AsyncSession, snapshot: WorkflowSnapshot) -> None:
+    try:
+        async with session.begin_nested():
+            session.add(snapshot)
+            await session.flush()
+    except Exception as exc:
+        raise IngestionError(
+            code="WORKFLOW_SNAPSHOT_PERSIST_FAILED",
+            message="Embedded workflow evidence could not be stored.",
+            details={"reason": str(exc)},
+        ) from exc
+    await session.commit()
 
 
 def _snapshot_from_evidence(

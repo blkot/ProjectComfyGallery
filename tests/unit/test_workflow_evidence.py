@@ -114,6 +114,38 @@ def test_one_malformed_representation_retains_the_other(tmp_path: Path) -> None:
     assert evidence.issues[0].code == "WORKFLOW_JSON_MALFORMED"
 
 
+def test_non_finite_numbers_are_normalized_without_losing_raw_evidence(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "non-finite.png"
+    prompt_text = (
+        '{"1":{"class_type":"CustomNode","inputs":{},'
+        '"is_changed":NaN,"nested":[Infinity,-Infinity]}}'
+    )
+    _write_comfy_png(
+        path,
+        prompt_text=prompt_text,
+        workflow_text=json.dumps({"nodes": [], "links": []}),
+    )
+
+    evidence = read_embedded_workflow(path, _settings())
+
+    assert evidence.raw_api_prompt_text == prompt_text
+    assert evidence.api_prompt == {
+        "1": {
+            "class_type": "CustomNode",
+            "inputs": {},
+            "is_changed": None,
+            "nested": [None, None],
+        }
+    }
+    assert evidence.api_prompt_status == "parsed"
+    assert evidence.parse_status == "parsed"
+    assert [issue.code for issue in evidence.issues] == ["WORKFLOW_NON_FINITE_NUMBER_NORMALIZED"]
+    assert evidence.issues[0].field == "prompt"
+    assert json.loads(json.dumps(evidence.api_prompt, allow_nan=False)) == evidence.api_prompt
+
+
 def test_image_without_workflow_is_a_valid_absent_snapshot(tmp_path: Path) -> None:
     path = tmp_path / "plain.png"
     _write_comfy_png(path, prompt_text=None, workflow_text=None)

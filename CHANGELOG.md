@@ -4,6 +4,15 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.23 — 2026-08-16
+
+- Preserve exact embedded workflow evidence while normalizing non-finite JSON
+  numbers to `null`, preventing ComfyUI `NaN` values from blocking ingestion.
+- Isolate workflow-snapshot persistence with a savepoint so metadata failures leave
+  stored media usable as `ready_with_warnings` instead of stranded in processing.
+- Show LoRA strengths separately in the web workflow inspector and improve Vision
+  Pro spatial-video playback ownership and fallback behavior.
+
 ## 0.1.0-rc.22 — 2026-08-11
 
 - Accept valid MPO/JPEG workflow input images and allow existing unsupported

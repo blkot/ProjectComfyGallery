@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import math
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -353,7 +354,23 @@ def _parse_payload(
                 ),
             ),
         )
-    return parsed_object, raw_text, "parsed", ()
+    normalized, non_finite_count = _normalize_non_finite_numbers(parsed_object)
+    normalized_object = normalized if isinstance(normalized, dict) else {}
+    issues = (
+        (
+            EvidenceIssue(
+                code="WORKFLOW_NON_FINITE_NUMBER_NORMALIZED",
+                message=(
+                    f"The embedded {field} contained {non_finite_count} non-finite "
+                    "number value(s); they were normalized to null in structured data."
+                ),
+                field=field,
+            ),
+        )
+        if non_finite_count
+        else ()
+    )
+    return normalized_object, raw_text, "parsed", issues
 
 
 def _validate_complexity(
@@ -419,6 +436,10 @@ def _decode_exif_value(value: object) -> object:
 
 
 def _json_safe(value: object) -> object:
+    if isinstance(value, float) and not math.isfinite(value):
+        return {
+            "$number": ("NaN" if math.isnan(value) else "Infinity" if value > 0 else "-Infinity")
+        }
     if value is None or isinstance(value, str | int | float | bool):
         return value
     if isinstance(value, bytes):
@@ -431,6 +452,28 @@ def _json_safe(value: object) -> object:
     if isinstance(value, list | tuple):
         return [_json_safe(child) for child in value]
     return str(value)
+
+
+def _normalize_non_finite_numbers(value: object) -> tuple[object, int]:
+    if isinstance(value, float) and not math.isfinite(value):
+        return None, 1
+    if isinstance(value, dict):
+        normalized: dict[str, object] = {}
+        count = 0
+        for key, child in value.items():
+            normalized_child, child_count = _normalize_non_finite_numbers(child)
+            normalized[str(key)] = normalized_child
+            count += child_count
+        return normalized, count
+    if isinstance(value, list):
+        normalized_list: list[object] = []
+        count = 0
+        for child in value:
+            normalized_child, child_count = _normalize_non_finite_numbers(child)
+            normalized_list.append(normalized_child)
+            count += child_count
+        return normalized_list, count
+    return value, 0
 
 
 def _serialize_json(value: object) -> str:
