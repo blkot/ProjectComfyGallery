@@ -13,8 +13,10 @@ enum MediaPageAccumulator {
     ) -> MediaPageAccumulationResult {
         var seen = replacing ? Set<UUID>() : Set(existing.map(\.id))
         var items = replacing ? [] : existing
-        for item in page.items where seen.insert(item.id).inserted {
-            items.append(item)
+        for item in page.items where GalleryMediaVisibility.includes(item) {
+            if seen.insert(item.id).inserted {
+                items.append(item)
+            }
         }
         let rawOffset = page.offset + page.items.count
         return MediaPageAccumulationResult(

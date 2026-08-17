@@ -274,6 +274,22 @@ struct MediaViewerView: View {
             .frame(minHeight: 60)
             .accessibilityIdentifier("viewer.next")
 
+            Button {
+                model.toggleMediaSequencePlayback()
+            } label: {
+                controlLabel(
+                    model.mediaSequence.isEnabled ? "Stop Auto Play" : "Auto Play",
+                    systemImage: model.mediaSequence.isEnabled ? "stop.fill" : "play.fill",
+                    compact: compact
+                )
+            }
+            .frame(minHeight: 60)
+            .accessibilityValue(model.mediaSequence.isEnabled ? "On" : "Off")
+            .accessibilityHint(
+                "Automatically advances through the filtered Gallery view."
+            )
+            .accessibilityIdentifier("viewer.autoPlay")
+
             if model.viewer.detail?.kind == .video {
                 Button {
                     model.player.togglePlayback()
@@ -298,6 +314,11 @@ struct MediaViewerView: View {
                 }
                 .frame(minHeight: 60)
                 .accessibilityValue(model.isVideoLooping ? "On" : "Off")
+                .accessibilityHint(
+                    model.mediaSequence.isEnabled
+                        ? "Saved for single-video playback; Auto Play currently advances to the next item."
+                        : "Repeats the current video when playback reaches the end."
+                )
                 .accessibilityIdentifier("viewer.loop")
             }
 

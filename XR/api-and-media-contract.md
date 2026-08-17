@@ -55,7 +55,7 @@ Useful query fields:
 - `favorite=true|false`
 - `prefer_spatial_playback=true|false`
 - `spatial_available=true|false`
-- `status=ready`
+- `status=ready|ready_with_warnings` (one exact value per current API request)
 - `trash=true|false`
 - `sort=file_created_desc|file_created_asc|imported_desc|imported_asc|filename_asc|filename_desc|size_desc|size_asc`
 - `limit=1..200`
@@ -64,6 +64,13 @@ Useful query fields:
 The XR **Spatial** saved view filters user intent with
 `prefer_spatial_playback=true`; it is not an availability-only view. Availability
 may be shown separately for video.
+
+XR intentionally omits `status` from list and navigation requests because the
+current backend accepts only one exact value. It then admits only `ready` and
+`ready_with_warnings` records locally. Raw response counts and offsets still drive
+pagination, so a page containing only processing/failed records is consumed and the
+next raw page is fetched rather than leaving the grid stranded. Do not remove this
+local allowlist or render every status returned by an unfiltered request.
 
 The response contains extra metadata. Define a narrow XR DTO:
 
@@ -118,6 +125,12 @@ The filter and sort parameters must match the Library view that opened the card.
 
 Use this endpoint for Viewer neighbors rather than assuming the currently loaded
 offset page contains them.
+
+An unfiltered navigation response can name a processing, failed, or unknown-status
+neighbor. Resolve that neighbor's narrow detail and continue in the same direction
+until a `ready` or `ready_with_warnings` record is found or the raw scope boundary is
+reached. Previous/Next and Play Filtered therefore share the same playable-media
+policy without requiring a backend multi-status query.
 
 The population is live. New imports may change `position` and `total`; the current
 media UUID remains the stable anchor. Update position only after a fetch or explicit

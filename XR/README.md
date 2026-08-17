@@ -18,9 +18,11 @@ self-hosted gallery. Its first MVP is intentionally focused:
 3. Air tap a media item to open one resizable media card.
 4. Auto-play videos and present images at high quality.
 5. Navigate with explicit controls or an indirect look-pinch-drag gesture.
-6. Preload neighboring media and cross pagination boundaries without visible stalls.
-7. Optionally convert a compatible 2D image into an on-device spatial scene.
-8. Play a stored Apple spatial MV-HEVC variant by default when the backend reports
+6. Auto-play the current filtered media sequence, advancing images after a short
+   dwell and videos when playback ends.
+7. Preload neighboring media and cross pagination boundaries without visible stalls.
+8. Optionally convert a compatible 2D image into an on-device spatial scene.
+9. Play a stored Apple spatial MV-HEVC variant by default when the backend reports
    it ready, with an explicit session-only ordinary-video fallback.
 
 Evaluation, workflow metadata, model information, imports, administration, and
@@ -120,6 +122,10 @@ The current server implementation remains authoritative:
 - Video auto-plays only after it becomes the active card item.
 - Video Loop is enabled by default. It remains a viewer-wide session setting, and
   the user can turn it off for all subsequently selected videos.
+- **Play Filtered** starts a session-only sequence using the current Library scope.
+  Images advance after five seconds and videos advance at end-of-item. Sequence
+  advancement temporarily takes precedence over Loop without changing the saved
+  Loop setting, and stops at the final scoped item or when Viewer closes.
 - Stored spatial video is selected by default whenever `spatial_available` and a
   ready `spatial_video` variant are present; XR currently ignores
   `prefer_spatial_playback` for video selection.
@@ -145,6 +151,9 @@ The current server implementation remains authoritative:
 - No custom hand tracking or private gaze data.
 - Current and immediate neighbors are preloaded within strict memory/disk budgets.
 - Library pagination is incremental and cancelable.
+- Library treats both backend `ready` and `ready_with_warnings` media as playable.
+  XR omits the API's single-value status filter, filters all other statuses locally,
+  and preserves raw offsets while backfilling visible pages.
 - 2D-to-spatial conversion is on demand, image-only, and reversible to 2D.
 - Spatial-scene generation never modifies or uploads a replacement for the gallery
   original.

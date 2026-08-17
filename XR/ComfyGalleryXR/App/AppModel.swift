@@ -111,6 +111,7 @@ final class AppModel {
     let environment: AppEnvironment
     let player = PlayerController()
     let spatial = SpatialImageController()
+    let mediaSequence = MediaSequencePlaybackController()
     let supportsSpatialVideoPlayback: Bool
 
     /// Viewer-wide video playback preference. This is intentionally not stored
@@ -152,6 +153,18 @@ final class AppModel {
         }
         spatial.onSpatialPresentationReady = { [weak self] mediaID in
             self?.spatialPresentationDidBecomeReady(mediaID: mediaID)
+        }
+        mediaSequence.onAdvance = { [weak self] mediaID in
+            self?.advanceMediaSequence(from: mediaID) ?? false
+        }
+        player.onPlaybackEnded = { [weak self] in
+            guard
+                let self,
+                let mediaID = self.viewer.selection?.mediaID
+            else {
+                return false
+            }
+            return self.mediaSequence.videoDidReachEnd(mediaID: mediaID)
         }
     }
 
@@ -226,6 +239,7 @@ final class AppModel {
 
     func disconnect() async {
         cancelAllWork()
+        mediaSequence.reset()
         player.stop()
         preferenceSyncTasks.values.forEach { $0.cancel() }
         preferenceSyncTasks.removeAll()
@@ -260,12 +274,12 @@ final class AppModel {
         library.loadState = hadItems ? .refreshing : .initialLoading
 
         do {
-            let page = try await environment.galleryRepository.page(
+            let pages = try await environment.galleryRepository.playablePages(
                 scope: library.scope,
                 offset: 0
             )
             guard generation == libraryGeneration else { return }
-            apply(page: page, replacing: true)
+            apply(pages: pages, replacing: true)
         } catch {
             guard generation == libraryGeneration else { return }
             handle(error)
@@ -279,12 +293,12 @@ final class AppModel {
         let generation = libraryGeneration
         library.loadState = .loadingNext
         do {
-            let page = try await environment.galleryRepository.page(
+            let pages = try await environment.galleryRepository.playablePages(
                 scope: library.scope,
                 offset: library.rawOffset
             )
             guard generation == libraryGeneration else { return }
-            apply(page: page, replacing: false)
+            apply(pages: pages, replacing: false)
         } catch {
             guard generation == libraryGeneration else { return }
             handle(error)
@@ -333,6 +347,37 @@ final class AppModel {
     }
 
     func select(_ summary: XRMediaSummary) {
+        mediaSequence.stop()
+        selectForViewer(summary)
+    }
+
+    @discardableResult
+    func startFilteredMediaSequence() -> Bool {
+        guard let first = library.items.first else { return false }
+        mediaSequence.start()
+        selectForViewer(first)
+        return true
+    }
+
+    func toggleMediaSequencePlayback() {
+        if mediaSequence.isEnabled {
+            mediaSequence.stop()
+            return
+        }
+
+        mediaSequence.start()
+        if
+            viewer.loadState == .ready,
+            let detail = viewer.detail
+        {
+            mediaSequence.currentMediaDidBecomeReady(
+                mediaID: detail.id,
+                kind: detail.kind
+            )
+        }
+    }
+
+    private func selectForViewer(_ summary: XRMediaSummary) {
         let selection = ViewerSelection(mediaID: summary.id, scope: library.scope)
         ordinaryVideoOverrideMediaID = nil
         viewer.selection = selection
@@ -346,20 +391,24 @@ final class AppModel {
         startViewerLoad(selection)
     }
 
-    func navigate(_ direction: NavigationDirection) {
-        guard let navigation = viewer.navigation, let selection = viewer.selection else { return }
+    @discardableResult
+    func navigate(_ direction: NavigationDirection) -> Bool {
+        guard let navigation = viewer.navigation, let selection = viewer.selection else {
+            return false
+        }
         let target: UUID?
         switch direction {
         case .previous: target = navigation.previousID
         case .next: target = navigation.nextID
         }
-        guard let target else { return }
+        guard let target else { return false }
         let newSelection = ViewerSelection(mediaID: target, scope: selection.scope)
         ordinaryVideoOverrideMediaID = nil
         viewer.selection = newSelection
         viewer.detail = nil
         persistSelection(newSelection)
         startViewerLoad(newSelection)
+        return true
     }
 
     func toggleVideoLooping() {
@@ -380,6 +429,7 @@ final class AppModel {
         videoSourceSwitchTask = nil
         prefetchTasks.forEach { $0.cancel() }
         prefetchTasks.removeAll()
+        mediaSequence.reset()
         player.stop()
         ordinaryVideoOverrideMediaID = nil
         cancelSpatial()
@@ -540,6 +590,7 @@ final class AppModel {
     }
 
     func viewerScenePhaseChanged(isActive: Bool) {
+        mediaSequence.scenePhaseChanged(isActive: isActive)
         if isActive {
             player.resumeIfAppropriate()
         } else {
@@ -569,6 +620,7 @@ final class AppModel {
     }
 
     private func startViewerLoad(_ selection: ViewerSelection) {
+        mediaSequence.currentMediaWillChange()
         viewerLoadTask?.cancel()
         videoSourceGeneration += 1
         videoSourceSwitchTask?.cancel()
@@ -703,6 +755,10 @@ final class AppModel {
                 viewer.videoIsPreparing = false
             }
             viewer.loadState = .ready
+            mediaSequence.currentMediaDidBecomeReady(
+                mediaID: detail.id,
+                kind: detail.kind
+            )
             schedulePrefetch(navigation: navigation, scope: selection.scope, profile: profile)
 
             if pendingPreferenceMutations[detail.id] != nil {
@@ -714,6 +770,7 @@ final class AppModel {
             }
         } catch let error as APIClientError {
             guard generation == viewerGeneration else { return }
+            mediaSequence.stop()
             handle(error)
             if case .server(let status, _, _, _) = error, status == 404 {
                 viewer.loadState = .unavailable("This media is no longer available.")
@@ -724,8 +781,19 @@ final class AppModel {
             return
         } catch {
             guard generation == viewerGeneration else { return }
+            mediaSequence.stop()
             viewer.loadState = .failed(Redaction.safeErrorDescription(error))
         }
+    }
+
+    private func advanceMediaSequence(from mediaID: UUID) -> Bool {
+        guard
+            mediaSequence.isEnabled,
+            viewer.selection?.mediaID == mediaID
+        else {
+            return false
+        }
+        return navigate(.next)
     }
 
     private func schedulePrefetch(
@@ -805,6 +873,16 @@ final class AppModel {
         library.total = effectivePage.total
         library.rawOffset = result.rawOffset
         library.loadState = result.isExhausted ? .exhausted : .loaded
+    }
+
+    private func apply(pages: [MediaPage], replacing: Bool) {
+        guard !pages.isEmpty else {
+            library.loadState = .exhausted
+            return
+        }
+        for (index, page) in pages.enumerated() {
+            apply(page: page, replacing: replacing && index == 0)
+        }
     }
 
     private func configureSpatialAvailability(
@@ -1061,12 +1139,14 @@ final class AppModel {
 
     private func handle(_ error: Error) {
         guard let apiError = error as? APIClientError, apiError.requiresAuthentication else { return }
+        mediaSequence.stop()
         player.pause()
         connectionPhase = .requiresAuthentication(apiError.errorDescription ?? "Authentication is required.")
         hasPresentedConnection = false
     }
 
     private func cancelAllWork() {
+        mediaSequence.currentMediaWillChange()
         libraryGeneration += 1
         viewerGeneration += 1
         viewerLoadTask?.cancel()

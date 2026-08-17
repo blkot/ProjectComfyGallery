@@ -159,6 +159,8 @@ Long-lived services:
 - `ViewerPrefetchCoordinator` actor: current/next/previous priority and cancellation.
 - `SpatialImageController` isolated controller: RealityKit component/entity and one
   generation task.
+- `MediaSequencePlaybackController` on the main actor: session-only filtered sequence
+  state, cancelable image dwell, scene activity, and video-end advancement policy.
 - `PlayerController` on the main actor: one active AVPlayer and lifecycle observers.
 - `CredentialStore`: Keychain token keyed by server profile.
 
@@ -211,8 +213,14 @@ domain models.
 - Start next-page load near the final two rows.
 - Cancel/restart when scope changes.
 - Deduplicate IDs without changing raw offset progression.
+- Omit the API's single-value `status` query. Filter raw pages through one shared
+  allowlist containing only `ready` and `ready_with_warnings`, and continue fetching
+  raw pages until the visible batch is populated or the server scope is exhausted.
 - Preserve scroll anchor through `ScrollPosition`/scene state appropriate to the
   installed SDK.
+- Add Play Filtered to the Library ornament. Seed it from the first loaded item and
+  capture the current `GalleryScope`; do not require the complete result set to be
+  resident in the local grid.
 
 Do not load originals for grid cards.
 
@@ -278,17 +286,21 @@ surface and app-owned controls for both ordinary and spatial playback.
     RealityKit surface exists, scale the component uniformly, and let it fill the
     clean media region. A backdrop left mounted at the same window plane produces
     a persistent gray veil over the video.
-14. Keep Play/Pause, navigation, Favorite, Loop, and the spatial/2D action in the
-    SwiftUI controls region below the media. Do not overlay system-player chrome on
-    the video.
+14. Keep Play/Pause, navigation, Auto Play, Favorite, Loop, and the spatial/2D
+    action in the SwiftUI controls region below the media. Do not overlay
+    system-player chrome on the video.
 15. Inset the controls from the bottom corners so visionOS window-resize affordances
     remain reachable. Pause and detach the old item before navigation commits.
 16. Enable the viewer-wide Loop setting by default. Implement infinite looping
     without replacing the `AVPlayer`: wait for the seek-to-zero completion before
     resuming, and invalidate stale completions after item replacement. Toggling
     Loop must not replace the active player or reset on navigation.
-17. Remove time/status observers on replacement and deinit.
-18. Pause when scene phase becomes inactive.
+17. Route the active item's end notification through filtered-sequence playback
+    before Loop. When Auto Play consumes the event, navigate to `next_id` or stop at
+    the scope boundary; never change the Loop setting. Reject stale end notifications
+    from a replaced item generation.
+18. Remove time/status observers on replacement and deinit.
+19. Pause when scene phase becomes inactive.
 
 Only the active player has audio. Audio must be embedded in the selected ordinary
 or spatial asset; XR does not pair the ordinary representation's audio with a
@@ -317,6 +329,22 @@ For every stable selection:
 4. Prepare next, then previous within budget.
 
 This operates independently of loaded Library pages.
+
+### Filtered sequence playback
+
+1. Start from Library's first loaded item or the current Viewer item.
+2. Preserve the selection's captured `GalleryScope` for every navigation request.
+3. Cancel any previous dwell as soon as selection begins changing.
+4. After a ready image is visible, start one cancelable five-second dwell task.
+5. For video, wait for the generation-checked active-item end notification.
+6. Advance through the same `navigate(.next)` path used by buttons and gestures.
+7. Navigation is status-unfiltered at the API boundary. Resolve and skip each
+   processing, failed, or unknown-status neighbor until a `ready` or
+   `ready_with_warnings` item or the raw boundary is reached.
+8. Keep Auto Play active through manual Previous/Next; stop it at `next_id == nil`,
+   Viewer close, disconnect, authentication loss, or a terminal current-item error.
+9. Suspend image dwell while Viewer is inactive and restart a full dwell when it
+   becomes active. Prefetch must never start a dwell or emit a playback-end event.
 
 ### Drag state machine
 

@@ -79,6 +79,16 @@ scenes without altering the backend original.
    met.
 7. The next card is already decoded or downloaded when prefetch succeeds.
 
+### Auto-play a filtered sequence
+
+1. Set the desired media type, Favorites/Spatial, Trash, and sort filters in Library.
+2. Select **Play Filtered** to open the first item in that exact scope.
+3. Ready images remain visible for five seconds; videos advance after playback ends.
+4. Previous/Next may be used without stopping the sequence, and **Stop Auto Play**
+   remains available below the media.
+5. At the final scoped item, the sequence stops without wrapping. Closing Viewer or
+   disconnecting also stops it.
+
 ### Make a 2D image spatial
 
 1. Open a compatible image.
@@ -159,6 +169,15 @@ scenes without altering the backend original.
 - **XR-LIB-008:** Page failure MUST preserve already loaded content and offer Retry.
 - **XR-LIB-009:** A refresh MUST not reorder an active Media-card neighbor sequence
   underneath an in-progress drag.
+- **XR-LIB-010:** Library MUST expose Play Filtered when at least one item is loaded.
+  It MUST start from the first item in the current `GalleryScope`; subsequent items
+  MUST resolve through backend navigation using that captured scope rather than the
+  locally loaded page alone.
+- **XR-LIB-011:** Library MUST include media whose backend status is `ready` or
+  `ready_with_warnings` and MUST exclude processing, failed, or unknown statuses.
+  Because the current API accepts only one status value, XR MUST preserve the raw
+  server order and offset while filtering locally, and MUST continue fetching when
+  a raw page does not produce a visible item.
 
 ### Viewer
 
@@ -221,6 +240,15 @@ scenes without altering the backend original.
   ordinary/spatial source changes for the current app session. End-of-item restart
   MUST wait for a successful seek-to-zero completion, and a stale seek completion
   MUST NOT resume a replaced or inactive item.
+- **XR-VIEW-019:** Viewer MUST expose a session-only Auto Play control for mixed
+  filtered sequences. A ready image MUST advance after five seconds; a video MUST
+  advance only after the active item reaches its end. Loading time MUST NOT consume
+  an image's dwell interval.
+- **XR-VIEW-020:** While Auto Play is enabled, video-end advancement MUST take
+  precedence over single-video Loop without modifying the viewer-wide Loop setting.
+  Manual Previous/Next MUST preserve Auto Play. The final scoped item, Viewer close,
+  disconnect, authentication loss, or an unrecoverable current-media load failure
+  MUST stop Auto Play without wrapping.
 
 ### Navigation
 

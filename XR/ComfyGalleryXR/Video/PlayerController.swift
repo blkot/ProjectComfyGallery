@@ -113,6 +113,7 @@ final class PlayerController {
     @ObservationIgnored private let loopPlayback = VideoLoopPlaybackCoordinator()
     @ObservationIgnored private var isPausedByUser = false
     @ObservationIgnored private var readiness = VideoPlaybackReadiness()
+    @ObservationIgnored var onPlaybackEnded: (@MainActor () -> Bool)?
 
     var isReadyForPlayback: Bool {
         readiness.isReady
@@ -243,9 +244,17 @@ final class PlayerController {
             forName: .AVPlayerItemDidPlayToEndTime,
             object: item,
             queue: .main
-        ) { [weak self, weak player] _ in
+        ) { [weak self, weak item, weak player] _ in
             Task { @MainActor in
-                guard let self, let player else { return }
+                guard
+                    let self,
+                    let item,
+                    let player,
+                    self.player?.currentItem === item,
+                    self.itemGeneration == itemGeneration
+                else {
+                    return
+                }
                 self.handlePlaybackEnded(player)
             }
         }
@@ -275,6 +284,15 @@ final class PlayerController {
     }
 
     private func handlePlaybackEnded(_ endedPlayer: AVPlayer) {
+        if
+            isActive,
+            !isPausedByUser,
+            shouldAutoplay,
+            onPlaybackEnded?() == true
+        {
+            isPlaying = false
+            return
+        }
         guard
             player === endedPlayer,
             isLooping,

@@ -84,6 +84,7 @@ Use a restrained top or bottom ornament for:
 - All / Images / Videos;
 - Hide Trash / Include Trash;
 - sort menu, default Newest;
+- **Play Filtered**, enabled when the current view has at least one loaded item;
 - connection status.
 
 Do not create floating custom 3D text or controls.
@@ -161,6 +162,9 @@ second card.
   representation switches for the app session. Wait for seek-to-zero to complete
   before restarting, and reject stale completions after item replacement or
   deactivation.
+- When filtered Auto Play is active, advance the current video at end-of-item before
+  considering Loop. Keep the Loop preference unchanged so it resumes normal behavior
+  after Auto Play stops.
 - Remove the poster layer once the RealityKit surface exists. Never leave a differently
   sized preview visible behind the player.
 - Use viewer-owned playback controls below the media.
@@ -178,11 +182,16 @@ second card.
 ### Bottom ornament
 
 ```text
-[ Previous ]   18 / 503   [ Next ]     [ Make Spatial ]
+[ Previous ]   18 / 503   [ Next ]   [ Auto Play ]   [ Make Spatial ]
 ```
 
 - Previous/Next are always present and disable at scope boundaries.
 - Position updates from the navigation response.
+- **Auto Play** starts or stops the captured filtered sequence. Its active label is
+  **Stop Auto Play**. Images receive a five-second dwell after they become ready;
+  videos advance at end-of-item. Manual navigation keeps the mode active, while the
+  final item, Viewer close, disconnect, authentication loss, or a current-media load
+  failure stops it.
 - Make Spatial appears only for compatible image media.
 - During generation it becomes **Making Spatial…** with progress activity and Cancel.
 - After successful generation it becomes **Disable Spatial**, and both Favorite and
@@ -262,13 +271,23 @@ opposite neighbor. Never pre-generate spatial depth.
 - Library uses page size 48 by default.
 - Begin fetching the next page roughly two grid rows before the end.
 - Deduplicate appended items by media UUID.
-- Preserve raw offset advancement even if a page contains duplicate IDs.
+- Show both `ready` and `ready_with_warnings` media. Hide processing, failed, and
+  unknown statuses locally while preserving raw offset advancement; automatically
+  consume another raw page if filtering leaves the visible batch underfilled.
+- Preserve raw offset advancement even if a page contains duplicate or hidden IDs.
 - Avoid automatic refresh while a drag is active.
 
 Viewer navigation is not limited to locally loaded pages. It calls the backend
 navigation endpoint with the current filter/sort to obtain previous/next media IDs.
 When a returned neighbor is absent from the local page cache, fetch its narrow media
-detail and prepare it directly.
+detail and prepare it directly. If that neighbor is not `ready` or
+`ready_with_warnings`, continue in the same direction until a playable item or the
+raw scope boundary is reached.
+
+Play Filtered captures the same `GalleryScope` when it starts. Automatic advancement
+uses that navigation response exactly, so a sequence crosses pagination boundaries
+and cannot drift into media excluded by the selected type, preference, Trash, or
+sort controls. It stops rather than wrapping when `next_id` is absent.
 
 New imports can change live positions. Keep the current media ID stable and accept an
 updated total/position after the next explicit navigation request; never jump the

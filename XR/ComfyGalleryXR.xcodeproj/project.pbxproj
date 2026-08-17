@@ -16,6 +16,7 @@
 		1FAA23985E50701A0C3008F3 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70207CE324895D55FDF41863 /* LibraryView.swift */; };
 		25C3A9377DEAAAB335ADB837 /* URLNormalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDBCD2873F46141A2EC91CA3 /* URLNormalization.swift */; };
 		3554297FFDF1E14E8CDD512E /* ImagePipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = C396F759E60673391E96E77E /* ImagePipeline.swift */; };
+		4BCD07B70A9DB7A5F80C7680 /* TestURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C0D4312653A9B81AD404D94 /* TestURLProtocol.swift */; };
 		57FF4C4A01EC966CDED8C026 /* PersistenceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F25D3BF6F4C78110D4DD33 /* PersistenceModels.swift */; };
 		58D50595E6BC6A93B8C045DB /* SpatialInputNormalizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 720B4C0DA1EB2EDE6F107340 /* SpatialInputNormalizer.swift */; };
 		59841261C8B2E757C638A9F6 /* GalleryRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EB7A682E5CBC53E1E225A8A /* GalleryRepository.swift */; };
@@ -25,16 +26,20 @@
 		778481ED86CD5F6A75776C09 /* Redaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF589089ABCA3BC559EC3A57 /* Redaction.swift */; };
 		7A30EBE5E2EEF54EEF2967E4 /* SpatialImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12C4BA8904472658237E5193 /* SpatialImageView.swift */; };
 		8347B98D068CA4B8C6954A57 /* MediaViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3D82E50666CEBF3DE4ACE20 /* MediaViewerView.swift */; };
+		9001BDAFDE0D105C0FD99D28 /* MediaSequencePlaybackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FD324D94B3890778A63D27F /* MediaSequencePlaybackTests.swift */; };
 		9657BEDB3E39A2471BD3B468 /* DomainContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D55D4BCD1D727CEAB1CD4254 /* DomainContractTests.swift */; };
 		976FB84C38C57B6F99914238 /* MediaRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD45004ECF9A8A964E1E0952 /* MediaRepository.swift */; };
 		A0D19327E165A4C60F54DEC4 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 193904EF55DB66315495A45D /* AppEnvironment.swift */; };
-		A14C9B0E7D9F4B62B1D3C580 /* RealityVideoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B27D8C1F6E4A4093A5C7D2E1 /* RealityVideoView.swift */; };
 		B36B78028D974B7AB63FAB23 /* DomainModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FE34C3D081316FA4BE05124 /* DomainModels.swift */; };
 		B7B84B2EA854F500E37A5B46 /* SceneRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73B678D4A2D8D0C64603B6EA /* SceneRoute.swift */; };
 		BD17545921F6C30D5265BE43 /* ConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81F52748D02FB705309EFC68 /* ConnectionView.swift */; };
+		D34E413607BA0B06088E082D /* GalleryPlayableMediaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB64AC65CCD2F77B15E65357 /* GalleryPlayableMediaTests.swift */; };
+		D8EA74E1B6928671D18C938D /* MediaSequencePlaybackController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5C9592C58D55CD18CE07025 /* MediaSequencePlaybackController.swift */; };
 		D910C5B35B43C6FA8A4A95BA /* MediaGridCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = E702622A8AB321383AB1B240 /* MediaGridCell.swift */; };
+		D9786F9CF74996BD76ADF2E4 /* GalleryMediaVisibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E9B23D6DEFF9FEEA58E96F7 /* GalleryMediaVisibility.swift */; };
 		E151AE5B7E244488713A8BA9 /* MediaCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = D72BB709A50AB0E3565D615F /* MediaCache.swift */; };
 		E4923A091261B03EB53E6195 /* ImagePresentationScaler.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5B62CCF4E675BF27E79C467 /* ImagePresentationScaler.swift */; };
+		E9A3D513D2C4FC3947252793 /* RealityVideoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 750C3A74ECFEEEE371652B22 /* RealityVideoView.swift */; };
 		EB971920649A88317DCBE819 /* URLNormalizationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B28898274E2C0DE17E61885 /* URLNormalizationTests.swift */; };
 		EE00786F5EA89B281D335E08 /* SpatialImageController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65272478327093A41490B128 /* SpatialImageController.swift */; };
 		F5997319BD9C8A54EF530320 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1870F3FEC33626E56334D1AB /* AppModel.swift */; };
@@ -65,6 +70,7 @@
 		12C4BA8904472658237E5193 /* SpatialImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpatialImageView.swift; sourceTree = "<group>"; };
 		1870F3FEC33626E56334D1AB /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		193904EF55DB66315495A45D /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
+		2FD324D94B3890778A63D27F /* MediaSequencePlaybackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaSequencePlaybackTests.swift; sourceTree = "<group>"; };
 		3E963A4C61273BA66F5CD876 /* SpatialInputNormalizerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpatialInputNormalizerTests.swift; sourceTree = "<group>"; };
 		405BB4C3D574F0E82E7B430F /* ComfyGalleryXRApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComfyGalleryXRApp.swift; sourceTree = "<group>"; };
 		4120611D3FFB8AA379B12098 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
@@ -79,13 +85,16 @@
 		70B40D45B1D90FF0EC938724 /* ComfyGalleryXRUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComfyGalleryXRUITests.swift; sourceTree = "<group>"; };
 		720B4C0DA1EB2EDE6F107340 /* SpatialInputNormalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpatialInputNormalizer.swift; sourceTree = "<group>"; };
 		73B678D4A2D8D0C64603B6EA /* SceneRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneRoute.swift; sourceTree = "<group>"; };
+		750C3A74ECFEEEE371652B22 /* RealityVideoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealityVideoView.swift; sourceTree = "<group>"; };
 		75F25D3BF6F4C78110D4DD33 /* PersistenceModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceModels.swift; sourceTree = "<group>"; };
+		7C0D4312653A9B81AD404D94 /* TestURLProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestURLProtocol.swift; sourceTree = "<group>"; };
+		7E9B23D6DEFF9FEEA58E96F7 /* GalleryMediaVisibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalleryMediaVisibility.swift; sourceTree = "<group>"; };
 		81F52748D02FB705309EFC68 /* ConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionView.swift; sourceTree = "<group>"; };
 		9EB7A682E5CBC53E1E225A8A /* GalleryRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalleryRepository.swift; sourceTree = "<group>"; };
 		A0127A493CA8EC5CAD34192B /* PlayerViewControllerRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerViewControllerRepresentable.swift; sourceTree = "<group>"; };
-		B27D8C1F6E4A4093A5C7D2E1 /* RealityVideoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealityVideoView.swift; sourceTree = "<group>"; };
 		A3D82E50666CEBF3DE4ACE20 /* MediaViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaViewerView.swift; sourceTree = "<group>"; };
 		AF589089ABCA3BC559EC3A57 /* Redaction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Redaction.swift; sourceTree = "<group>"; };
+		B5C9592C58D55CD18CE07025 /* MediaSequencePlaybackController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaSequencePlaybackController.swift; sourceTree = "<group>"; };
 		BD45004ECF9A8A964E1E0952 /* MediaRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaRepository.swift; sourceTree = "<group>"; };
 		BDBCD2873F46141A2EC91CA3 /* URLNormalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLNormalization.swift; sourceTree = "<group>"; };
 		C396F759E60673391E96E77E /* ImagePipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePipeline.swift; sourceTree = "<group>"; };
@@ -93,7 +102,8 @@
 		D55D4BCD1D727CEAB1CD4254 /* DomainContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DomainContractTests.swift; sourceTree = "<group>"; };
 		D5B62CCF4E675BF27E79C467 /* ImagePresentationScaler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePresentationScaler.swift; sourceTree = "<group>"; };
 		D72BB709A50AB0E3565D615F /* MediaCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaCache.swift; sourceTree = "<group>"; };
-		E5A13D85F7FEBF863AB90EFB /* ComfyGalleryXR.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ComfyGalleryXR.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DB64AC65CCD2F77B15E65357 /* GalleryPlayableMediaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalleryPlayableMediaTests.swift; sourceTree = "<group>"; };
+		E5A13D85F7FEBF863AB90EFB /* ComfyGalleryXR.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ComfyGalleryXR.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E702622A8AB321383AB1B240 /* MediaGridCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaGridCell.swift; sourceTree = "<group>"; };
 		FDE32BD55451F1C42A74C97F /* CredentialStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -175,6 +185,7 @@
 				193904EF55DB66315495A45D /* AppEnvironment.swift */,
 				1870F3FEC33626E56334D1AB /* AppModel.swift */,
 				405BB4C3D574F0E82E7B430F /* ComfyGalleryXRApp.swift */,
+				B5C9592C58D55CD18CE07025 /* MediaSequencePlaybackController.swift */,
 				73B678D4A2D8D0C64603B6EA /* SceneRoute.swift */,
 			);
 			path = App;
@@ -185,7 +196,7 @@
 			children = (
 				CFC929517D4AD9AF23C52B65 /* PlayerController.swift */,
 				A0127A493CA8EC5CAD34192B /* PlayerViewControllerRepresentable.swift */,
-				B27D8C1F6E4A4093A5C7D2E1 /* RealityVideoView.swift */,
+				750C3A74ECFEEEE371652B22 /* RealityVideoView.swift */,
 			);
 			path = Video;
 			sourceTree = "<group>";
@@ -226,6 +237,7 @@
 			isa = PBXGroup;
 			children = (
 				0FE34C3D081316FA4BE05124 /* DomainModels.swift */,
+				7E9B23D6DEFF9FEEA58E96F7 /* GalleryMediaVisibility.swift */,
 				9EB7A682E5CBC53E1E225A8A /* GalleryRepository.swift */,
 				680656CD4D3A4760727EAE45 /* MediaPageAccumulator.swift */,
 				BD45004ECF9A8A964E1E0952 /* MediaRepository.swift */,
@@ -257,8 +269,11 @@
 			isa = PBXGroup;
 			children = (
 				D55D4BCD1D727CEAB1CD4254 /* DomainContractTests.swift */,
+				DB64AC65CCD2F77B15E65357 /* GalleryPlayableMediaTests.swift */,
+				2FD324D94B3890778A63D27F /* MediaSequencePlaybackTests.swift */,
 				476E49C9B6B9AE8206A433B0 /* NavigationAndPagingTests.swift */,
 				3E963A4C61273BA66F5CD876 /* SpatialInputNormalizerTests.swift */,
+				7C0D4312653A9B81AD404D94 /* TestURLProtocol.swift */,
 				5B28898274E2C0DE17E61885 /* URLNormalizationTests.swift */,
 			);
 			path = ComfyGalleryXRTests;
@@ -358,6 +373,9 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					1BCD24EE9F0F55D5F9B82241 = {
+						DevelopmentTeam = QG45Q7UB5U;
+					};
 					98E4F395AF6076A5B7081019 = {
 						TestTargetID = 1BCD24EE9F0F55D5F9B82241;
 					};
@@ -398,6 +416,7 @@
 				0B7ABFFF9A2705BE44A4460B /* CredentialStore.swift in Sources */,
 				B36B78028D974B7AB63FAB23 /* DomainModels.swift in Sources */,
 				0A124600B29B4EF815447055 /* DragNavigationDecision.swift in Sources */,
+				D9786F9CF74996BD76ADF2E4 /* GalleryMediaVisibility.swift in Sources */,
 				59841261C8B2E757C638A9F6 /* GalleryRepository.swift in Sources */,
 				3554297FFDF1E14E8CDD512E /* ImagePipeline.swift in Sources */,
 				E4923A091261B03EB53E6195 /* ImagePresentationScaler.swift in Sources */,
@@ -406,11 +425,12 @@
 				D910C5B35B43C6FA8A4A95BA /* MediaGridCell.swift in Sources */,
 				FE79D2A3090E44F16CF4CAE9 /* MediaPageAccumulator.swift in Sources */,
 				976FB84C38C57B6F99914238 /* MediaRepository.swift in Sources */,
+				D8EA74E1B6928671D18C938D /* MediaSequencePlaybackController.swift in Sources */,
 				8347B98D068CA4B8C6954A57 /* MediaViewerView.swift in Sources */,
 				57FF4C4A01EC966CDED8C026 /* PersistenceModels.swift in Sources */,
 				13AC547C19E390D88E220B07 /* PlayerController.swift in Sources */,
 				5E301996D679A87A912E1EA9 /* PlayerViewControllerRepresentable.swift in Sources */,
-				A14C9B0E7D9F4B62B1D3C580 /* RealityVideoView.swift in Sources */,
+				E9A3D513D2C4FC3947252793 /* RealityVideoView.swift in Sources */,
 				778481ED86CD5F6A75776C09 /* Redaction.swift in Sources */,
 				B7B84B2EA854F500E37A5B46 /* SceneRoute.swift in Sources */,
 				EE00786F5EA89B281D335E08 /* SpatialImageController.swift in Sources */,
@@ -433,8 +453,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				9657BEDB3E39A2471BD3B468 /* DomainContractTests.swift in Sources */,
+				D34E413607BA0B06088E082D /* GalleryPlayableMediaTests.swift in Sources */,
+				9001BDAFDE0D105C0FD99D28 /* MediaSequencePlaybackTests.swift in Sources */,
 				F64E6FB05409C875B1E7A5C7 /* NavigationAndPagingTests.swift in Sources */,
 				64CEF3D4488ECECCA775FEEB /* SpatialInputNormalizerTests.swift in Sources */,
+				4BCD07B70A9DB7A5F80C7680 /* TestURLProtocol.swift in Sources */,
 				EB971920649A88317DCBE819 /* URLNormalizationTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

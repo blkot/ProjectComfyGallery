@@ -297,6 +297,16 @@ struct LibraryView: View {
             }
             .frame(minWidth: 170)
 
+            Button("Play Filtered", systemImage: "play.rectangle.on.rectangle") {
+                guard model.startFilteredMediaSequence() else { return }
+                openWindow(id: SceneID.viewer)
+            }
+            .disabled(model.library.items.isEmpty)
+            .accessibilityHint(
+                "Starts at the first item and automatically advances through this filtered view."
+            )
+            .accessibilityIdentifier("library.playFiltered")
+
             connectionIndicator
         }
         .padding(.horizontal, 18)

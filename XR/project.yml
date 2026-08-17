@@ -36,6 +36,7 @@ targets:
         UIApplicationSupportsIndirectInputEvents: true
     settings:
       base:
+        DEVELOPMENT_TEAM: QG45Q7UB5U
         PRODUCT_BUNDLE_IDENTIFIER: com.comfygallery.xr
         TARGETED_DEVICE_FAMILY: 7
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
