@@ -12,6 +12,10 @@ import {
   type WorkflowRawEvidence,
 } from "../lib/api";
 import { copyText } from "../lib/clipboard";
+import {
+  openComfyUiTab,
+  sendWorkflowToComfyUi,
+} from "../lib/comfyui-workflow-bridge";
 import { formatDate, titleCase } from "../lib/format";
 import { orderPrompts } from "../lib/prompts";
 
@@ -33,6 +37,12 @@ export function WorkflowInspector({ mediaId }: WorkflowInspectorProps) {
   const [showGraph, setShowGraph] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
+  const [comfyUiOpenState, setComfyUiOpenState] = useState<
+    "idle" | "opening" | "sent" | "error"
+  >("idle");
+  const [comfyUiOpenMessage, setComfyUiOpenMessage] = useState<string | null>(
+    null,
+  );
 
   const workflow = useQuery({
     queryKey: ["media-workflow", mediaId],
@@ -111,6 +121,38 @@ export function WorkflowInspector({ mediaId }: WorkflowInspectorProps) {
   const jobRunning = Boolean(jobStatus && !terminalJobStatuses.has(jobStatus));
   const mutationError = reprocess.error;
 
+  async function openInComfyUi() {
+    if (!snapshot) return;
+    setComfyUiOpenState("opening");
+    setComfyUiOpenMessage(null);
+
+    try {
+      // Open from the click handler before awaiting the authenticated raw
+      // workflow request so browsers do not classify it as a popup.
+      const tab = openComfyUiTab();
+      const rawResult = rawEvidence.data
+        ? { data: rawEvidence.data, error: null }
+        : await rawEvidence.refetch();
+      const evidence = rawResult.data;
+      if (!evidence) {
+        throw (
+          rawResult.error ??
+          new Error("No decoded workflow is available for this media.")
+        );
+      }
+      await sendWorkflowToComfyUi(tab, mediaId, evidence);
+      setComfyUiOpenState("sent");
+      setComfyUiOpenMessage("Workflow sent to ComfyUI.");
+    } catch (error) {
+      setComfyUiOpenState("error");
+      setComfyUiOpenMessage(
+        error instanceof Error
+          ? error.message
+          : "The workflow could not be opened in ComfyUI.",
+      );
+    }
+  }
+
   return (
     <section className="workflow-section workflow-inspector">
       <header className="workflow-heading">
@@ -130,8 +172,33 @@ export function WorkflowInspector({ mediaId }: WorkflowInspectorProps) {
           >
             {reprocess.isPending || jobRunning ? "Extracting…" : "Reprocess"}
           </button>
+          <button
+            className="secondary-button comfyui-open-button"
+            type="button"
+            disabled={!snapshot || comfyUiOpenState === "opening"}
+            onClick={() => void openInComfyUi()}
+          >
+            {comfyUiOpenState === "opening"
+              ? "Opening ComfyUI…"
+              : comfyUiOpenState === "sent"
+                ? "Sent to ComfyUI"
+                : "Open in ComfyUI"}
+          </button>
         </div>
       </header>
+
+      {comfyUiOpenMessage ? (
+        <p
+          className={
+            comfyUiOpenState === "error"
+              ? "notice error-notice"
+              : "notice comfyui-open-notice"
+          }
+          role={comfyUiOpenState === "error" ? "alert" : "status"}
+        >
+          {comfyUiOpenMessage}
+        </p>
+      ) : null}
 
       {mutationError ? (
         <p className="notice error-notice" role="alert">

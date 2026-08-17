@@ -3511,6 +3511,16 @@ textarea {
   font-size: 8px;
 }
 
+.workflow-inspector .workflow-actions .comfyui-open-button {
+  border-color: rgba(137, 190, 224, 0.45);
+  color: #b8d8ea;
+}
+
+.comfyui-open-notice {
+  border-color: rgba(137, 190, 224, 0.35);
+  color: #b8d8ea;
+}
+
 .workflow-priority-card {
   padding: 18px;
   border: 1px solid var(--line-soft);

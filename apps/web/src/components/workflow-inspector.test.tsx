@@ -5,13 +5,21 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   WorkflowDetail,
   WorkflowModelUsage,
+  WorkflowRawEvidence,
   WorkflowSnapshot,
 } from "../lib/api";
 import { WorkflowInspector } from "./workflow-inspector";
 
-const { apiRequestMock, copyTextMock } = vi.hoisted(() => ({
+const {
+  apiRequestMock,
+  copyTextMock,
+  openComfyUiTabMock,
+  sendWorkflowToComfyUiMock,
+} = vi.hoisted(() => ({
   apiRequestMock: vi.fn(),
   copyTextMock: vi.fn(),
+  openComfyUiTabMock: vi.fn(),
+  sendWorkflowToComfyUiMock: vi.fn(),
 }));
 
 vi.mock("../lib/api", async () => {
@@ -21,10 +29,17 @@ vi.mock("../lib/api", async () => {
 
 vi.mock("../lib/clipboard", () => ({ copyText: copyTextMock }));
 
+vi.mock("../lib/comfyui-workflow-bridge", () => ({
+  openComfyUiTab: openComfyUiTabMock,
+  sendWorkflowToComfyUi: sendWorkflowToComfyUiMock,
+}));
+
 afterEach(() => {
   cleanup();
   apiRequestMock.mockReset();
   copyTextMock.mockReset();
+  openComfyUiTabMock.mockReset();
+  sendWorkflowToComfyUiMock.mockReset();
 });
 
 describe("WorkflowInspector prompt copy", () => {
@@ -49,6 +64,45 @@ describe("WorkflowInspector prompt copy", () => {
         screen.getByRole("button", { name: "Positive copied" }),
       ).toHaveTextContent("Copied");
     });
+  });
+});
+
+describe("WorkflowInspector ComfyUI hand-off", () => {
+  it("loads raw evidence and sends the visual workflow to ComfyUI", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path.includes("/workflow/raw")) return Promise.resolve(rawEvidence);
+      return Promise.resolve(workflow);
+    });
+    openComfyUiTabMock.mockReturnValue({
+      window: { closed: false },
+      origin: "http://comfy.example.test",
+    });
+    sendWorkflowToComfyUiMock.mockResolvedValue(undefined);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <WorkflowInspector mediaId="media-1" />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Open in ComfyUI" }),
+    );
+
+    await waitFor(() => {
+      expect(openComfyUiTabMock).toHaveBeenCalledTimes(1);
+      expect(sendWorkflowToComfyUiMock).toHaveBeenCalledWith(
+        expect.anything(),
+        "media-1",
+        rawEvidence,
+      );
+    });
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Workflow sent to ComfyUI.",
+    );
   });
 });
 
@@ -166,4 +220,14 @@ const workflowWithLora: WorkflowDetail = {
     },
   ],
   model_usages: [loraUsage],
+};
+
+const rawEvidence: WorkflowRawEvidence = {
+  snapshot_id: "snapshot-1",
+  evidence_sha256: "evidence-sha",
+  raw_metadata: {},
+  raw_api_prompt_text: null,
+  raw_visual_workflow_text: null,
+  api_prompt: { "1": { class_type: "LoadImage", inputs: {} } },
+  visual_workflow: { nodes: [], links: [] },
 };
