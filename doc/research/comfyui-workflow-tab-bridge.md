@@ -103,7 +103,8 @@ Use a versioned, one-request protocol rather than a permanent global channel:
 
 ```text
 Gallery click
-  └─ window.open(comfyUiOrigin, "comfyui-workflow")
+  └─ window.open("", "comfyui-workflow")
+       └─ navigate only a new `about:blank` window to comfyUiOrigin
        └─ ComfyUI extension -> opener: { type: "comfy-gallery-workflow-ready", version: 1 }
 Gallery fetches /api/v1/media/{id}/workflow/raw
   └─ opener.postMessage(
@@ -118,7 +119,10 @@ Gallery fetches /api/v1/media/{id}/workflow/raw
 Implementation details:
 
 - Call `window.open` directly in the button handler before any asynchronous
-  fetch, so popup blockers do not reject the tab.
+  fetch, so popup blockers do not reject the tab. Reuse the named window with
+  an empty URL; only navigate it when the returned window is genuinely
+  `about:blank`. Passing the ComfyUI URL to `window.open` on every click would
+  navigate an existing ComfyUI tab back to `/` and look like a reload.
 - Use the configured ComfyUI origin as `targetOrigin`; never use `*` for workflow
   data. The HTML Standard specifically warns against wildcard targets for
   confidential messages and requires receiver-side `event.origin` and payload

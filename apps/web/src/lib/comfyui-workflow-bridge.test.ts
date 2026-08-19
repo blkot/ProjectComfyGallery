@@ -2,13 +2,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { WorkflowRawEvidence } from "./api";
 import {
+  COMFYUI_WORKFLOW_WINDOW_NAME,
   getComfyUiTarget,
+  openComfyUiTab,
   sendWorkflowToComfyUi,
   type ComfyUiTab,
 } from "./comfyui-workflow-bridge";
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 describe("ComfyUI workflow bridge", () => {
@@ -110,6 +113,38 @@ describe("ComfyUI workflow bridge", () => {
       href: "http://192.168.50.88:8188/",
       origin: "http://192.168.50.88:8188",
     });
+  });
+
+  it("reuses an existing cross-origin ComfyUI tab without navigating it", () => {
+    const existingWindow = {
+      closed: false,
+      location: {
+        get href(): string {
+          throw new Error("cross-origin location");
+        },
+      },
+    } as unknown as Window;
+    const open = vi.spyOn(window, "open").mockReturnValue(existingWindow);
+
+    expect(openComfyUiTab()).toEqual({
+      window: existingWindow,
+      origin: getComfyUiTarget().origin,
+    });
+    expect(open).toHaveBeenCalledWith("", COMFYUI_WORKFLOW_WINDOW_NAME);
+  });
+
+  it("navigates only a newly-created blank tab to ComfyUI", () => {
+    const blankLocation = { href: "about:blank" };
+    const blankWindow = {
+      closed: false,
+      location: blankLocation,
+    } as unknown as Window;
+    const open = vi.spyOn(window, "open").mockReturnValue(blankWindow);
+
+    openComfyUiTab();
+
+    expect(open).toHaveBeenCalledWith("", COMFYUI_WORKFLOW_WINDOW_NAME);
+    expect(blankLocation.href).toBe(getComfyUiTarget().href);
   });
 });
 

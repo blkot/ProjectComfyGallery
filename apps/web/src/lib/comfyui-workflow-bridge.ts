@@ -64,12 +64,17 @@ export function getComfyUiTarget(
 
 export function openComfyUiTab(): ComfyUiTab {
   const target = getComfyUiTarget();
-  const comfyUiWindow = window.open(target.href, COMFYUI_WORKFLOW_WINDOW_NAME);
+  // An empty URL asks the browser to reuse the named window without
+  // navigating it. Navigating an existing ComfyUI tab back to `/` makes the
+  // tab look like it is reloading and can race the bridge handshake.
+  const comfyUiWindow = window.open("", COMFYUI_WORKFLOW_WINDOW_NAME);
   if (!comfyUiWindow) {
     throw new Error(
       "The ComfyUI tab was blocked. Allow pop-ups for ComfyGallery and try again.",
     );
   }
+
+  navigateBlankComfyUiWindow(comfyUiWindow, target.href);
   return { window: comfyUiWindow, origin: target.origin };
 }
 
@@ -198,4 +203,18 @@ function getDefaultComfyUiUrl(): string {
 function createRequestId(): string {
   if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
   return `workflow-${Date.now()}-${crypto.getRandomValues(new Uint32Array(2)).join("-")}`;
+}
+
+function navigateBlankComfyUiWindow(comfyUiWindow: Window, targetHref: string): void {
+  try {
+    if (
+      comfyUiWindow.location.href === "about:blank" ||
+      comfyUiWindow.location.href === "about:blank#blocked"
+    ) {
+      comfyUiWindow.location.href = targetHref;
+    }
+  } catch {
+    // Reading a cross-origin WindowProxy's location is blocked. That is the
+    // existing ComfyUI tab we wanted to preserve, so leave it untouched.
+  }
 }
