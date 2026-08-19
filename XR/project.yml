@@ -24,6 +24,8 @@ targets:
       - path: ComfyGalleryXR
         excludes:
           - Resources/Info.plist
+    resources:
+      - path: ComfyGalleryXR/Resources/Assets.xcassets
     info:
       path: ComfyGalleryXR/Resources/Info.plist
       properties:
@@ -38,6 +40,7 @@ targets:
       base:
         DEVELOPMENT_TEAM: QG45Q7UB5U
         PRODUCT_BUNDLE_IDENTIFIER: com.comfygallery.xr
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: 7
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
     scheme:

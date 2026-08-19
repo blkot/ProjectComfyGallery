@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		03438DDA693F6D1A4023A8CB /* ComfyGalleryXRUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70B40D45B1D90FF0EC938724 /* ComfyGalleryXRUITests.swift */; };
 		0A124600B29B4EF815447055 /* DragNavigationDecision.swift in Sources */ = {isa = PBXBuildFile; fileRef = 479B83E5ED230639F512098A /* DragNavigationDecision.swift */; };
+		0B3CCCE2629428F0FA2447FE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 79E3168A37DBD006C2BDA8AE /* Assets.xcassets */; };
 		0B7ABFFF9A2705BE44A4460B /* CredentialStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE32BD55451F1C42A74C97F /* CredentialStore.swift */; };
 		0CC8110726701B1DA1B6300E /* AuthenticatedPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 105563971843E23246DD18A9 /* AuthenticatedPreviewView.swift */; };
 		13AC547C19E390D88E220B07 /* PlayerController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFC929517D4AD9AF23C52B65 /* PlayerController.swift */; };
@@ -87,6 +88,7 @@
 		73B678D4A2D8D0C64603B6EA /* SceneRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneRoute.swift; sourceTree = "<group>"; };
 		750C3A74ECFEEEE371652B22 /* RealityVideoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealityVideoView.swift; sourceTree = "<group>"; };
 		75F25D3BF6F4C78110D4DD33 /* PersistenceModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceModels.swift; sourceTree = "<group>"; };
+		79E3168A37DBD006C2BDA8AE /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		7C0D4312653A9B81AD404D94 /* TestURLProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestURLProtocol.swift; sourceTree = "<group>"; };
 		7E9B23D6DEFF9FEEA58E96F7 /* GalleryMediaVisibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalleryMediaVisibility.swift; sourceTree = "<group>"; };
 		81F52748D02FB705309EFC68 /* ConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionView.swift; sourceTree = "<group>"; };
@@ -227,6 +229,7 @@
 				D0A1C92DDCA2880831840028 /* Core */,
 				C5F806F7221CFDA774924580 /* DesignSystem */,
 				75DDBCAE1F8F57E3E0103F6C /* Features */,
+				CDD2BBF778D238652AEA3522 /* Resources */,
 				24E2BEE62EFEEF1A23332283 /* Spatial */,
 				4746585AB8BB667F4C54C587 /* Video */,
 			);
@@ -250,6 +253,14 @@
 			children = (
 			);
 			path = DesignSystem;
+			sourceTree = "<group>";
+		};
+		CDD2BBF778D238652AEA3522 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				79E3168A37DBD006C2BDA8AE /* Assets.xcassets */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		D0A1C92DDCA2880831840028 /* Core */ = {
@@ -316,6 +327,7 @@
 			buildConfigurationList = 4E05024207C297CD6F90DD69 /* Build configuration list for PBXNativeTarget "ComfyGalleryXR" */;
 			buildPhases = (
 				29488B6A5BB1367D66937D79 /* Sources */,
+				1FBC205FA939D704EA2331C7 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -401,6 +413,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		1FBC205FA939D704EA2331C7 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0B3CCCE2629428F0FA2447FE /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		29488B6A5BB1367D66937D79 /* Sources */ = {
