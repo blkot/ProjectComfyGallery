@@ -599,6 +599,10 @@ final class AppModel {
         }
     }
 
+    func viewerDidAppear(isActive: Bool) {
+        viewerScenePhaseChanged(isActive: isActive)
+    }
+
     func libraryScenePhaseChanged(isActive: Bool) {
         if !isActive {
             prefetchTasks.forEach { $0.cancel() }

@@ -67,6 +67,7 @@ struct MediaViewerView: View {
         }
         .frame(minWidth: 480, minHeight: 360)
         .task {
+            model.viewerDidAppear(isActive: scenePhase == .active)
             await model.bootstrap()
             if model.connectionPhase.needsConnectionWindow {
                 openWindow(id: SceneID.connection)

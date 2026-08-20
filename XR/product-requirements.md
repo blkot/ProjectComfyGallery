@@ -187,6 +187,9 @@ scenes without altering the backend original.
 - **XR-VIEW-003:** Video MUST use RealityKit `VideoPlayerComponent` with
   viewer-owned controls below the media.
 - **XR-VIEW-004:** A newly active video MUST auto-play after it becomes ready.
+- **XR-VIEW-004A:** Every newly mounted Viewer scene MUST immediately synchronize
+  its current active/inactive phase with playback. Reopening the Viewer MUST NOT
+  wait for a later scene-phase change before autoplay can resume.
 - **XR-VIEW-005:** Leaving a video MUST pause it, cancel observers, and release its
   player when outside the neighbor cache.
 - **XR-VIEW-006:** Only active media may produce audio.

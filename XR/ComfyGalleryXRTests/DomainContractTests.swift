@@ -854,6 +854,35 @@ final class VideoPlaybackExperienceTests: XCTestCase {
         controller.stop()
     }
 
+    func testViewerReappearanceReactivatesAutoplayAfterWindowClose() throws {
+        let environment = try AppEnvironment(
+            container: PersistenceFactory.makeContainer(inMemory: true)
+        )
+        let model = AppModel(environment: environment)
+
+        model.viewerScenePhaseChanged(isActive: false)
+        model.closeViewer()
+        model.viewerDidAppear(isActive: true)
+        model.player.load(
+            fileURL: URL(fileURLWithPath: "/tmp/reopened-viewer-video.mov"),
+            autoplay: true,
+            presentation: .expanded
+        )
+        let itemGeneration = model.player.itemGeneration
+        model.player.updatePlayerItemReadiness(
+            isReady: true,
+            itemGeneration: itemGeneration
+        )
+        model.player.updateVideoRenderingReadiness(
+            isReady: true,
+            itemGeneration: itemGeneration
+        )
+
+        XCTAssertTrue(model.player.isActive)
+        XCTAssertTrue(model.player.isPlaying)
+        model.closeViewer()
+    }
+
     func testPlaybackReadinessRequiresBothCurrentGenerationSignals() {
         var readiness = VideoPlaybackReadiness()
         readiness.reset(for: 7)

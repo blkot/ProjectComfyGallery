@@ -301,6 +301,10 @@ surface and app-owned controls for both ordinary and spatial playback.
     from a replaced item generation.
 18. Remove time/status observers on replacement and deinit.
 19. Pause when scene phase becomes inactive.
+20. On every Viewer mount, immediately apply the current scene phase before
+    awaiting bootstrap work. SwiftUI's scene-phase change callback reports later
+    transitions only; relying on it alone can leave a recreated Viewer's player
+    inactive and frozen on its first ready frame after the previous window closed.
 
 Only the active player has audio. Audio must be embedded in the selected ordinary
 or spatial asset; XR does not pair the ordinary representation's audio with a
