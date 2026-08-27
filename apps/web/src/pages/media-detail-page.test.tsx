@@ -159,9 +159,35 @@ describe("MediaDetailPage image viewer", () => {
     ).toBeInTheDocument();
     expect(actions.getByRole("link", { name: "Download" })).toBeInTheDocument();
     expect(
+      actions.getByRole("link", { name: "Post To Civitai" }),
+    ).toHaveAttribute("href", "/library/media-1/civitai-post");
+    expect(
       actions.getByRole("button", { name: "Move to Trash" }),
     ).toBeInTheDocument();
     expect(actions.queryByRole("button", { name: /delete/i })).toBeNull();
+  });
+
+  it("preserves the current query context for the Civitai preparation link", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/api/v1/media/media-1") return Promise.resolve(imageDetail);
+      if (path.startsWith("/api/v1/media/media-1/navigation?")) {
+        return Promise.resolve({ media_id: "media-1", position: 1, total: 1, previous_id: null, previous_position: null, next_id: null, next_position: null });
+      }
+      if (path.startsWith("/api/v1/media/media-1/")) return Promise.resolve({});
+      throw new Error(`Unexpected request: ${path}`);
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/library/media-1?q=portrait&sort=size_desc"]}>
+          <Routes><Route path="/library/:mediaId" element={<MediaDetailPage />} /></Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByRole("link", { name: "Post To Civitai" })).toHaveAttribute(
+      "href",
+      "/library/media-1/civitai-post?q=portrait&sort=size_desc",
+    );
   });
 
   it("renders the immutable original instead of the generated preview", async () => {

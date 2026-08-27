@@ -20,6 +20,7 @@ Implemented routes and reserved later-phase route names:
 /dashboard
 /library
 /library/:mediaId
+/library/:mediaId/civitai-post
 /collections/:collectionId
 /imports
 /jobs
@@ -234,6 +235,26 @@ both images and videos. Video detail reports stored spatial availability and act
 variant facts separately. The browser preview deliberately remains on the ordinary
 `playback_url`; it never attempts to silently replace browser-compatible media with
 MV-HEVC.
+
+### Civitai preparation
+
+`/library/:mediaId/civitai-post` is reached from **Post To Civitai** in the Media
+Action Bar and retains the complete Media Detail query context in both directions.
+It is a local, editable preparation surface, not a publishing integration. It shows
+the current preview and identity, builds a future ComfyGallery backend-facing JSON
+payload from the detail projection and bounded workflow projection, and makes its
+evidence mapping visible: prompt observations, model usages with observation
+fallback, and LoRA strengths. Missing evidence remains visibly missing and every
+prepared value can be corrected before JSON is copied.
+
+The selected target defaults to `civitai.red` (`civitai_red`) and can switch to
+`civitai.com` (`civitai_com`); status is always **Not connected / connectivity
+unverified**. A reachable `.com` target does not establish `.red` connectivity.
+Publishing remains disabled and never shows a success state. Image media documents a
+future managed-byte upload path; official image guidance does not establish video
+upload support, although video drafts can still be prepared. Credentials, managed
+byte reads, hosted MCP calls, target checks, and explicit server-side proxy routing
+(for example through WinPC or Mac) belong to a future backend, not this frontend.
 
 Video detail also exposes a focused **Attach spatial video** panel beside those
 variant facts. The panel accepts QuickTime MOV and compatible MP4-family files,

@@ -2570,6 +2570,102 @@ textarea {
   min-height: 32px;
 }
 
+.civitai-post-page {
+  max-width: 1180px;
+}
+
+.civitai-post-heading,
+.civitai-post-layout,
+.civitai-payload-actions,
+.civitai-target-row,
+.civitai-lora-row {
+  display: flex;
+  gap: 16px;
+}
+
+.civitai-post-heading,
+.civitai-target-row {
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.civitai-post-layout {
+  align-items: flex-start;
+  margin-top: 24px;
+}
+
+.civitai-media-card,
+.civitai-draft-form,
+.civitai-evidence,
+.civitai-payload,
+.civitai-future-boundary {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  padding: 18px;
+}
+
+.civitai-media-card {
+  width: min(360px, 34%);
+  flex: 0 0 auto;
+}
+
+.civitai-media-card img,
+.civitai-media-card video {
+  display: block;
+  width: 100%;
+  max-height: 280px;
+  border-radius: 5px;
+  object-fit: contain;
+  background: #080807;
+}
+
+.civitai-draft-form {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 14px;
+}
+
+.civitai-draft-form label,
+.civitai-lora-row label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.civitai-draft-form textarea {
+  min-height: 74px;
+  resize: vertical;
+}
+
+.civitai-checkbox {
+  display: flex !important;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+}
+
+.civitai-checkbox input { width: auto; }
+.civitai-loras { display: grid; gap: 10px; }
+.civitai-loras h2, .civitai-evidence h2, .civitai-payload h2 { margin: 0; font-size: 15px; }
+.civitai-lora-row label { flex: 1; }
+.civitai-evidence, .civitai-payload, .civitai-future-boundary { margin-top: 20px; }
+.civitai-evidence dl { margin: 14px 0 0; display: grid; gap: 8px; }
+.civitai-evidence dl div { display: grid; grid-template-columns: minmax(150px, 28%) 1fr; gap: 12px; }
+.civitai-evidence dt { color: var(--text); font-weight: 700; }
+.civitai-evidence dd { margin: 0; color: var(--muted); }
+.civitai-payload pre { max-height: 340px; overflow: auto; padding: 14px; border-radius: 5px; background: #0b0b09; color: #d9ddd0; font-size: 11px; }
+.civitai-payload-actions { align-items: center; }
+.civitai-future-boundary { color: var(--muted); }
+.civitai-future-boundary strong { color: var(--text); }
+
+@media (max-width: 760px) {
+  .civitai-post-layout, .civitai-post-heading, .civitai-target-row, .civitai-lora-row { flex-direction: column; }
+  .civitai-media-card { width: 100%; }
+  .civitai-evidence dl div { grid-template-columns: 1fr; gap: 3px; }
+}
+
 .media-trash-action {
   display: inline-flex;
 }

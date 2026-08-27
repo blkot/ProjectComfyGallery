@@ -50,6 +50,11 @@ const MediaDetailPage = lazy(() =>
     default: module.MediaDetailPage,
   })),
 );
+const CivitaiPostPage = lazy(() =>
+  import("../pages/civitai-post-page").then((module) => ({
+    default: module.CivitaiPostPage,
+  })),
+);
 const SlideshowPage = lazy(() =>
   import("../pages/slideshow-page").then((module) => ({
     default: module.SlideshowPage,
@@ -148,6 +153,7 @@ export const router = createBrowserRouter([
       { path: "/dashboard", element: <DashboardPage /> },
       { path: "/library", element: <LibraryPage /> },
       { path: "/library/:mediaId", element: <MediaDetailPage /> },
+      { path: "/library/:mediaId/civitai-post", element: <CivitaiPostPage /> },
       { path: "/review", element: <ReviewHomePage /> },
       { path: "/review/:sessionId", element: <ReviewWorkspacePage /> },
       { path: "/analysis", element: <AnalysisPage /> },

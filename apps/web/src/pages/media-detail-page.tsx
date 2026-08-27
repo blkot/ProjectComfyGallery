@@ -236,6 +236,12 @@ export function MediaDetailPage() {
             >
               Download
             </a>
+            <Link
+              className="media-record-download"
+              to={`/library/${item.id}/civitai-post${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
+            >
+              Post To Civitai
+            </Link>
             <MediaTrashButton mediaId={item.id} isTrash={item.is_trash} />
           </div>
         </header>

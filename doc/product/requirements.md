@@ -199,6 +199,15 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
   spatial conversion without uploading a result manually. It MUST remain usable
   after leaving and returning to the page, show queued/processing/failure/success
   state, and refresh the same media record when its spatial variant becomes ready.
+- **LIB-021:** Media Detail MUST provide a context-preserving, frontend-only Civitai
+  preparation route. It MUST default to `civitai_red` (`civitai.red`) while also
+  supporting `civitai_com` (`civitai.com`), prepare only a future ComfyGallery
+  backend-facing payload from local media/workflow projections, and keep publishing
+  disabled. The browser MUST NOT hold publishing credentials, raw workflow, or
+  managed media bytes. A future backend MUST own credentials and byte access, make
+  per-target connectivity checks, and support explicit server-side proxy
+  configuration (including WinPC/Mac deployments); backend publishing, connectivity,
+  and proxy operation are deferred.
 
 ## Manual evaluation
 
