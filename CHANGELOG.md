@@ -4,6 +4,16 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.24 — 2026-08-27
+
+- Add a frontend-only Civitai post preparation page that defaults to
+  `civitai.red`, maps parsed prompts, checkpoints, and LoRAs into an editable
+  draft, and keeps credentials and publishing behind a future backend boundary.
+- Add the ComfyUI workflow handoff bridge, preserve an already-open ComfyUI tab,
+  and correct captured workflow-input media status messaging.
+- Add XR slideshow playback with restored mount-time autoplay synchronization
+  and refresh the native mobile and visionOS application icons.
+
 ## 0.1.0-rc.23 — 2026-08-16
 
 - Preserve exact embedded workflow evidence while normalizing non-finite JSON

@@ -78,7 +78,7 @@ def test_nas_release_confirmation_accepts_crlf_terminal_input(tmp_path: Path) ->
     )
     fake_gh.chmod(0o755)
 
-    version = "0.1.0-rc.23"
+    version = "0.1.0-rc.24"
     environment = os.environ.copy()
     environment["PATH"] = f"{fake_bin}:{environment['PATH']}"
     environment["XANTA_NAS_HELPER"] = "/usr/bin/true"
