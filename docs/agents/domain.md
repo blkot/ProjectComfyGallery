@@ -1,7 +1,7 @@
 # Domain Documentation
 
 This is a multi-context repository. Start at `CONTEXT-MAP.md`, then read only the
-main, mobile, or XR context relevant to the current role.
+main, mobile, XR, or Quest context relevant to the current role.
 
 ## Before exploring
 
@@ -20,11 +20,14 @@ For spatial-video work, the shared sources are:
 
 ## Context boundaries
 
-- **Main:** repository root excluding `mobile/` and `XR/`; owns backend, web,
+- **Main:** repository root excluding `mobile/`, `XR/`, and `Quest/`; owns backend, web,
   storage, processing, and deployment.
 - **Mobile:** `mobile/`; owns native iPhone/iPad behavior.
 - **XR:** `XR/`; owns native Vision Pro behavior and runtime spatial-image
   presentation.
+- **Quest:** `Quest/`; owns the standalone Quest client, controller interaction,
+  and optional compatible spatial playback. Read its planning decision register
+  before treating provisional choices as implementation requirements.
 
 Do not treat an XR runtime-generated spatial image as a stored backend variant.
 Do not make the Gallery backend responsible for external spatial-video generation.

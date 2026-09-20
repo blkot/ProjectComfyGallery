@@ -4,8 +4,9 @@
   commands. Fall back to the native Python toolchain only after repeated `uv`
   failures.
 - Treat the repository root as the main full-stack project, `mobile/` as the native
-  iOS/iPadOS project, and `XR/` as the standalone visionOS project. Do not mix
-  changes across these boundaries unless the task explicitly spans them.
+  iOS/iPadOS project, `XR/` as the standalone visionOS project, and `Quest/` as the
+  standalone Meta Quest project. Do not mix changes across these boundaries unless
+  the task explicitly spans them.
 - Preserve unrelated user changes in the shared worktree.
 - After every completed or partially completed task, use the available
   `bark-notify` or `email-notify` skill to notify the user.
@@ -26,7 +27,7 @@ prioritized, and any relevant `area:*`, feature, or coordination labels. See
 ### Domain docs
 
 This is a multi-context repository: use `CONTEXT-MAP.md` to select the governing
-main, mobile, or XR documents, and read system-wide decisions under
+main, mobile, XR, or Quest documents, and read system-wide decisions under
 `doc/decisions/`. See `docs/agents/domain.md`.
 
 ### Cross-session coordination
