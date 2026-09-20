@@ -35,6 +35,7 @@ This structure borrows the audience separation of the Diátaxis documentation mo
 
 - [Media ingestion and processing](design/media-ingestion.md)
 - [Workflow intelligence and node registry](design/workflow-intelligence.md)
+- [ComfyUI runtime integration cycle](design/comfyui-runtime-integration-cycle.md)
 - [Model registry](design/model-registry.md)
 - [Manual evaluation](design/evaluation.md)
 - [Analytics](design/analytics.md)
@@ -50,6 +51,7 @@ This structure borrows the audience separation of the Diátaxis documentation mo
 ### Research notes
 
 - [ComfyUI workflow input-media retrieval](research/comfyui-workflow-input-media-retrieval.md)
+- [ComfyUI runtime API capabilities](research/comfyui-runtime-api-capabilities.md)
 - [Quest 3 development research](research/quest-3-development-research.md)
 
 ### Client projects
