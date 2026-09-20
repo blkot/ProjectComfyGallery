@@ -1,0 +1,23 @@
+# Local Android tooling and generated output
+.gradle/
+.kotlin/
+.idea/
+local.properties
+**/build/
+.cxx/
+.externalNativeBuild/
+*.iml
+*.apk
+*.aab
+
+# Local signing and private device evidence
+*.jks
+*.keystore
+keystore.properties
+private-connection.properties
+captures/
+testdata/private/
+
+# The root project's data/ rule describes server storage, not this Kotlin package.
+!app/src/main/java/com/comfygallery/quest/data/
+!app/src/main/java/com/comfygallery/quest/data/**

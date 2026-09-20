@@ -50,6 +50,11 @@ This structure borrows the audience separation of the Diátaxis documentation mo
 ### Research notes
 
 - [ComfyUI workflow input-media retrieval](research/comfyui-workflow-input-media-retrieval.md)
+- [Quest 3 development research](research/quest-3-development-research.md)
+
+### Client projects
+
+- [Quest client](../Quest/README.md)
 
 ### Operations
 

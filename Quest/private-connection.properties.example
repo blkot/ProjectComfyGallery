@@ -1,0 +1,4 @@
+# Copy to private-connection.properties (ignored by Git), then fill in both values.
+# Defaults are embedded only in debug APKs. Leave values unquoted.
+gallery.url=
+gallery.token=

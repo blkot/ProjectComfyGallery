@@ -1,0 +1,5 @@
+<resources>
+    <item name="library_panel" type="id" />
+    <item name="viewer_panel" type="id" />
+    <item name="image_panel" type="id" />
+</resources>
