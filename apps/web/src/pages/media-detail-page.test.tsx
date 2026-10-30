@@ -109,6 +109,68 @@ describe("MediaDetailPage spatial variant action", () => {
 });
 
 describe("MediaDetailPage image viewer", () => {
+  it("prefetches adjacent media details and image bytes without hover", async () => {
+    const previousImage = {
+      ...imageDetail,
+      id: "media-0",
+      original_filename: "previous.png",
+      original_url: "/original-previous",
+    };
+    const nextImage = {
+      ...imageDetail,
+      id: "media-2",
+      original_filename: "next.png",
+      original_url: "/original-next",
+    };
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/api/v1/media/media-1") return Promise.resolve(imageDetail);
+      if (path === "/api/v1/media/media-0") return Promise.resolve(previousImage);
+      if (path === "/api/v1/media/media-2") return Promise.resolve(nextImage);
+      if (path.startsWith("/api/v1/media/media-1/navigation?")) {
+        return Promise.resolve({
+          media_id: "media-1",
+          position: 2,
+          total: 3,
+          previous_id: "media-0",
+          previous_position: 1,
+          next_id: "media-2",
+          next_position: 3,
+        });
+      }
+      if (path.startsWith("/api/v1/media/media-1/workflow-inputs")) {
+        return Promise.resolve(emptyWorkflowInputs);
+      }
+      if (path.startsWith("/api/v1/media/media-1/")) return Promise.resolve({});
+      throw new Error(`Unexpected request: ${path}`);
+    });
+    const imageSourceSetter = vi.spyOn(
+      HTMLImageElement.prototype,
+      "src",
+      "set",
+    );
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/library/media-1"]}>
+          <Routes>
+            <Route path="/library/:mediaId" element={<MediaDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText("original.png")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(apiRequestMock).toHaveBeenCalledWith("/api/v1/media/media-0");
+      expect(apiRequestMock).toHaveBeenCalledWith("/api/v1/media/media-2");
+      expect(imageSourceSetter).toHaveBeenCalledWith("/original-previous");
+      expect(imageSourceSetter).toHaveBeenCalledWith("/original-next");
+    });
+  });
+
   it("groups media actions in the viewer toolbar", async () => {
     apiRequestMock.mockImplementation((path: string) => {
       if (path === "/api/v1/media/media-1") {
@@ -165,6 +227,188 @@ describe("MediaDetailPage image viewer", () => {
       actions.getByRole("button", { name: "Move to Trash" }),
     ).toBeInTheDocument();
     expect(actions.queryByRole("button", { name: /delete/i })).toBeNull();
+  });
+
+  it("starts a slideshow from the current media and preserves its filters", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/api/v1/media/media-1") return Promise.resolve(imageDetail);
+      if (path.startsWith("/api/v1/media/media-1/navigation?")) {
+        return Promise.resolve({
+          media_id: "media-1",
+          position: 2,
+          total: 3,
+          previous_id: "media-0",
+          previous_position: 1,
+          next_id: "media-2",
+          next_position: 3,
+        });
+      }
+      if (path.startsWith("/api/v1/media/media-1/workflow-inputs")) {
+        return Promise.resolve(emptyWorkflowInputs);
+      }
+      if (path.startsWith("/api/v1/media/media-1/")) return Promise.resolve({});
+      throw new Error(`Unexpected request: ${path}`);
+    });
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter
+          initialEntries={[
+            "/library/media-1?q=portrait&kind=image&trash=false&panel=information",
+          ]}
+        >
+          <Routes>
+            <Route
+              path="/library/:mediaId"
+              element={
+                <>
+                  <MediaDetailPage />
+                  <LocationProbe />
+                </>
+              }
+            />
+            <Route path="/slideshow" element={<LocationProbe />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("link", {
+        name: "Start slideshow from here",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("media-location")).toHaveTextContent(
+        "/slideshow",
+      ),
+    );
+    const location = new URL(
+      screen.getByTestId("media-location").textContent ?? "",
+      "http://example.test",
+    );
+    expect(location.searchParams.get("start_media")).toBe("media-1");
+    expect(location.searchParams.get("q")).toBe("portrait");
+    expect(location.searchParams.get("kind")).toBe("image");
+    expect(location.searchParams.get("trash")).toBe("false");
+    expect(location.searchParams.get("return_to")).toBe(
+      "/library/media-1?q=portrait&kind=image&trash=false&panel=information",
+    );
+  });
+
+  it("uses the media stage for wheel navigation and middle-click favorite", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/api/v1/media/media-1") return Promise.resolve(imageDetail);
+      if (path === "/api/v1/media/media-2") {
+        return Promise.resolve({
+          ...imageDetail,
+          id: "media-2",
+          original_filename: "next.png",
+        });
+      }
+      if (path.startsWith("/api/v1/media/media-1/navigation?")) {
+        return Promise.resolve({
+          media_id: "media-1",
+          position: 1,
+          total: 2,
+          previous_id: null,
+          previous_position: null,
+          next_id: "media-2",
+          next_position: 2,
+        });
+      }
+      if (path.startsWith("/api/v1/media/media-2/navigation?")) {
+        return Promise.resolve({
+          media_id: "media-2",
+          position: 2,
+          total: 2,
+          previous_id: "media-1",
+          previous_position: 1,
+          next_id: null,
+          next_position: null,
+        });
+      }
+      if (path.startsWith("/api/v1/media/media-1/workflow-inputs")) {
+        return Promise.resolve(emptyWorkflowInputs);
+      }
+      if (path.startsWith("/api/v1/media/media-2/workflow-inputs")) {
+        return Promise.resolve(emptyWorkflowInputs);
+      }
+      if (path.startsWith("/api/v1/media/media-1/")) return Promise.resolve({});
+      if (path.startsWith("/api/v1/media/media-2/")) return Promise.resolve({});
+      throw new Error(`Unexpected request: ${path}`);
+    });
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const view = render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/library/media-1"]}>
+          <Routes>
+            <Route
+              path="/library/:mediaId"
+              element={
+                <>
+                  <MediaDetailPage />
+                  <LocationProbe />
+                </>
+              }
+            />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText("original.png")).toBeInTheDocument();
+    expect(await screen.findByText("1 / 2")).toBeInTheDocument();
+    const inspector = view.container.querySelector(
+      ".media-record-inspector",
+    ) as HTMLElement;
+    const stage = view.container.querySelector(
+      ".media-record-stage",
+    ) as HTMLElement;
+    expect(inspector).not.toBeNull();
+    expect(stage).not.toBeNull();
+
+    fireEvent.wheel(inspector, { deltaY: 120 });
+    expect(screen.getByTestId("media-location")).toHaveTextContent(
+      "/library/media-1",
+    );
+    const panelAuxClick = new MouseEvent("auxclick", {
+      bubbles: true,
+      cancelable: true,
+      button: 1,
+    });
+    inspector.dispatchEvent(panelAuxClick);
+    expect(favoriteClickMock).not.toHaveBeenCalled();
+
+    fireEvent.wheel(stage, { deltaY: 120 });
+    await waitFor(() =>
+      expect(screen.getByTestId("media-location")).toHaveTextContent(
+        "/library/media-2",
+      ),
+    );
+
+    const mouseDown = new MouseEvent("mousedown", {
+      bubbles: true,
+      cancelable: true,
+      button: 1,
+    });
+    stage.dispatchEvent(mouseDown);
+    expect(mouseDown.defaultPrevented).toBe(true);
+    const mediaAuxClick = new MouseEvent("auxclick", {
+      bubbles: true,
+      cancelable: true,
+      button: 1,
+    });
+    stage.dispatchEvent(mediaAuxClick);
+    expect(mediaAuxClick.defaultPrevented).toBe(true);
+    expect(favoriteClickMock).toHaveBeenCalledTimes(1);
   });
 
   it("preserves the current query context for the Civitai preparation link", async () => {
@@ -338,7 +582,12 @@ describe("MediaDetailPage keyboard controls", () => {
 
 function LocationProbe() {
   const location = useLocation();
-  return <output data-testid="media-location">{location.pathname}</output>;
+  return (
+    <output data-testid="media-location">
+      {location.pathname}
+      {location.search}
+    </output>
+  );
 }
 
 const videoDetail: MediaDetail = {

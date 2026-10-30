@@ -1,7 +1,14 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import {
+  type MouseEvent as ReactMouseEvent,
+  type WheelEvent as ReactWheelEvent,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
 import {
   Link,
+  useLocation,
   useNavigate,
   useParams,
   useSearchParams,
@@ -26,22 +33,24 @@ import {
   mediaDetailHref,
   mediaLibraryHref,
   mediaNavigationQuery,
+  slideshowHref,
 } from "../lib/media-view";
 
 export function MediaDetailPage() {
   const { mediaId = "" } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const videoRef = useRef<HTMLVideoElement>(null);
   const favoriteButtonRef = useRef<HTMLButtonElement>(null);
+  const lastWheelNavigationAtRef = useRef(0);
   const activePanel =
     searchParams.get("panel") === "evaluation" ? "evaluation" : "information";
   const navigationSearch = mediaNavigationQuery(searchParams).toString();
   const libraryHref = mediaLibraryHref(searchParams);
   const media = useQuery({
-    queryKey: ["media-detail", mediaId],
-    queryFn: () => apiRequest<MediaDetail>(`/api/v1/media/${mediaId}`),
+    ...mediaDetailQuery(mediaId),
     enabled: Boolean(mediaId),
   });
   const navigation = useQuery({
@@ -67,6 +76,45 @@ export function MediaDetailPage() {
       )
     : null;
 
+  const prefetchMedia = useCallback(
+    (targetId: string | null) => {
+      if (!targetId) return;
+      void queryClient
+        .ensureQueryData(mediaDetailQuery(targetId))
+        .then(preloadMediaAsset, () => undefined);
+    },
+    [queryClient],
+  );
+
+  function handleMediaWheel(event: ReactWheelEvent<HTMLDivElement>) {
+    if (
+      event.deltaY === 0 ||
+      Math.abs(event.deltaY) < Math.abs(event.deltaX)
+    ) {
+      return;
+    }
+    const targetHref = event.deltaY > 0 ? nextHref : previousHref;
+    if (!targetHref) return;
+
+    event.preventDefault();
+    const now = Date.now();
+    if (now - lastWheelNavigationAtRef.current < 350) return;
+    lastWheelNavigationAtRef.current = now;
+    navigate(targetHref);
+  }
+
+  function handleMediaMouseDown(event: ReactMouseEvent<HTMLDivElement>) {
+    if (event.button === 1) event.preventDefault();
+  }
+
+  function handleMediaAuxClick(event: ReactMouseEvent<HTMLDivElement>) {
+    if (event.button !== 1) return;
+    event.preventDefault();
+    const favoriteButton = favoriteButtonRef.current;
+    if (!favoriteButton || favoriteButton.disabled) return;
+    favoriteButton.click();
+  }
+
   useEffect(() => {
     if (!mediaId) return;
     void queryClient.prefetchQuery({
@@ -77,6 +125,15 @@ export function MediaDetailPage() {
         ),
     });
   }, [mediaId, queryClient]);
+
+  useEffect(() => {
+    const neighborIds = new Set(
+      [navigation.data?.previous_id, navigation.data?.next_id].filter(
+        (id): id is string => Boolean(id),
+      ),
+    );
+    for (const neighborId of neighborIds) prefetchMedia(neighborId);
+  }, [navigation.data?.previous_id, navigation.data?.next_id, prefetchMedia]);
 
   useEffect(() => {
     function handleKeyboardShortcuts(event: KeyboardEvent) {
@@ -123,14 +180,6 @@ export function MediaDetailPage() {
       window.removeEventListener("keydown", handleKeyboardShortcuts, true);
   }, [navigate, nextHref, previousHref]);
 
-  function prefetchMedia(targetId: string | null) {
-    if (!targetId) return;
-    void queryClient.prefetchQuery({
-      queryKey: ["media-detail", targetId],
-      queryFn: () => apiRequest<MediaDetail>(`/api/v1/media/${targetId}`),
-    });
-  }
-
   function selectPanel(panel: "information" | "evaluation") {
     const next = new URLSearchParams(searchParams);
     if (panel === "information") {
@@ -160,6 +209,14 @@ export function MediaDetailPage() {
   }
 
   const item = media.data;
+  const mediaSlideshowHref = slideshowHref(searchParams, {
+    source: "filter",
+    collectionId: "",
+    shuffle: false,
+    intervalSeconds: 8,
+    startMediaId: item.id,
+    returnTo: `${location.pathname}${location.search}`,
+  });
   return (
     <main
       className="media-record-workspace"
@@ -236,6 +293,9 @@ export function MediaDetailPage() {
             >
               Download
             </a>
+            <Link className="media-record-download" to={mediaSlideshowHref}>
+              Start slideshow from here
+            </Link>
             <Link
               className="media-record-download"
               to={`/library/${item.id}/civitai-post${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
@@ -245,7 +305,12 @@ export function MediaDetailPage() {
             <MediaTrashButton mediaId={item.id} isTrash={item.is_trash} />
           </div>
         </header>
-        <div className="media-record-stage">
+        <div
+          className="media-record-stage"
+          onAuxClick={handleMediaAuxClick}
+          onMouseDown={handleMediaMouseDown}
+          onWheel={handleMediaWheel}
+        >
           {item.kind === "video" ? (
             <video
               ref={videoRef}
@@ -256,7 +321,11 @@ export function MediaDetailPage() {
               poster={item.preview_url}
             />
           ) : (
-            <img src={item.original_url} alt={item.original_filename} />
+            <img
+              src={item.original_url}
+              alt={item.original_filename}
+              decoding="async"
+            />
           )}
         </div>
       </section>
@@ -503,4 +572,33 @@ export function MediaDetailPage() {
       </aside>
     </main>
   );
+}
+
+const mediaDetailStaleTime = 30_000;
+
+function mediaDetailQuery(mediaId: string) {
+  return {
+    queryKey: ["media-detail", mediaId] as const,
+    queryFn: () => apiRequest<MediaDetail>(`/api/v1/media/${mediaId}`),
+    staleTime: mediaDetailStaleTime,
+  };
+}
+
+function preloadMediaAsset(item: MediaDetail): void {
+  if (typeof document === "undefined") return;
+  if (item.kind === "image") {
+    const image = new Image();
+    image.decoding = "async";
+    image.src = item.original_url;
+    return;
+  }
+
+  const video = document.createElement("video");
+  video.preload = "metadata";
+  video.src = item.playback_url;
+  try {
+    video.load();
+  } catch {
+    // jsdom and older browsers may not implement detached media loading.
+  }
 }

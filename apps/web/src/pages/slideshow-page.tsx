@@ -40,8 +40,13 @@ export function SlideshowPage() {
   const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const items = playlist.data?.items ?? [];
+  const startMediaId = searchParams.get("start_media");
+  const requestedStartIndex = startMediaId
+    ? items.findIndex((item) => item.id === startMediaId)
+    : -1;
+  const startIndex = requestedStartIndex >= 0 ? requestedStartIndex : 0;
   const currentIndex = items.length
-    ? ((playhead % items.length) + items.length) % items.length
+    ? ((startIndex + playhead) % items.length + items.length) % items.length
     : 0;
   const current = items[currentIndex];
   const next = items.length ? items[(currentIndex + 1) % items.length] : null;
@@ -282,7 +287,9 @@ function slideshowInterval(search: URLSearchParams): number {
 }
 
 function safeReturnPath(value: string | null): string {
-  return value?.startsWith("/library") ? value : "/library";
+  return value?.startsWith("/library") || value?.startsWith("/review/")
+    ? value
+    : "/library";
 }
 
 function videoFallbackMilliseconds(item: SlideshowItem): number {

@@ -9,6 +9,7 @@ import {
   mediaNavigationQuery,
   pageOffsetForNumber,
   paginationItems,
+  reviewSlideshowHref,
   slideshowHref,
   slideshowPlaylistQuery,
 } from "./media-view";
@@ -223,5 +224,34 @@ describe("media view context", () => {
     expect(playlist.has("favorite")).toBe(false);
     expect(playlist.get("trash")).toBe("false");
     expect(playlist.has("random_seed")).toBe(false);
+  });
+
+  it("starts a review slideshow at the current media and preserves its filter", () => {
+    const href = reviewSlideshowHref(
+      {
+        q: "portrait",
+        kind: "image",
+        trash: false,
+        checkpoint_reference_ids: ["checkpoint-a", "checkpoint-b"],
+        lora_reference_ids: [],
+      },
+      "media-2",
+      "/review/session-1?position=4",
+    );
+    const parsed = new URL(href, "http://example.test");
+    const playlist = slideshowPlaylistQuery(parsed.searchParams);
+
+    expect(parsed.searchParams.get("start_media")).toBe("media-2");
+    expect(parsed.searchParams.get("return_to")).toBe(
+      "/review/session-1?position=4",
+    );
+    expect(playlist.get("q")).toBe("portrait");
+    expect(playlist.get("kind")).toBe("image");
+    expect(playlist.get("trash")).toBe("false");
+    expect(playlist.getAll("checkpoint_reference_id")).toEqual([
+      "checkpoint-a",
+      "checkpoint-b",
+    ]);
+    expect(playlist.has("start_media")).toBe(false);
   });
 });

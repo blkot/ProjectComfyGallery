@@ -135,6 +135,18 @@ describe("SlideshowPage", () => {
     expect(screen.getByText("one.png")).toBeInTheDocument();
   });
 
+  it("starts at the requested media while keeping the playlist order", async () => {
+    const view = renderSlideshow(
+      "/slideshow?source=filter&start_media=video-1&interval=5&return_to=%2Freview%2Fsession-1%3Fposition%3D1",
+    );
+
+    expect(await screen.findByText("two.mp4")).toBeInTheDocument();
+    expect(view.container.querySelector("video.slideshow-media")).not.toBeNull();
+    expect(apiRequestMock).toHaveBeenCalledWith(
+      "/api/v1/media/slideshow?trash=false&limit=2000",
+    );
+  });
+
   it("pauses and resumes hands-off playback", async () => {
     renderSlideshow("/slideshow?source=filter&interval=5");
     expect(await screen.findByText("one.png")).toBeInTheDocument();

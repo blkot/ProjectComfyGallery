@@ -11,6 +11,8 @@ export type SlideshowOptions = {
   collectionId: string;
   shuffle: boolean;
   intervalSeconds: number;
+  startMediaId?: string;
+  returnTo?: string;
 };
 
 export type LibraryFilterExpression = {
@@ -101,12 +103,29 @@ export function slideshowHref(
     result.set("random_seed", String(randomSeed()));
   }
   result.set("interval", String(options.intervalSeconds));
+  if (options.startMediaId) result.set("start_media", options.startMediaId);
   const returnSearch = new URLSearchParams(librarySearch);
   result.set(
     "return_to",
-    returnSearch.size ? `/library?${returnSearch.toString()}` : "/library",
+    options.returnTo ??
+      (returnSearch.size ? `/library?${returnSearch.toString()}` : "/library"),
   );
   return `/slideshow?${result.toString()}`;
+}
+
+export function reviewSlideshowHref(
+  filter: Record<string, unknown>,
+  startMediaId: string,
+  returnTo: string,
+): string {
+  return slideshowHref(reviewFilterSearchParams(filter), {
+    source: "filter",
+    collectionId: "",
+    shuffle: false,
+    intervalSeconds: 8,
+    startMediaId,
+    returnTo,
+  });
 }
 
 export function slideshowPlaylistQuery(
@@ -243,6 +262,7 @@ function uniqueValues(values: string[]): string[] {
 
 const slideshowFilterParameters = [
   "q",
+  "sha256",
   "kind",
   "status",
   "workflow_status",
@@ -252,11 +272,39 @@ const slideshowFilterParameters = [
   "spatial_available",
   "favorite",
   "source_root_id",
+  "collection_id",
+  "tag_id",
   "checkpoint_reference_id",
   "checkpoint_reference_match",
   "lora_reference_id",
   "lora_reference_match",
 ] as const;
+
+function reviewFilterSearchParams(
+  filter: Record<string, unknown>,
+): URLSearchParams {
+  const result = new URLSearchParams();
+  for (const [rawName, value] of Object.entries(filter)) {
+    const name = reviewFilterParameterName(rawName);
+    if (value === null || value === undefined || value === "") continue;
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (item !== null && item !== undefined && item !== "") {
+          result.append(name, String(item));
+        }
+      }
+      continue;
+    }
+    result.set(name, String(value));
+  }
+  return result;
+}
+
+function reviewFilterParameterName(name: string): string {
+  if (name === "checkpoint_reference_ids") return "checkpoint_reference_id";
+  if (name === "lora_reference_ids") return "lora_reference_id";
+  return name;
+}
 
 function copySingle(
   source: URLSearchParams,

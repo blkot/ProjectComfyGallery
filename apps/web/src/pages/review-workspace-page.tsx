@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import {
   EvaluationSection,
@@ -17,6 +17,7 @@ import {
   type ScoreChoice,
 } from "../lib/evaluation";
 import { titleCase } from "../lib/format";
+import { reviewSlideshowHref } from "../lib/media-view";
 import { resolveReviewPosition } from "../lib/review";
 
 type UndoEntry = {
@@ -27,6 +28,7 @@ type UndoEntry = {
 
 export function ReviewWorkspacePage() {
   const { sessionId = "" } = useParams();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [undoEntry, setUndoEntry] = useState<UndoEntry | null>(null);
@@ -157,6 +159,22 @@ export function ReviewWorkspacePage() {
       return;
     }
     move.mutate(nextPosition);
+  }
+
+  function startSlideshow() {
+    if (!item.data) return;
+    const filter = item.data.session.scope_snapshot.filter;
+    const filterRecord =
+      typeof filter === "object" && filter !== null && !Array.isArray(filter)
+        ? (filter as Record<string, unknown>)
+        : {};
+    navigate(
+      reviewSlideshowHref(
+        filterRecord,
+        item.data.media.id,
+        `/review/${sessionId}?position=${position}`,
+      ),
+    );
   }
 
   useEffect(() => {
@@ -304,6 +322,14 @@ export function ReviewWorkspacePage() {
             ) : null}
 
             <section className="review-actions">
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={saving}
+                onClick={startSlideshow}
+              >
+                Start slideshow from here
+              </button>
               <button
                 className="secondary-button"
                 type="button"
