@@ -4,8 +4,10 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
-## 0.1.0-rc.25 — 2026-11-01
+## 0.1.0-rc.26 — 2026-11-01
 
+- Add authenticated batch media archive downloads with queued worker jobs,
+  collision-safe raw-original ZIP entries, and a single polled download link.
 - Add explicit Library selection mode with cross-page selection, filter-backed
   scopes, per-card exceptions, and batch favorite/trash management.
 - Add reversible bulk favorite and evaluation-trash API commands with preserved
