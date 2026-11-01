@@ -38,6 +38,22 @@ export type PortableExport = {
   download_url: string | null;
 };
 
+export type MediaArchive = {
+  id: string;
+  status: "queued" | "running" | "succeeded" | "failed";
+  requested_count: number;
+  included_count: number | null;
+  skipped_count: number | null;
+  byte_size: number | null;
+  sha256: string | null;
+  error_code: string | null;
+  error_message: string | null;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  download_url: string | null;
+};
+
 export type ApiTokenRecord = {
   id: string;
   label: string;

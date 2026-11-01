@@ -6,6 +6,7 @@ import { MediaFavoriteButton } from "../components/media-favorite-button";
 import {
   apiRequest,
   type Collection,
+  type MediaArchive,
   type MediaBulkActionResponse,
   type MediaPage,
   type MediaTag,
@@ -59,6 +60,7 @@ export function LibraryPage() {
   const [selection, setSelection] = useState<LibrarySelection>(
     emptyLibrarySelection,
   );
+  const [mediaArchiveId, setMediaArchiveId] = useState<string | null>(null);
   const [collectionName, setCollectionName] = useState("");
   const [collectionId, setCollectionId] = useState("");
   const [tagName, setTagName] = useState("");
@@ -263,6 +265,24 @@ export function LibraryPage() {
       ]);
     },
   });
+  const mediaArchive = useQuery({
+    queryKey: ["media-archive", mediaArchiveId],
+    queryFn: () =>
+      apiRequest<MediaArchive>(`/api/v1/media/bulk/download/${mediaArchiveId}`),
+    enabled: Boolean(mediaArchiveId),
+    refetchInterval: (query) =>
+      query.state.data && ["queued", "running"].includes(query.state.data.status)
+        ? 1_500
+        : false,
+  });
+  const createMediaArchive = useMutation({
+    mutationFn: () =>
+      apiRequest<MediaArchive>("/api/v1/media/bulk/download", {
+        method: "POST",
+        body: JSON.stringify(selectionPayload(selection)),
+      }),
+    onSuccess: (archive) => setMediaArchiveId(archive.id),
+  });
 
   useLayoutEffect(() => {
     if (!returnMediaId || !media.data?.items.length) return;
@@ -358,23 +378,32 @@ export function LibraryPage() {
   }
 
   function toggleSelected(id: string) {
+    setMediaArchiveId(null);
     setSelection((current) => toggleMedia(current, id));
   }
 
   function toggleCurrentPage() {
     const pageIds = media.data?.items.map((item) => item.id) ?? [];
     if (!pageIds.length) return;
+    setMediaArchiveId(null);
     setSelection((current) => togglePage(current, pageIds));
   }
 
   function selectAllMatching() {
     const count = media.data?.total ?? 0;
     if (!count) return;
+    setMediaArchiveId(null);
     setSelection(createFilterSelection(libraryFilterExpression(searchParams), count));
   }
 
   function clearSelection() {
+    setMediaArchiveId(null);
     setSelection(emptyLibrarySelection());
+  }
+
+  function beginSelection() {
+    setMediaArchiveId(null);
+    setSelection({ mode: "explicit", mediaIds: new Set() });
   }
 
   function startSlideshow() {
@@ -413,7 +442,7 @@ export function LibraryPage() {
             onClick={() =>
               selectionActive
                 ? clearSelection()
-                : setSelection({ mode: "explicit", mediaIds: new Set() })
+                : beginSelection()
             }
           >
             {selectionActive ? "Cancel selection" : "Select media"}
@@ -897,7 +926,62 @@ export function LibraryPage() {
                   >
                     Restore selected
                   </button>
+                  <button
+                    className="download-batch-button"
+                    type="button"
+                    disabled={!selectedCount || createMediaArchive.isPending}
+                    onClick={() => createMediaArchive.mutate()}
+                  >
+                    {createMediaArchive.isPending
+                      ? "Preparing ZIP…"
+                      : selection.mode === "filter"
+                        ? `Download all matching (${selectedCount})`
+                        : `Download selected (${selectedCount})`}
+                  </button>
                 </div>
+              </div>
+            ) : null}
+            {mediaArchiveId ? (
+              <div
+                className="media-archive-status"
+                aria-live="polite"
+                aria-busy={mediaArchive.isFetching || undefined}
+              >
+                <p className="kicker">Media download</p>
+                {mediaArchive.isPending ? (
+                  <small>Preparing ZIP archive…</small>
+                ) : mediaArchive.isError ? (
+                  <p className="notice error-notice" role="alert">
+                    The media archive status could not be loaded.
+                  </p>
+                ) : mediaArchive.data?.status === "succeeded" ? (
+                  <>
+                    <small>
+                      Ready · {mediaArchive.data.included_count ?? 0} files
+                      {mediaArchive.data.skipped_count
+                        ? ` · ${mediaArchive.data.skipped_count} skipped`
+                        : ""}
+                      {mediaArchive.data.byte_size
+                        ? ` · ${formatBytes(mediaArchive.data.byte_size)}`
+                        : ""}
+                    </small>
+                    {mediaArchive.data.download_url ? (
+                      <a
+                        className="secondary-button link-button"
+                        href={mediaArchive.data.download_url}
+                      >
+                        Download ZIP
+                      </a>
+                    ) : null}
+                  </>
+                ) : mediaArchive.data?.status === "failed" ? (
+                  <p className="notice error-notice" role="alert">
+                    {mediaArchive.data.error_message ??
+                      "The media archive could not be created."}
+                  </p>
+                ) : (
+                  <small>Archive queued; this panel will update automatically…</small>
+                )}
               </div>
             ) : null}
             <button
@@ -1043,6 +1127,7 @@ export function LibraryPage() {
           saveFilter.error ||
           bulkFavorite.error ||
           bulkTrash.error ||
+          createMediaArchive.error ||
           Boolean(bulkTrash.data?.errors.length) ? (
             <p className="notice error-notice" role="alert">
               {startReview.error?.message ||
@@ -1053,6 +1138,7 @@ export function LibraryPage() {
                 saveFilter.error?.message ||
                 bulkFavorite.error?.message ||
                 bulkTrash.error?.message ||
+                createMediaArchive.error?.message ||
                 bulkTrash.data?.errors.join(" · ")}
             </p>
           ) : null}

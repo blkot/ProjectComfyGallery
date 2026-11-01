@@ -326,6 +326,26 @@ class MediaBulkActionResponse(BaseModel):
     errors: list[str] = Field(default_factory=list)
 
 
+class MediaArchiveRequest(MediaMembershipRequest):
+    """Selection scope for a background ZIP archive of original media bytes."""
+
+
+class MediaArchiveResponse(BaseModel):
+    id: UUID
+    status: str
+    requested_count: int
+    included_count: int | None
+    skipped_count: int | None
+    byte_size: int | None
+    sha256: str | None
+    error_code: str | None
+    error_message: str | None
+    created_at: datetime
+    started_at: datetime | None
+    completed_at: datetime | None
+    download_url: str | None = None
+
+
 class TagRequest(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     color: str | None = Field(default=None, max_length=32)

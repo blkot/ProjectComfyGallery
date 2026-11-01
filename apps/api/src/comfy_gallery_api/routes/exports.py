@@ -15,6 +15,7 @@ from comfy_gallery_api.errors import ApiError
 from comfy_gallery_api.operations_schemas import ExportCreateRequest, ExportResponse
 from comfy_gallery_core.db.models import ExportRun, Job
 from comfy_gallery_core.operations.exports import safe_export_path
+from comfy_gallery_core.operations.media_archives import MEDIA_ARCHIVE_KIND
 from comfy_gallery_core.queue import enqueue_portable_export
 
 router = APIRouter(prefix="/api/v1/exports", tags=["operations"])
@@ -25,6 +26,10 @@ def _response(export_run: ExportRun) -> ExportResponse:
     if export_run.status == "succeeded" and export_run.artifact_path:
         response.download_url = f"/api/v1/exports/{export_run.id}/download"
     return response
+
+
+def _is_portable_export(export_run: ExportRun) -> bool:
+    return export_run.requested_options.get("kind") != MEDIA_ARCHIVE_KIND
 
 
 @router.post("", response_model=ExportResponse, status_code=status.HTTP_202_ACCEPTED)
@@ -80,7 +85,7 @@ async def list_exports(
     runs = await session.scalars(
         select(ExportRun).order_by(ExportRun.created_at.desc()).limit(max(1, min(limit, 200)))
     )
-    return [_response(run) for run in runs]
+    return [_response(run) for run in runs if _is_portable_export(run)]
 
 
 @router.get("/{export_id}", response_model=ExportResponse)
@@ -123,7 +128,7 @@ async def download_export(
 
 async def _get_export(session: DbSessionDep, export_id: UUID) -> ExportRun:
     export_run = await session.get(ExportRun, export_id)
-    if export_run is None:
+    if export_run is None or not _is_portable_export(export_run):
         raise ApiError(
             status_code=404,
             code="EXPORT_NOT_FOUND",

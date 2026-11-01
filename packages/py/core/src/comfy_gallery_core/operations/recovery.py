@@ -53,6 +53,11 @@ def _dispatch_for(job: Job) -> tuple[str, str, tuple[str, ...]] | None:
             "maintenance",
             (resource_id, job_id),
         ),
+        "media_archive": (
+            "create_media_archive",
+            "maintenance",
+            (resource_id, job_id),
+        ),
         "spatial_conversion": (
             "process_spatial_conversion",
             "spatial",
@@ -72,7 +77,7 @@ async def _reset_owner(session: AsyncSession, job: Job) -> None:
         owner = await session.get(ScanBatch, job.resource_id)
     elif job.kind == "registry_sync":
         owner = await session.get(RegistrySyncRun, job.resource_id)
-    elif job.kind == "portable_export":
+    elif job.kind in {"portable_export", "media_archive"}:
         owner = await session.get(ExportRun, job.resource_id)
     elif job.kind == "spatial_conversion":
         owner = await session.get(SpatialConversionRun, job.resource_id)

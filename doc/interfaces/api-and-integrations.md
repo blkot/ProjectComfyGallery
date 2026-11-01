@@ -78,6 +78,9 @@ GET    /api/v1/media/:id/navigation
 PUT    /api/v1/media/:id/favorite
 POST   /api/v1/media/bulk/favorite
 POST   /api/v1/media/bulk/trash
+POST   /api/v1/media/bulk/download
+GET    /api/v1/media/bulk/download/:archiveId
+GET    /api/v1/media/bulk/download/:archiveId/download
 PUT    /api/v1/media/:id/playback-preference
 PUT    /api/v1/media/:id/spatial-preference
 POST   /api/v1/media/:id/variant-imports
@@ -212,6 +215,17 @@ Library's “select all matching” mode keep per-card exceptions while the serv
 resolves the final set. Favorite updates are idempotent. Trash updates apply to the
 base evaluation, create disposition revisions, and skip media that is not ready
 for evaluation; permanent deletion is not part of this command surface.
+
+The media download command accepts the same selection scope and queues a durable
+maintenance job. The server resolves the scope at request time, stores the selected
+media UUIDs in the archive request, and packages original managed bytes (never
+previews) into one ZIP. The status endpoint returns `queued`, `running`,
+`succeeded`, or `failed`; a completed response includes `download_url`, byte size,
+SHA-256, included/skipped counts, and the authenticated download endpoint. Each
+archive includes a `manifest.json` with the media IDs, original filenames, archive
+paths, source hashes, and skipped-file reasons. A single archive is limited to
+2,000 media records; missing originals are reported in the manifest rather than
+silently aborting the whole bundle.
 
 The workflow summary endpoint uses bounded node/edge limits and never appears in a
 gallery list response. The raw endpoint returns preserved decoded carrier metadata,

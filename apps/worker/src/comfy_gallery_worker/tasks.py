@@ -36,6 +36,7 @@ from comfy_gallery_core.media.spatial_conversion import (
 )
 from comfy_gallery_core.media.variants import process_variant_import
 from comfy_gallery_core.operations.exports import create_portable_export
+from comfy_gallery_core.operations.media_archives import create_media_archive
 from comfy_gallery_core.queue import enqueue_spatial_reconciliation, enqueue_workflow_input_capture
 from comfy_gallery_core.registry.sync import process_registry_sync_job
 from comfy_gallery_core.workflow.extraction import process_workflow_job
@@ -276,6 +277,27 @@ async def create_portable_export_actor(export_run_id: str, job_id: str) -> None:
             raise
 
 
+@actor(
+    actor_name="create_media_archive",
+    queue_name="maintenance",
+    max_retries=2,
+    min_backoff=15_000,
+)
+async def create_media_archive_actor(export_run_id: str, job_id: str) -> None:
+    try:
+        await _create_media_archive(UUID(export_run_id), UUID(job_id))
+    except IngestionError as error:
+        logger.error(
+            "media_archive_failed",
+            export_run_id=export_run_id,
+            job_id=job_id,
+            code=error.code,
+            retryable=error.retryable,
+        )
+        if error.retryable:
+            raise
+
+
 async def _process_upload(upload_item_id: UUID, job_id: UUID) -> UUID:
     database = get_database()
     async with database.session() as session:
@@ -456,6 +478,39 @@ async def _create_portable_export(export_run_id: UUID, job_id: UUID) -> None:
             await create_portable_export(
                 session,
                 export_run=export_run,
+                settings=settings,
+            )
+            await complete_stage(session, attempt)
+            await succeed_job(session, job)
+        except IngestionError as error:
+            export_run.status = "failed"
+            export_run.error_code = error.code
+            export_run.error_message = error.message
+            export_run.completed_at = datetime.now(UTC)
+            await session.commit()
+            await fail_stage(session, attempt, error)
+            await fail_job(session, job, error)
+            raise
+
+
+async def _create_media_archive(export_run_id: UUID, job_id: UUID) -> None:
+    database = get_database()
+    async with database.session() as session:
+        job = await load_job(session, job_id)
+        export_run = await session.get(ExportRun, export_run_id)
+        if export_run is None:
+            raise IngestionError(
+                code="MEDIA_ARCHIVE_NOT_FOUND",
+                message="The media archive request no longer exists.",
+            )
+        if not await begin_job(session, job):
+            return
+        attempt = await begin_stage(session, job, "write_media_archive")
+        try:
+            await create_media_archive(
+                session,
+                export_run=export_run,
+                job=job,
                 settings=settings,
             )
             await complete_stage(session, attempt)

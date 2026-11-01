@@ -17,6 +17,7 @@ from comfy_gallery_core.db.models import (
     UploadItem,
 )
 from comfy_gallery_core.queue import (
+    enqueue_media_archive,
     enqueue_portable_export,
     enqueue_registry_sync,
     enqueue_scan,
@@ -168,6 +169,23 @@ async def retry_job(
             await session.commit()
             enqueue_portable_export(
                 export_run_id=str(export_run.id),
+                job_id=str(job.id),
+            )
+        elif job.kind == "media_archive":
+            archive = await session.get(ExportRun, job.resource_id)
+            if archive is None:
+                raise ApiError(
+                    status_code=404,
+                    code="MEDIA_ARCHIVE_NOT_FOUND",
+                    message="The media archive no longer exists.",
+                )
+            archive.status = "queued"
+            archive.completed_at = None
+            archive.error_code = None
+            archive.error_message = None
+            await session.commit()
+            enqueue_media_archive(
+                export_run_id=str(archive.id),
                 job_id=str(job.id),
             )
         elif job.kind == "spatial_conversion":

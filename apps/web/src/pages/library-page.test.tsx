@@ -454,6 +454,70 @@ describe("LibraryPage controls sidebar", () => {
     expect(bulkPayload?.exclude_media_ids).toEqual([item.id]);
     expect((bulkPayload?.filter as { q?: string }).q).toBe("portrait");
   });
+
+  it("queues one ZIP archive for the selected media and exposes its download link", async () => {
+    const item = mediaFixture({ id: "media-archive-1", original_filename: "archive.png" });
+    let archivePayload: Record<string, unknown> | undefined;
+    apiRequestMock.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.startsWith("/api/v1/media?")) {
+        return Promise.resolve({ items: [item], total: 1, limit: 48, offset: 0 });
+      }
+      if (path === "/api/v1/media/bulk/download") {
+        archivePayload = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        return Promise.resolve({
+          id: "archive-1",
+          status: "queued",
+          requested_count: 1,
+          included_count: null,
+          skipped_count: null,
+          byte_size: null,
+          sha256: null,
+          error_code: null,
+          error_message: null,
+          created_at: "2026-01-01T00:00:00Z",
+          started_at: null,
+          completed_at: null,
+          download_url: null,
+        });
+      }
+      if (path === "/api/v1/media/bulk/download/archive-1") {
+        return Promise.resolve({
+          id: "archive-1",
+          status: "succeeded",
+          requested_count: 1,
+          included_count: 1,
+          skipped_count: 0,
+          byte_size: 512,
+          sha256: "a".repeat(64),
+          error_code: null,
+          error_message: null,
+          created_at: "2026-01-01T00:00:00Z",
+          started_at: "2026-01-01T00:00:01Z",
+          completed_at: "2026-01-01T00:00:02Z",
+          download_url: "/api/v1/media/bulk/download/archive-1/download",
+        });
+      }
+      return Promise.resolve([]);
+    });
+
+    renderLibrary();
+    await screen.findByText(item.original_filename);
+    fireEvent.click(screen.getByRole("button", { name: "Select media" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: `Select ${item.original_filename}` }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Download selected (1)" }));
+
+    await waitFor(() =>
+      expect(archivePayload?.media_ids).toEqual([item.id]),
+    );
+    expect(
+      await screen.findByRole("link", { name: "Download ZIP" }),
+    ).toHaveAttribute(
+      "href",
+      "/api/v1/media/bulk/download/archive-1/download",
+    );
+  });
 });
 
 function mediaFixture(overrides: Partial<Record<string, unknown>> = {}) {

@@ -112,3 +112,11 @@ def enqueue_portable_export(*, export_run_id: str, job_id: str) -> str:
         queue_name="maintenance",
         args=(export_run_id, job_id),
     )
+
+
+def enqueue_media_archive(*, export_run_id: str, job_id: str) -> str:
+    return enqueue_message(
+        actor_name="create_media_archive",
+        queue_name="maintenance",
+        args=(export_run_id, job_id),
+    )
