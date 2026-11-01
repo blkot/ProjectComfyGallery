@@ -6,6 +6,7 @@ import { MediaFavoriteButton } from "../components/media-favorite-button";
 import {
   apiRequest,
   type Collection,
+  type MediaBulkActionResponse,
   type MediaPage,
   type MediaTag,
   type ModelReferenceFilterOption,
@@ -18,6 +19,17 @@ import {
   formatDuration,
   titleCase,
 } from "../lib/format";
+import {
+  emptyLibrarySelection,
+  isMediaSelected,
+  isSelectionActive,
+  selectAllMatching as createFilterSelection,
+  selectionCount,
+  selectionPayload,
+  toggleMedia,
+  togglePage,
+  type LibrarySelection,
+} from "../lib/library-selection";
 import { hasShortcutModifier, isShortcutBlockedTarget } from "../lib/keyboard";
 import {
   defaultMediaSort,
@@ -30,19 +42,9 @@ import {
   paginationItems,
   parseOffset,
   slideshowHref,
-  type LibraryFilterExpression,
   type ReferenceMatch,
   type SlideshowSource,
 } from "../lib/media-view";
-
-type FilteredSelection = {
-  count: number;
-  filter: LibraryFilterExpression;
-};
-
-type MembershipPayload =
-  | { media_ids: string[] }
-  | { filter: LibraryFilterExpression };
 
 const libraryControlsStorageKey =
   "comfy-gallery.library-controls-collapsed";
@@ -54,9 +56,9 @@ export function LibraryPage() {
   const galleryTopRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const restoredReturnRef = useRef<string | null>(null);
-  const [selected, setSelected] = useState<Set<string>>(() => new Set());
-  const [filteredSelection, setFilteredSelection] =
-    useState<FilteredSelection | null>(null);
+  const [selection, setSelection] = useState<LibrarySelection>(
+    emptyLibrarySelection,
+  );
   const [collectionName, setCollectionName] = useState("");
   const [collectionId, setCollectionId] = useState("");
   const [tagName, setTagName] = useState("");
@@ -97,7 +99,8 @@ export function LibraryPage() {
   const offset = parseOffset(searchParams.get("offset"));
   const returnMediaId = searchParams.get(mediaReturnParam) ?? "";
   const requestSearch = mediaListQuery(searchParams).toString();
-  const selectionCount = filteredSelection?.count ?? selected.size;
+  const selectedCount = selectionCount(selection);
+  const selectionActive = isSelectionActive(selection);
 
   const media = useQuery({
     queryKey: ["media", requestSearch],
@@ -140,10 +143,15 @@ export function LibraryPage() {
       apiRequest<ReviewSession>("/api/v1/review-sessions", {
         method: "POST",
         body: JSON.stringify({
-          source_kind: filteredSelection ? "filter" : "selection",
-          media_ids: filteredSelection ? [] : [...selected],
-          filter: filteredSelection?.filter ?? null,
-          random_limit: Math.min(selectionCount, 2000),
+          source_kind: selection.mode === "filter" ? "filter" : "selection",
+          media_ids:
+            selection.mode === "explicit" ? [...selection.mediaIds] : [],
+          filter: selection.mode === "filter" ? selection.filter : null,
+          exclude_media_ids:
+            selection.mode === "filter"
+              ? [...selection.excludedIds]
+              : undefined,
+          random_limit: Math.min(selectedCount, 2000),
           ordering_mode: "stable",
           optional_modules: [],
         }),
@@ -156,12 +164,12 @@ export function LibraryPage() {
         method: "POST",
         body: JSON.stringify({ name: collectionName, description: null }),
       });
-      if (selectionCount) {
+      if (selectedCount) {
         await apiRequest<Collection>(
           `/api/v1/collections/${collection.id}/items`,
           {
             method: "POST",
-            body: JSON.stringify(selectionPayload()),
+            body: JSON.stringify(selectionPayload(selection)),
           },
         );
       }
@@ -178,10 +186,10 @@ export function LibraryPage() {
         method: "POST",
         body: JSON.stringify({ name: tagName, color: null }),
       });
-      if (selectionCount) {
+      if (selectedCount) {
         await apiRequest<MediaTag>(`/api/v1/tags/${tag.id}/media`, {
           method: "POST",
-          body: JSON.stringify(selectionPayload()),
+          body: JSON.stringify(selectionPayload(selection)),
         });
       }
       return tag;
@@ -195,7 +203,7 @@ export function LibraryPage() {
     mutationFn: () =>
       apiRequest<Collection>(`/api/v1/collections/${collectionId}/items`, {
         method: "POST",
-        body: JSON.stringify(selectionPayload()),
+        body: JSON.stringify(selectionPayload(selection)),
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["collections"] });
@@ -205,7 +213,7 @@ export function LibraryPage() {
     mutationFn: () =>
       apiRequest<MediaTag>(`/api/v1/tags/${tagId}/media`, {
         method: "POST",
-        body: JSON.stringify(selectionPayload()),
+        body: JSON.stringify(selectionPayload(selection)),
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["tags"] });
@@ -223,6 +231,36 @@ export function LibraryPage() {
     onSuccess: async () => {
       setSavedFilterName("");
       await queryClient.invalidateQueries({ queryKey: ["saved-filters"] });
+    },
+  });
+  const bulkFavorite = useMutation({
+    mutationFn: (favorite: boolean) =>
+      apiRequest<MediaBulkActionResponse>("/api/v1/media/bulk/favorite", {
+        method: "POST",
+        body: JSON.stringify({ ...selectionPayload(selection), favorite }),
+      }),
+    onSuccess: async () => {
+      clearSelection();
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["media"] }),
+        queryClient.invalidateQueries({ queryKey: ["media-navigation"] }),
+      ]);
+    },
+  });
+  const bulkTrash = useMutation({
+    mutationFn: (isTrash: boolean) =>
+      apiRequest<MediaBulkActionResponse>("/api/v1/media/bulk/trash", {
+        method: "POST",
+        body: JSON.stringify({ ...selectionPayload(selection), is_trash: isTrash }),
+      }),
+    onSuccess: async () => {
+      clearSelection();
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["media"] }),
+        queryClient.invalidateQueries({ queryKey: ["media-navigation"] }),
+        queryClient.invalidateQueries({ queryKey: ["review-summary"] }),
+        queryClient.invalidateQueries({ queryKey: ["review-sessions"] }),
+      ]);
     },
   });
 
@@ -293,7 +331,7 @@ export function LibraryPage() {
   ]);
 
   function changeLibraryParameter(name: string, value: string) {
-    if (name !== "sort") setFilteredSelection(null);
+    if (selection.mode === "filter" && name !== "sort") clearSelection();
     setSearchParams((current) => {
       const next = new URLSearchParams(current);
       if (value) next.set(name, value);
@@ -308,7 +346,7 @@ export function LibraryPage() {
   }
 
   function changeMultiLibraryParameter(name: string, values: string[]) {
-    setFilteredSelection(null);
+    if (selection.mode === "filter") clearSelection();
     setSearchParams((current) => {
       const next = new URLSearchParams(current);
       next.delete(name);
@@ -320,47 +358,23 @@ export function LibraryPage() {
   }
 
   function toggleSelected(id: string) {
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    setSelection((current) => toggleMedia(current, id));
   }
 
   function toggleCurrentPage() {
     const pageIds = media.data?.items.map((item) => item.id) ?? [];
-    if (!pageIds.length || filteredSelection) return;
-    setSelected((current) => {
-      const next = new Set(current);
-      const pageIsSelected = pageIds.every((id) => next.has(id));
-      for (const id of pageIds) {
-        if (pageIsSelected) next.delete(id);
-        else next.add(id);
-      }
-      return next;
-    });
+    if (!pageIds.length) return;
+    setSelection((current) => togglePage(current, pageIds));
   }
 
   function selectAllMatching() {
     const count = media.data?.total ?? 0;
     if (!count) return;
-    setSelected(new Set());
-    setFilteredSelection({
-      count,
-      filter: libraryFilterExpression(searchParams),
-    });
+    setSelection(createFilterSelection(libraryFilterExpression(searchParams), count));
   }
 
   function clearSelection() {
-    setSelected(new Set());
-    setFilteredSelection(null);
-  }
-
-  function selectionPayload(): MembershipPayload {
-    return filteredSelection
-      ? { filter: filteredSelection.filter }
-      : { media_ids: [...selected] };
+    setSelection(emptyLibrarySelection());
   }
 
   function startSlideshow() {
@@ -375,7 +389,8 @@ export function LibraryPage() {
 
   const currentPageIds = media.data?.items.map((item) => item.id) ?? [];
   const currentPageSelected =
-    currentPageIds.length > 0 && currentPageIds.every((id) => selected.has(id));
+    currentPageIds.length > 0 &&
+    currentPageIds.every((id) => isMediaSelected(selection, id));
 
   return (
     <main
@@ -392,6 +407,17 @@ export function LibraryPage() {
           </p>
         </div>
         <div className="page-header-actions">
+          <button
+            className={selectionActive ? "text-button" : "secondary-button"}
+            type="button"
+            onClick={() =>
+              selectionActive
+                ? clearSelection()
+                : setSelection({ mode: "explicit", mediaIds: new Set() })
+            }
+          >
+            {selectionActive ? "Cancel selection" : "Select media"}
+          </button>
           <button
             className="secondary-button"
             type="button"
@@ -793,21 +819,27 @@ export function LibraryPage() {
             <div className="selection-summary">
               <p className="kicker">Review scope</p>
               <strong>
-                {filteredSelection
-                  ? `All ${filteredSelection.count} matching selected`
-                  : `${selected.size} selected`}
+                {selection.mode === "browse"
+                  ? "Browse mode"
+                  : selection.mode === "filter"
+                    ? selection.excludedIds.size
+                      ? `${selectedCount} of ${selection.count} matching selected`
+                      : `All ${selection.count} matching selected`
+                    : `${selectedCount} selected`}
               </strong>
               <small>
-                {filteredSelection
-                  ? "Filter-backed · resolved on the server"
-                  : "Selection is retained across library pages"}
+                {selection.mode === "filter"
+                  ? "Filter-backed · exceptions are retained across pages"
+                  : selectionActive
+                    ? "Card clicks select media · selection is retained across pages"
+                    : "Choose Select media to manage a group"}
               </small>
             </div>
             <div className="selection-actions">
               <button
                 className="secondary-button"
                 type="button"
-                disabled={!currentPageIds.length || Boolean(filteredSelection)}
+                disabled={!currentPageIds.length}
                 onClick={toggleCurrentPage}
               >
                 {currentPageSelected ? "Clear page" : "Select page"}
@@ -815,7 +847,7 @@ export function LibraryPage() {
               <button
                 className="secondary-button"
                 type="button"
-                disabled={!media.data?.total || Boolean(filteredSelection)}
+                disabled={!media.data?.total}
                 onClick={selectAllMatching}
               >
                 Select all {media.data?.total ?? 0} matching
@@ -823,19 +855,58 @@ export function LibraryPage() {
               <button
                 className="text-button"
                 type="button"
-                disabled={selectionCount === 0}
+                disabled={!selectedCount}
                 onClick={clearSelection}
               >
                 Clear selection
               </button>
             </div>
+            {selectionActive ? (
+              <div className="selection-batch-actions" aria-label="Batch media actions">
+                <p className="kicker">Manage selected media</p>
+                <div>
+                  <button
+                    className="favorite-batch-button"
+                    type="button"
+                    disabled={!selectedCount || bulkFavorite.isPending}
+                    onClick={() => bulkFavorite.mutate(true)}
+                  >
+                    ★ Favorite
+                  </button>
+                  <button
+                    className="favorite-batch-button"
+                    type="button"
+                    disabled={!selectedCount || bulkFavorite.isPending}
+                    onClick={() => bulkFavorite.mutate(false)}
+                  >
+                    ☆ Unfavorite
+                  </button>
+                  <button
+                    className="trash-batch-button"
+                    type="button"
+                    disabled={!selectedCount || bulkTrash.isPending}
+                    onClick={() => bulkTrash.mutate(true)}
+                  >
+                    Trash selected
+                  </button>
+                  <button
+                    className="restore-batch-button"
+                    type="button"
+                    disabled={!selectedCount || bulkTrash.isPending}
+                    onClick={() => bulkTrash.mutate(false)}
+                  >
+                    Restore selected
+                  </button>
+                </div>
+              </div>
+            ) : null}
             <button
               className="primary-button"
               type="button"
-              disabled={selectionCount === 0 || startReview.isPending}
+              disabled={!selectedCount || startReview.isPending}
               onClick={() => startReview.mutate()}
             >
-              {filteredSelection
+              {selection.mode === "filter"
                 ? "Review filtered results"
                 : "Review selection"}
             </button>
@@ -881,7 +952,7 @@ export function LibraryPage() {
                 className="secondary-button"
                 type="submit"
                 disabled={
-                  selectionCount === 0 ||
+                  !selectedCount ||
                   !collectionId ||
                   addToCollection.isPending
                 }
@@ -930,7 +1001,7 @@ export function LibraryPage() {
               <button
                 className="secondary-button"
                 type="submit"
-                disabled={selectionCount === 0 || !tagId || applyTag.isPending}
+                disabled={!selectedCount || !tagId || applyTag.isPending}
               >
                 Apply scope
               </button>
@@ -958,7 +1029,7 @@ export function LibraryPage() {
             <small className="muted scope-footnote">
               {collections.data?.length ?? 0} collections ·{" "}
               {tags.data?.length ?? 0} tags
-              {filteredSelection && filteredSelection.count > 2000
+              {selection.mode === "filter" && selection.count > 2000
                 ? " · review sessions use the first 2,000 matching media"
                 : ""}
             </small>
@@ -969,14 +1040,20 @@ export function LibraryPage() {
           createTag.error ||
           addToCollection.error ||
           applyTag.error ||
-          saveFilter.error ? (
+          saveFilter.error ||
+          bulkFavorite.error ||
+          bulkTrash.error ||
+          Boolean(bulkTrash.data?.errors.length) ? (
             <p className="notice error-notice" role="alert">
               {startReview.error?.message ||
                 createCollection.error?.message ||
                 createTag.error?.message ||
                 addToCollection.error?.message ||
                 applyTag.error?.message ||
-                saveFilter.error?.message}
+                saveFilter.error?.message ||
+                bulkFavorite.error?.message ||
+                bulkTrash.error?.message ||
+                bulkTrash.data?.errors.join(" · ")}
             </p>
           ) : null}
           </div>
@@ -1015,42 +1092,15 @@ export function LibraryPage() {
             />
           ) : null}
 
-          <section className="media-grid" aria-busy={media.isFetching}>
-            {media.data?.items.map((item) => (
-              <article
-                className="media-card"
-                data-return-target={returnMediaId === item.id || undefined}
-                data-selected={
-                  Boolean(filteredSelection) || selected.has(item.id)
-                }
-                id={`media-${item.id}`}
-                key={item.id}
-                tabIndex={-1}
-              >
-                <label className="media-select">
-                  <input
-                    type="checkbox"
-                    checked={
-                      Boolean(filteredSelection) || selected.has(item.id)
-                    }
-                    disabled={Boolean(filteredSelection)}
-                    onChange={() => toggleSelected(item.id)}
-                  />
-                  <span className="sr-only">
-                    {filteredSelection
-                      ? "Included by the filtered selection"
-                      : "Select media"}
-                  </span>
-                </label>
-                <MediaFavoriteButton
-                  mediaId={item.id}
-                  favorite={item.favorite}
-                  className="media-card-favorite"
-                />
-                <Link
-                  to={mediaDetailHref(item.id, searchParams)}
-                  aria-label="Open media record"
-                >
+          <section
+            className="media-grid"
+            aria-busy={media.isFetching}
+            data-selection-mode={selectionActive || undefined}
+          >
+            {media.data?.items.map((item) => {
+              const itemSelected = isMediaSelected(selection, item.id);
+              const cardContent = (
+                <>
                   <div className="media-preview">
                     {item.status === "ready" ||
                     item.status === "ready_with_warnings" ? (
@@ -1114,9 +1164,68 @@ export function LibraryPage() {
                       File time · {formatDate(item.file_created_at)}
                     </small>
                   </div>
-                </Link>
-              </article>
-            ))}
+                </>
+              );
+
+              return (
+                <article
+                  className="media-card"
+                  data-return-target={returnMediaId === item.id || undefined}
+                  data-selected={itemSelected || undefined}
+                  id={`media-${item.id}`}
+                  key={item.id}
+                  tabIndex={-1}
+                >
+                  {selectionActive ? (
+                    <label className="media-select">
+                      <input
+                        type="checkbox"
+                        checked={itemSelected}
+                        onChange={() => toggleSelected(item.id)}
+                      />
+                      <span className="sr-only">
+                        {itemSelected ? "Deselect media" : "Select media"}
+                      </span>
+                    </label>
+                  ) : null}
+                  {selectionActive && item.favorite ? (
+                    <span
+                      className="media-card-favorite-badge"
+                      role="img"
+                      aria-label="Favorited"
+                      title="Favorited"
+                    >
+                      ★
+                    </span>
+                  ) : null}
+                  {!selectionActive ? (
+                    <MediaFavoriteButton
+                      mediaId={item.id}
+                      favorite={item.favorite}
+                      className="media-card-favorite"
+                    />
+                  ) : null}
+                  {selectionActive ? (
+                    <button
+                      className="media-card-selection-target"
+                      type="button"
+                      aria-label={`${itemSelected ? "Deselect" : "Select"} ${item.original_filename}`}
+                      aria-pressed={itemSelected}
+                      onClick={() => toggleSelected(item.id)}
+                    >
+                      {cardContent}
+                    </button>
+                  ) : (
+                    <Link
+                      to={mediaDetailHref(item.id, searchParams)}
+                      aria-label="Open media record"
+                    >
+                      {cardContent}
+                    </Link>
+                  )}
+                </article>
+              );
+            })}
           </section>
 
           {media.data && media.data.total > mediaPageSize ? (

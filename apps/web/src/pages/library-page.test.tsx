@@ -350,7 +350,141 @@ describe("LibraryPage controls sidebar", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Start" }));
     expect(requestFullscreenMock).not.toHaveBeenCalled();
   });
+
+  it("keeps browse cards navigable and reveals selection controls only on demand", async () => {
+    const item = mediaFixture({ id: "media-1", favorite: true });
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path.startsWith("/api/v1/media?")) {
+        return Promise.resolve({ items: [item], total: 1, limit: 48, offset: 0 });
+      }
+      return Promise.resolve([]);
+    });
+
+    renderLibrary();
+
+    expect(await screen.findByText(item.original_filename)).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Select media" })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Remove from favorites" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Select media" }));
+
+    expect(
+      screen.getByRole("checkbox", { name: "Select media" }),
+    ).toBeInTheDocument();
+    expect(screen.getByTitle("Favorited")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Remove from favorites" }),
+    ).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: `Select ${item.original_filename}` }),
+    );
+    expect(screen.getByText("1 selected")).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: `Deselect ${item.original_filename}` }),
+    );
+    expect(screen.getByText("Browse mode")).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Select media" })).toBeNull();
+  });
+
+  it("sends selected favorite updates as one bulk action", async () => {
+    const item = mediaFixture({ id: "media-2", favorite: false });
+    let bulkPayload: Record<string, unknown> | undefined;
+    apiRequestMock.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.startsWith("/api/v1/media?")) {
+        return Promise.resolve({ items: [item], total: 1, limit: 48, offset: 0 });
+      }
+      if (path === "/api/v1/media/bulk/favorite") {
+        bulkPayload = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        return Promise.resolve({
+          requested_count: 1,
+          updated_count: 1,
+          skipped_count: 0,
+          errors: [],
+        });
+      }
+      return Promise.resolve([]);
+    });
+
+    renderLibrary();
+    await screen.findByText(item.original_filename);
+    fireEvent.click(screen.getByRole("button", { name: "Select media" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: `Select ${item.original_filename}` }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "★ Favorite" }));
+
+    await waitFor(() => expect(bulkPayload?.favorite).toBe(true));
+    expect(bulkPayload?.media_ids).toEqual([item.id]);
+  });
+
+  it("keeps filter selection exceptions in the bulk payload", async () => {
+    const item = mediaFixture({ id: "media-3", favorite: false });
+    let bulkPayload: Record<string, unknown> | undefined;
+    apiRequestMock.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.startsWith("/api/v1/media?")) {
+        return Promise.resolve({ items: [item], total: 3, limit: 48, offset: 0 });
+      }
+      if (path === "/api/v1/media/bulk/favorite") {
+        bulkPayload = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        return Promise.resolve({
+          requested_count: 2,
+          updated_count: 2,
+          skipped_count: 0,
+          errors: [],
+        });
+      }
+      return Promise.resolve([]);
+    });
+
+    renderLibrary("/library?q=portrait");
+    await screen.findByText(item.original_filename);
+    fireEvent.click(screen.getByRole("button", { name: "Select media" }));
+    fireEvent.click(screen.getByRole("button", { name: "Select all 3 matching" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: `Deselect ${item.original_filename}` }),
+    );
+    expect(screen.getByText("2 of 3 matching selected")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "★ Favorite" }));
+
+    await waitFor(() => expect(bulkPayload?.favorite).toBe(true));
+    expect(bulkPayload?.exclude_media_ids).toEqual([item.id]);
+    expect((bulkPayload?.filter as { q?: string }).q).toBe("portrait");
+  });
 });
+
+function mediaFixture(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    id: "media-fixture",
+    kind: "image",
+    status: "ready",
+    detected_format: "png",
+    mime_type: "image/png",
+    width: 512,
+    height: 512,
+    duration_seconds: null,
+    container: null,
+    video_codec: null,
+    warning_count: 0,
+    byte_size: 1024,
+    original_filename: "fixture.png",
+    source_count: 1,
+    workflow_status: "parsed",
+    evaluation_state: "not_started",
+    is_trash: false,
+    spatial_available: false,
+    prefer_spatial_playback: false,
+    spatial_view_preferred: false,
+    favorite: false,
+    file_created_at: "2026-01-01T00:00:00Z",
+    created_at: "2026-01-01T00:00:00Z",
+    preview_url: "/api/v1/media/media-fixture/preview",
+    ...overrides,
+  };
+}
 
 function renderLibrary(initialEntry = "/library") {
   const queryClient = new QueryClient({

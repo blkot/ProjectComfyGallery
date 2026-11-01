@@ -21,6 +21,9 @@ from comfy_gallery_api.evaluation_schemas import (
     EvaluationResponse,
     EvaluationRevisionsResponse,
     EvaluationTemplateResponse,
+    MediaBulkActionResponse,
+    MediaBulkFavoriteRequest,
+    MediaBulkTrashRequest,
     MediaEvaluationContextResponse,
     MediaEvaluationModuleResponse,
     MediaEvaluationModuleUpdateRequest,
@@ -174,6 +177,101 @@ async def update_media_evaluation_module(
     )
     await session.commit()
     return await _media_evaluation_context(session, media)
+
+
+@router.post("/media/bulk/favorite", response_model=MediaBulkActionResponse)
+async def update_media_favorites(
+    request: MediaBulkFavoriteRequest,
+    _principal: CsrfPrincipalDep,
+    session: DbSessionDep,
+) -> MediaBulkActionResponse:
+    media_ids = await _resolve_membership_media_ids(session, request)
+    if not media_ids:
+        return MediaBulkActionResponse(
+            requested_count=0,
+            updated_count=0,
+            skipped_count=0,
+        )
+
+    records = list(await session.scalars(select(Media).where(Media.id.in_(media_ids))))
+    by_id = {record.id: record for record in records}
+    updated_count = 0
+    for media_id in media_ids:
+        media = by_id.get(media_id)
+        if media is None or media.favorite == request.favorite:
+            continue
+        media.favorite = request.favorite
+        updated_count += 1
+    await session.commit()
+    return MediaBulkActionResponse(
+        requested_count=len(media_ids),
+        updated_count=updated_count,
+        skipped_count=len(media_ids) - updated_count,
+    )
+
+
+@router.post("/media/bulk/trash", response_model=MediaBulkActionResponse)
+async def update_media_trash(
+    request: MediaBulkTrashRequest,
+    principal: CsrfPrincipalDep,
+    session: DbSessionDep,
+) -> MediaBulkActionResponse:
+    media_ids = await _resolve_membership_media_ids(session, request)
+    if not media_ids:
+        return MediaBulkActionResponse(
+            requested_count=0,
+            updated_count=0,
+            skipped_count=0,
+        )
+
+    await ensure_evaluation_catalog(session)
+    records = list(await session.scalars(select(Media).where(Media.id.in_(media_ids))))
+    by_id = {record.id: record for record in records}
+    updated_count = 0
+    errors: list[str] = []
+    for media_id in media_ids:
+        media = by_id.get(media_id)
+        if media is None:
+            continue
+        if media.status not in REVIEWABLE_MEDIA_STATUSES:
+            errors.append(f"{media_id}: media is not ready for evaluation")
+            continue
+        evaluations = await ensure_media_evaluations(
+            session,
+            media=media,
+            reviewer_user_id=principal.user.id,
+            optional_modules=set(),
+        )
+        base_evaluation = next(
+            (evaluation for evaluation in evaluations if evaluation.evaluation_kind == "base"),
+            None,
+        )
+        if base_evaluation is None:
+            errors.append(f"{media_id}: base evaluation is unavailable")
+            continue
+        if base_evaluation.is_trash == request.is_trash:
+            continue
+        old_is_trash = base_evaluation.is_trash
+        base_evaluation.version += 1
+        base_evaluation.is_trash = request.is_trash
+        session.add(
+            EvaluationDispositionRevision(
+                evaluation_id=base_evaluation.id,
+                old_is_trash=old_is_trash,
+                new_is_trash=request.is_trash,
+                evaluation_version=base_evaluation.version,
+                changed_by_user_id=principal.user.id,
+            )
+        )
+        updated_count += 1
+
+    await session.commit()
+    return MediaBulkActionResponse(
+        requested_count=len(media_ids),
+        updated_count=updated_count,
+        skipped_count=len(media_ids) - updated_count,
+        errors=errors,
+    )
 
 
 @router.get("/review/summary", response_model=ReviewSummaryResponse)
@@ -783,6 +881,8 @@ async def _resolve_scope(
         "source_kind": request.source_kind,
         "filter": media_filter.model_dump(mode="json", exclude_none=True),
     }
+    if request.exclude_media_ids:
+        snapshot["exclude_media_ids"] = [str(value) for value in request.exclude_media_ids]
     if request.source_kind == "selection":
         media_ids = await _validate_reviewable_media_ids(session, request.media_ids)
         return media_ids, {
@@ -829,6 +929,9 @@ async def _resolve_scope(
         media_filter.trash = False
     query = _media_scope_query(media_filter)
     media_ids = list(await session.scalars(query.order_by(Media.created_at.desc())))
+    if request.exclude_media_ids:
+        excluded = set(request.exclude_media_ids)
+        media_ids = [media_id for media_id in media_ids if media_id not in excluded]
     return media_ids, snapshot
 
 
@@ -1334,11 +1437,15 @@ async def _resolve_membership_media_ids(
 ) -> list[UUID]:
     if request.filter is None:
         return await _validate_media_ids(session, request.media_ids)
-    return list(
+    media_ids = list(
         await session.scalars(
             _media_scope_query(request.filter, reviewable_only=False).order_by(Media.id)
         )
     )
+    if request.exclude_media_ids:
+        excluded = set(request.exclude_media_ids)
+        media_ids = [media_id for media_id in media_ids if media_id not in excluded]
+    return media_ids
 
 
 async def _collection_response(

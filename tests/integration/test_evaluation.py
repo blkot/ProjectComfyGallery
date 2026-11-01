@@ -6,6 +6,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from comfy_gallery_api.dependencies import Principal
 from comfy_gallery_api.evaluation_schemas import (
+    MediaBulkFavoriteRequest,
+    MediaBulkTrashRequest,
     MediaEvaluationModuleUpdateRequest,
     MediaFilterRequest,
     MediaMembershipRequest,
@@ -17,6 +19,8 @@ from comfy_gallery_api.routes.evaluations import (
     ensure_media_evaluation_context,
     review_summary,
     update_media_evaluation_module,
+    update_media_favorites,
+    update_media_trash,
     update_review_session,
 )
 from comfy_gallery_core.db.base import Base
@@ -62,7 +66,69 @@ async def test_filter_membership_resolves_all_matching_media_not_only_reviewable
         )
 
         assert set(membership_ids) == {ready_image.id, failed_image.id}
+        excluded_ids = await _resolve_membership_media_ids(
+            session,
+            MediaMembershipRequest(
+                filter=MediaFilterRequest(kind="image"),
+                exclude_media_ids=[ready_image.id],
+            ),
+        )
+        assert excluded_ids == [failed_image.id]
         assert review_ids == [ready_image.id]
+
+    await engine.dispose()
+
+
+async def test_bulk_favorite_and_trash_actions_update_only_selected_media() -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
+    async with session_factory() as session:
+        user = User(
+            username="bulk-reviewer",
+            username_normalized="bulk-reviewer",
+            password_hash="test",
+        )
+        first_media = Media(kind="image", status="ready")
+        second_media = Media(kind="image", status="ready")
+        session.add_all([user, first_media, second_media])
+        await session.commit()
+        principal = Principal(user=user, auth_kind="api_token")
+
+        favorite_response = await update_media_favorites(
+            request=MediaBulkFavoriteRequest(media_ids=[first_media.id], favorite=True),
+            _principal=principal,
+            session=session,
+        )
+        assert favorite_response.requested_count == 1
+        assert favorite_response.updated_count == 1
+
+        trash_response = await update_media_trash(
+            request=MediaBulkTrashRequest(
+                media_ids=[first_media.id, second_media.id],
+                is_trash=True,
+            ),
+            principal=principal,
+            session=session,
+        )
+        assert trash_response.requested_count == 2
+        assert trash_response.updated_count == 2
+        assert trash_response.errors == []
+
+        evaluations = list(
+            await session.scalars(
+                select(EvaluationDispositionRevision).where(
+                    EvaluationDispositionRevision.changed_by_user_id == user.id
+                )
+            )
+        )
+        assert len(evaluations) == 2
+        stored_first = await session.get(Media, first_media.id)
+        stored_second = await session.get(Media, second_media.id)
+        assert stored_first is not None and stored_first.favorite is True
+        assert stored_second is not None and stored_second.favorite is False
 
     await engine.dispose()
 

@@ -76,6 +76,8 @@ POST   /api/v1/media/imports
 GET    /api/v1/media/:id
 GET    /api/v1/media/:id/navigation
 PUT    /api/v1/media/:id/favorite
+POST   /api/v1/media/bulk/favorite
+POST   /api/v1/media/bulk/trash
 PUT    /api/v1/media/:id/playback-preference
 PUT    /api/v1/media/:id/spatial-preference
 POST   /api/v1/media/:id/variant-imports
@@ -203,6 +205,13 @@ Session or changes user/media state.
 The same keyword and preference filters are part of the validated reusable
 media-filter expression used by saved filters, server-resolved selection,
 collections, tags, and review sessions.
+
+Bulk favorite and trash commands accept either `media_ids` or a reusable `filter`
+scope. A filter-backed scope may also include `exclude_media_ids`, which lets the
+Library's “select all matching” mode keep per-card exceptions while the server
+resolves the final set. Favorite updates are idempotent. Trash updates apply to the
+base evaluation, create disposition revisions, and skip media that is not ready
+for evaluation; permanent deletion is not part of this command surface.
 
 The workflow summary endpoint uses bounded node/edge limits and never appears in a
 gallery list response. The raw endpoint returns preserved decoded carrier metadata,

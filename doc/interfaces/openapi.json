@@ -2294,6 +2294,118 @@
         "title": "LoraSeriesUpdateRequest",
         "type": "object"
       },
+      "MediaBulkActionResponse": {
+        "properties": {
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "requested_count": {
+            "title": "Requested Count",
+            "type": "integer"
+          },
+          "skipped_count": {
+            "title": "Skipped Count",
+            "type": "integer"
+          },
+          "updated_count": {
+            "title": "Updated Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "requested_count",
+          "updated_count",
+          "skipped_count"
+        ],
+        "title": "MediaBulkActionResponse",
+        "type": "object"
+      },
+      "MediaBulkFavoriteRequest": {
+        "properties": {
+          "exclude_media_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 2000,
+            "title": "Exclude Media Ids",
+            "type": "array"
+          },
+          "favorite": {
+            "title": "Favorite",
+            "type": "boolean"
+          },
+          "filter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MediaFilterRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "media_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 2000,
+            "title": "Media Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "favorite"
+        ],
+        "title": "MediaBulkFavoriteRequest",
+        "type": "object"
+      },
+      "MediaBulkTrashRequest": {
+        "properties": {
+          "exclude_media_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 2000,
+            "title": "Exclude Media Ids",
+            "type": "array"
+          },
+          "filter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MediaFilterRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "is_trash": {
+            "title": "Is Trash",
+            "type": "boolean"
+          },
+          "media_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 2000,
+            "title": "Media Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "is_trash"
+        ],
+        "title": "MediaBulkTrashRequest",
+        "type": "object"
+      },
       "MediaDetailResponse": {
         "properties": {
           "audio_codec": {
@@ -3167,6 +3279,15 @@
       },
       "MediaMembershipRequest": {
         "properties": {
+          "exclude_media_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 2000,
+            "title": "Exclude Media Ids",
+            "type": "array"
+          },
           "filter": {
             "anyOf": [
               {
@@ -5584,6 +5705,15 @@
               }
             ],
             "title": "Collection Id"
+          },
+          "exclude_media_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 2000,
+            "title": "Exclude Media Ids",
+            "type": "array"
           },
           "filter": {
             "anyOf": [
@@ -8630,7 +8760,7 @@
   },
   "info": {
     "title": "Project Comfy Gallery API",
-    "version": "0.1.0-rc.24"
+    "version": "0.1.0-rc.25"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -10818,6 +10948,88 @@
         "summary": "List Media",
         "tags": [
           "media"
+        ]
+      }
+    },
+    "/api/v1/media/bulk/favorite": {
+      "post": {
+        "operationId": "update_media_favorites_api_v1_media_bulk_favorite_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaBulkFavoriteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaBulkActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Media Favorites",
+        "tags": [
+          "evaluation"
+        ]
+      }
+    },
+    "/api/v1/media/bulk/trash": {
+      "post": {
+        "operationId": "update_media_trash_api_v1_media_bulk_trash_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaBulkTrashRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaBulkActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Media Trash",
+        "tags": [
+          "evaluation"
         ]
       }
     },

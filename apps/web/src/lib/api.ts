@@ -129,6 +129,13 @@ export type MediaFavorite = {
   updated_at: string;
 };
 
+export type MediaBulkActionResponse = {
+  requested_count: number;
+  updated_count: number;
+  skipped_count: number;
+  errors: string[];
+};
+
 export type Derivative = {
   id: string;
   kind: string;

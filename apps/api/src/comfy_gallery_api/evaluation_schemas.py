@@ -195,6 +195,7 @@ class ReviewSessionCreateRequest(BaseModel):
         "in_progress",
     ]
     media_ids: list[UUID] = Field(default_factory=list, max_length=2000)
+    exclude_media_ids: list[UUID] = Field(default_factory=list, max_length=2000)
     collection_id: UUID | None = None
     saved_filter_id: UUID | None = None
     source_root_id: UUID | None = None
@@ -299,12 +300,30 @@ class CollectionResponse(BaseModel):
 class MediaMembershipRequest(BaseModel):
     media_ids: list[UUID] = Field(default_factory=list, max_length=2000)
     filter: MediaFilterRequest | None = None
+    exclude_media_ids: list[UUID] = Field(default_factory=list, max_length=2000)
 
     @model_validator(mode="after")
     def require_one_scope(self) -> MediaMembershipRequest:
         if bool(self.media_ids) == (self.filter is not None):
             raise ValueError("Provide either media_ids or filter.")
+        if self.exclude_media_ids and self.filter is None:
+            raise ValueError("exclude_media_ids requires a filter scope.")
         return self
+
+
+class MediaBulkFavoriteRequest(MediaMembershipRequest):
+    favorite: bool
+
+
+class MediaBulkTrashRequest(MediaMembershipRequest):
+    is_trash: bool
+
+
+class MediaBulkActionResponse(BaseModel):
+    requested_count: int
+    updated_count: int
+    skipped_count: int
+    errors: list[str] = Field(default_factory=list)
 
 
 class TagRequest(BaseModel):

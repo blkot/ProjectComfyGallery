@@ -4,6 +4,13 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.25 — 2026-11-01
+
+- Add explicit Library selection mode with cross-page selection, filter-backed
+  scopes, per-card exceptions, and batch favorite/trash management.
+- Add reversible bulk favorite and evaluation-trash API commands with preserved
+  disposition revisions and updated OpenAPI contracts.
+
 ## 0.1.0-rc.24 — 2026-08-27
 
 - Add a frontend-only Civitai post preparation page that defaults to

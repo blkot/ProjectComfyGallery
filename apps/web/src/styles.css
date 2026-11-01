@@ -1291,6 +1291,23 @@ textarea {
   text-decoration: none;
 }
 
+.media-card-selection-target {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.media-card-selection-target:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .media-card[data-selected="true"] {
   border-color: rgba(226, 255, 100, 0.7);
   box-shadow: 0 0 0 1px rgba(226, 255, 100, 0.18);
@@ -1365,6 +1382,31 @@ textarea {
   z-index: 4;
   top: 8px;
   right: 8px;
+  opacity: 0.42;
+  transition: opacity 140ms ease;
+}
+
+.media-card:hover .media-card-favorite,
+.media-card:focus-within .media-card-favorite,
+.media-card-favorite[aria-pressed="true"] {
+  opacity: 1;
+}
+
+.media-card-favorite-badge {
+  position: absolute;
+  z-index: 4;
+  top: 8px;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  border: 1px solid color-mix(in srgb, var(--favorite-action) 42%, transparent);
+  border-radius: 6px;
+  color: var(--favorite-action);
+  background: color-mix(in srgb, var(--favorite-action) 10%, #0c0c0a 90%);
+  display: inline-grid;
+  place-items: center;
+  font-size: 17px;
+  line-height: 1;
 }
 
 .media-card:hover {
@@ -1532,6 +1574,70 @@ textarea {
 
 .library-sidebar .selection-actions .text-button {
   margin: 0;
+}
+
+.selection-batch-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.selection-batch-actions > p {
+  margin: 0;
+}
+
+.selection-batch-actions > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.selection-batch-actions button {
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  background: rgba(12, 12, 10, 0.75);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.selection-batch-actions button:hover:not(:disabled),
+.selection-batch-actions button:focus-visible {
+  color: var(--text);
+  border-color: var(--line);
+}
+
+.selection-batch-actions .favorite-batch-button:hover:not(:disabled),
+.selection-batch-actions .favorite-batch-button:focus-visible {
+  color: var(--favorite-action);
+  border-color: color-mix(in srgb, var(--favorite-action) 45%, transparent);
+  background: color-mix(in srgb, var(--favorite-action) 9%, transparent);
+}
+
+.selection-batch-actions .trash-batch-button:hover:not(:disabled),
+.selection-batch-actions .trash-batch-button:focus-visible {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+  background: color-mix(in srgb, var(--danger) 9%, transparent);
+}
+
+.selection-batch-actions .restore-batch-button:hover:not(:disabled),
+.selection-batch-actions .restore-batch-button:focus-visible {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 45%, transparent);
+  background: color-mix(in srgb, var(--success) 9%, transparent);
+}
+
+.selection-batch-actions button:disabled {
+  opacity: 0.5;
+  cursor: wait;
 }
 
 .library-sidebar .library-scope-panel small {
