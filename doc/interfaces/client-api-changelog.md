@@ -4,6 +4,26 @@ This file is the cross-agent handoff for backend contract changes. Consumers sho
 also use the committed [OpenAPI snapshot](openapi.json); prose here explains
 semantics and compatibility that a schema alone cannot express.
 
+## Unreleased: media content-safety ratings
+
+**Database migration:** `0015_media_content_rating`
+
+Media records now carry an optional `content_rating` value: `sfw`, `nsfw`, or
+`null` when no human rating has been assigned. List and detail projections expose
+the value, and the list, navigation, slideshow, saved-filter, selection, and review
+scope queries accept `content_rating=sfw|nsfw|unknown` (`unknown` matches `null`).
+
+```http
+PUT /api/v1/media/{media_id}/content-rating
+POST /api/v1/media/bulk/content-rating
+```
+
+The single-media command accepts `{"content_rating":"sfw"}`,
+`{"content_rating":"nsfw"}`, or `{"content_rating":null}`. The bulk command
+accepts the same membership scope used by favorite/trash actions and treats either
+`null` or `unknown` as clearing the rating. Existing media remain unmarked after the
+migration; clients should not infer SFW from a missing value.
+
 ## Unreleased: ComfyGallery-driven MSS spatial conversion
 
 **Database migration:** `0013_spatial_conversion_runs`

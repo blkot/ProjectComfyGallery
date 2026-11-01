@@ -13,6 +13,7 @@ from comfy_gallery_api.media_filters import (
     normalize_media_search_query,
     normalize_media_sha256_query,
 )
+from comfy_gallery_api.media_schemas import ContentRatingFilter
 
 
 class CriterionResponse(BaseModel):
@@ -134,6 +135,7 @@ class MediaFilterRequest(BaseModel):
     spatial_view_preferred: bool | None = None
     spatial_available: bool | None = None
     favorite: bool | None = None
+    content_rating: ContentRatingFilter | None = None
     source_root_id: UUID | None = None
     # Singular fields keep saved filters created before multi-reference support valid.
     checkpoint_reference_id: UUID | None = None
@@ -317,6 +319,10 @@ class MediaBulkFavoriteRequest(MediaMembershipRequest):
 
 class MediaBulkTrashRequest(MediaMembershipRequest):
     is_trash: bool
+
+
+class MediaBulkContentRatingRequest(MediaMembershipRequest):
+    content_rating: ContentRatingFilter | None = None
 
 
 class MediaBulkActionResponse(BaseModel):

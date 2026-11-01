@@ -36,7 +36,7 @@ WEB_OVERLAY_DOCKERFILE = ROOT / "deploy/docker/web-overlay.Dockerfile"
 def test_release_version_is_consistent() -> None:
     release_version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
 
-    assert release_version == "0.1.0-rc.26"
+    assert release_version == "0.1.0-rc.27"
     assert {api_version, core_version, worker_version} == {release_version}
     for path in PYPROJECTS:
         with path.open("rb") as handle:
@@ -69,8 +69,11 @@ def test_runtime_base_images_are_digest_pinned() -> None:
 
 def test_web_overlay_uses_the_injected_running_image() -> None:
     contents = WEB_OVERLAY_DOCKERFILE.read_text(encoding="utf-8")
+    web_contents = (ROOT / "deploy/docker/web.Dockerfile").read_text(encoding="utf-8")
 
     assert "ARG BASE_IMAGE\nFROM ${BASE_IMAGE}" in contents
+    assert "rm -f /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh" in contents
+    assert "rm -f /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh" in web_contents
     assert f"ARG CG_PROJECT_VERSION={release_version()}" in contents
     assert 'org.opencontainers.image.version="$CG_PROJECT_VERSION"' in contents
     assert 'org.opencontainers.image.source="$CG_SOURCE_URL"' in contents

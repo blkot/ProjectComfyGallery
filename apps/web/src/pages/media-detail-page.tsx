@@ -15,6 +15,7 @@ import {
 } from "react-router";
 
 import { MediaFavoriteButton } from "../components/media-favorite-button";
+import { MediaContentRatingControl } from "../components/media-content-rating-control";
 import { MediaEvaluationPanel } from "../components/media-evaluation-panel";
 import { MediaSpatialPreferenceButton } from "../components/media-spatial-preference-button";
 import { MediaTrashButton } from "../components/media-trash-button";
@@ -286,6 +287,11 @@ export function MediaDetailPage() {
               mediaId={item.id}
               preferred={item.prefer_spatial_playback}
               className="media-record-spatial"
+            />
+            <MediaContentRatingControl
+              mediaId={item.id}
+              rating={item.content_rating}
+              className="media-record-content-rating"
             />
             <a
               className="media-record-download"

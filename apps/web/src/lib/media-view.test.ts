@@ -9,6 +9,8 @@ import {
   mediaNavigationQuery,
   pageOffsetForNumber,
   paginationItems,
+  photoWallHref,
+  photoWallQuery,
   reviewSlideshowHref,
   slideshowHref,
   slideshowPlaylistQuery,
@@ -84,6 +86,25 @@ describe("media view context", () => {
     expect(library.searchParams.get("return_media")).toBe("current-media");
   });
 
+  it("opens a gapless image wall with the current filters and a safe return path", () => {
+    const context = new URLSearchParams(
+      "q=portrait&kind=video&favorite=true&offset=48&return_media=current-media",
+    );
+    const query = photoWallQuery(context);
+    const href = new URL(photoWallHref(context), "http://example.test");
+
+    expect(query.get("kind")).toBe("image");
+    expect(query.get("favorite")).toBe("true");
+    expect(query.get("trash")).toBe("false");
+    expect(query.has("offset")).toBe(false);
+    expect(query.has("return_to")).toBe(false);
+    expect(href.pathname).toBe("/photo-wall");
+    expect(href.searchParams.get("kind")).toBe("image");
+    expect(href.searchParams.get("return_to")).toBe(
+      "/library?q=portrait&kind=video&favorite=true&offset=48&return_media=current-media",
+    );
+  });
+
   it("preserves the active detail panel across previous and next media", () => {
     const href = mediaDetailHref(
       "next-media",
@@ -154,11 +175,32 @@ describe("media view context", () => {
       prefer_spatial_playback: false,
       spatial_available: true,
       favorite: true,
+      content_rating: null,
       checkpoint_reference_ids: ["checkpoint-a", "checkpoint-b"],
       checkpoint_reference_match: "any",
       lora_reference_ids: ["lora-a", "lora-b"],
       lora_reference_match: "all",
     });
+  });
+
+  it("preserves content safety through saved scopes and slideshow navigation", () => {
+    const context = new URLSearchParams(
+      "content_rating=nsfw&kind=image&trash=false",
+    );
+    expect(libraryFilterExpression(context).content_rating).toBe("nsfw");
+    const slideshow = new URL(
+      slideshowHref(context, {
+        source: "filter",
+        collectionId: "",
+        shuffle: false,
+        intervalSeconds: 8,
+      }),
+      "http://gallery.test",
+    );
+    expect(slideshow.searchParams.get("content_rating")).toBe("nsfw");
+    expect(
+      slideshowPlaylistQuery(slideshow.searchParams).get("content_rating"),
+    ).toBe("nsfw");
   });
 
   it("excludes trash by default while allowing an explicit include-all filter", () => {

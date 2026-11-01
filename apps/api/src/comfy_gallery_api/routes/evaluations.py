@@ -22,6 +22,7 @@ from comfy_gallery_api.evaluation_schemas import (
     EvaluationRevisionsResponse,
     EvaluationTemplateResponse,
     MediaBulkActionResponse,
+    MediaBulkContentRatingRequest,
     MediaBulkFavoriteRequest,
     MediaBulkTrashRequest,
     MediaEvaluationContextResponse,
@@ -201,6 +202,42 @@ async def update_media_favorites(
         if media is None or media.favorite == request.favorite:
             continue
         media.favorite = request.favorite
+        updated_count += 1
+    await session.commit()
+    return MediaBulkActionResponse(
+        requested_count=len(media_ids),
+        updated_count=updated_count,
+        skipped_count=len(media_ids) - updated_count,
+    )
+
+
+@router.post("/media/bulk/content-rating", response_model=MediaBulkActionResponse)
+async def update_media_content_ratings(
+    request: MediaBulkContentRatingRequest,
+    _principal: CsrfPrincipalDep,
+    session: DbSessionDep,
+) -> MediaBulkActionResponse:
+    media_ids = await _resolve_membership_media_ids(session, request)
+    if not media_ids:
+        return MediaBulkActionResponse(
+            requested_count=0,
+            updated_count=0,
+            skipped_count=0,
+        )
+
+    records = list(await session.scalars(select(Media).where(Media.id.in_(media_ids))))
+    by_id = {record.id: record for record in records}
+    updated_count = 0
+    for media_id in media_ids:
+        media = by_id.get(media_id)
+        if media is None:
+            continue
+        next_rating = (
+            None if request.content_rating in (None, "unknown") else request.content_rating
+        )
+        if media.content_rating == next_rating:
+            continue
+        media.content_rating = next_rating
         updated_count += 1
     await session.commit()
     return MediaBulkActionResponse(
@@ -960,6 +997,10 @@ def _media_scope_query(
         query = query.where(Media.spatial_available.is_(media_filter.spatial_available))
     if media_filter.favorite is not None:
         query = query.where(Media.favorite.is_(media_filter.favorite))
+    if media_filter.content_rating == "unknown":
+        query = query.where(Media.content_rating.is_(None))
+    elif media_filter.content_rating is not None:
+        query = query.where(Media.content_rating == media_filter.content_rating)
     if media_filter.workflow_status == "unprocessed":
         query = query.where(~Media.workflow_snapshot.has())
     elif media_filter.workflow_status:

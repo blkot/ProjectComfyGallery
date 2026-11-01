@@ -192,8 +192,12 @@ describe("LibraryPage controls sidebar", () => {
 
     renderLibrary();
 
-    const trashFilter = await screen.findByLabelText("Trash");
-    expect(trashFilter).toHaveValue("false");
+    const trashFilter = await screen.findByRole("radiogroup", {
+      name: "Trash",
+    });
+    expect(
+      within(trashFilter).getByRole("radio", { name: "Exclude" }),
+    ).toBeChecked();
     await waitFor(() =>
       expect(
         mediaRequests.some(
@@ -204,7 +208,7 @@ describe("LibraryPage controls sidebar", () => {
       ).toBe(true),
     );
 
-    fireEvent.change(trashFilter, { target: { value: "all" } });
+    fireEvent.click(within(trashFilter).getByRole("radio", { name: "Include" }));
     await waitFor(() =>
       expect(
         mediaRequests.some(
@@ -214,13 +218,76 @@ describe("LibraryPage controls sidebar", () => {
       ).toBe(true),
     );
 
-    fireEvent.change(trashFilter, { target: { value: "true" } });
+    fireEvent.click(within(trashFilter).getByRole("radio", { name: "Only" }));
     await waitFor(() =>
       expect(
         mediaRequests.some(
           (path) =>
             new URL(path, "http://gallery.test").searchParams.get("trash") ===
             "true",
+        ),
+      ).toBe(true),
+    );
+  });
+
+  it("renders fixed filters as compact single-choice groups", async () => {
+    renderLibrary(
+      "/library?kind=video&favorite=true&prefer_spatial_playback=false&spatial_available=true",
+    );
+
+    expect(
+      within(
+        await screen.findByRole("radiogroup", { name: "Media type" }),
+      ).getByRole("radio", { name: "Videos" }),
+    ).toBeChecked();
+    expect(
+      within(screen.getByRole("radiogroup", { name: "Favorite" })).getByRole(
+        "radio",
+        { name: "Favorites" },
+      ),
+    ).toBeChecked();
+    expect(
+      within(
+        screen.getByRole("radiogroup", { name: "Spatial preference" }),
+      ).getByRole("radio", { name: "2D" }),
+    ).toBeChecked();
+    expect(
+      within(screen.getByRole("radiogroup", { name: "Spatial video" })).getByRole(
+        "radio",
+        { name: "Ready" },
+      ),
+    ).toBeChecked();
+    expect(
+      within(screen.getByRole("radiogroup", { name: "Content safety" })).getByRole(
+        "radio",
+        { name: "All" },
+      ),
+    ).toBeChecked();
+  });
+
+  it("passes the content safety filter through the media query", async () => {
+    const mediaRequests: string[] = [];
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path.startsWith("/api/v1/media?")) {
+        mediaRequests.push(path);
+        return Promise.resolve({ items: [], total: 0, limit: 48, offset: 0 });
+      }
+      return Promise.resolve([]);
+    });
+
+    renderLibrary();
+    const filter = await screen.findByRole("radiogroup", {
+      name: "Content safety",
+    });
+    fireEvent.click(within(filter).getByRole("radio", { name: "NSFW" }));
+
+    await waitFor(() =>
+      expect(
+        mediaRequests.some(
+          (path) =>
+            new URL(path, "http://gallery.test").searchParams.get(
+              "content_rating",
+            ) === "nsfw",
         ),
       ).toBe(true),
     );
@@ -326,6 +393,16 @@ describe("LibraryPage controls sidebar", () => {
     });
     renderLibrary("/library?kind=image");
 
+    const photoWallLink = await screen.findByRole("link", {
+      name: "Photo wall",
+    });
+    const photoWallUrl = new URL(
+      photoWallLink.getAttribute("href") ?? "",
+      "http://gallery.test",
+    );
+    expect(photoWallUrl.pathname).toBe("/photo-wall");
+    expect(photoWallUrl.searchParams.get("kind")).toBe("image");
+
     const startButton = await screen.findByRole("button", {
       name: "Start slideshow",
     });
@@ -418,6 +495,37 @@ describe("LibraryPage controls sidebar", () => {
     fireEvent.click(screen.getByRole("button", { name: "★ Favorite" }));
 
     await waitFor(() => expect(bulkPayload?.favorite).toBe(true));
+    expect(bulkPayload?.media_ids).toEqual([item.id]);
+  });
+
+  it("sends selected content rating updates as one bulk action", async () => {
+    const item = mediaFixture({ id: "media-rating-1" });
+    let bulkPayload: Record<string, unknown> | undefined;
+    apiRequestMock.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.startsWith("/api/v1/media?")) {
+        return Promise.resolve({ items: [item], total: 1, limit: 48, offset: 0 });
+      }
+      if (path === "/api/v1/media/bulk/content-rating") {
+        bulkPayload = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        return Promise.resolve({
+          requested_count: 1,
+          updated_count: 1,
+          skipped_count: 0,
+          errors: [],
+        });
+      }
+      return Promise.resolve([]);
+    });
+
+    renderLibrary();
+    await screen.findByText(item.original_filename);
+    fireEvent.click(screen.getByRole("button", { name: "Select media" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: `Select ${item.original_filename}` }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Mark NSFW" }));
+
+    await waitFor(() => expect(bulkPayload?.content_rating).toBe("nsfw"));
     expect(bulkPayload?.media_ids).toEqual([item.id]);
   });
 
@@ -543,6 +651,7 @@ function mediaFixture(overrides: Partial<Record<string, unknown>> = {}) {
     prefer_spatial_playback: false,
     spatial_view_preferred: false,
     favorite: false,
+    content_rating: null,
     file_created_at: "2026-01-01T00:00:00Z",
     created_at: "2026-01-01T00:00:00Z",
     preview_url: "/api/v1/media/media-fixture/preview",

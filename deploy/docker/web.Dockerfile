@@ -25,12 +25,13 @@ ARG ALPINE_MIRROR=https://dl-cdn.alpinelinux.org/alpine
 
 RUN sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${ALPINE_MIRROR%/}|g" \
         /etc/apk/repositories && \
-    apk upgrade --no-cache
+    apk upgrade --no-cache && \
+    rm -f /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
 
 COPY deploy/docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/apps/web/dist /usr/share/nginx/html
 
-ARG CG_PROJECT_VERSION=0.1.0-rc.26
+ARG CG_PROJECT_VERSION=0.1.0-rc.27
 ARG CG_SOURCE_URL=https://github.com/blkot/ProjectComfyGallery
 ARG CG_REVISION=unknown
 

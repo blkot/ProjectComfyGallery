@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from comfy_gallery_api.dependencies import Principal
 from comfy_gallery_api.evaluation_schemas import (
+    MediaBulkContentRatingRequest,
     MediaBulkFavoriteRequest,
     MediaBulkTrashRequest,
     MediaEvaluationModuleUpdateRequest,
@@ -18,6 +19,7 @@ from comfy_gallery_api.routes.evaluations import (
     _resolve_membership_media_ids,
     ensure_media_evaluation_context,
     review_summary,
+    update_media_content_ratings,
     update_media_evaluation_module,
     update_media_favorites,
     update_media_trash,
@@ -105,6 +107,17 @@ async def test_bulk_favorite_and_trash_actions_update_only_selected_media() -> N
         assert favorite_response.requested_count == 1
         assert favorite_response.updated_count == 1
 
+        rating_response = await update_media_content_ratings(
+            request=MediaBulkContentRatingRequest(
+                media_ids=[first_media.id, second_media.id],
+                content_rating="nsfw",
+            ),
+            _principal=principal,
+            session=session,
+        )
+        assert rating_response.requested_count == 2
+        assert rating_response.updated_count == 2
+
         trash_response = await update_media_trash(
             request=MediaBulkTrashRequest(
                 media_ids=[first_media.id, second_media.id],
@@ -129,6 +142,8 @@ async def test_bulk_favorite_and_trash_actions_update_only_selected_media() -> N
         stored_second = await session.get(Media, second_media.id)
         assert stored_first is not None and stored_first.favorite is True
         assert stored_second is not None and stored_second.favorite is False
+        assert stored_first is not None and stored_first.content_rating == "nsfw"
+        assert stored_second is not None and stored_second.content_rating == "nsfw"
 
     await engine.dispose()
 

@@ -4,6 +4,13 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.27 — 2026-11-01
+
+- Add SFW/NSFW/Unmarked media ratings, library filtering, card badges, detail
+  controls, and bulk rating management with an indexed backend field.
+- Add the photo-wall browsing route with adjustable row sizing and lazy loading
+  for the current filtered image set.
+
 ## 0.1.0-rc.26 — 2026-11-01
 
 - Add authenticated batch media archive downloads with queued worker jobs,

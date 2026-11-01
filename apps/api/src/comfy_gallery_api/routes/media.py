@@ -2,7 +2,7 @@ import random
 import secrets
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Query
@@ -23,7 +23,11 @@ from comfy_gallery_api.media_filters import (
     media_sha256_filter,
 )
 from comfy_gallery_api.media_schemas import (
+    ContentRating,
+    ContentRatingFilter,
     DerivativeResponse,
+    MediaContentRatingResponse,
+    MediaContentRatingUpdateRequest,
     MediaDetailResponse,
     MediaFavoriteResponse,
     MediaFavoriteUpdateRequest,
@@ -93,6 +97,7 @@ async def list_media(
     spatial_view_preferred: bool | None = None,
     spatial_available: bool | None = None,
     favorite: bool | None = None,
+    content_rating: ContentRatingFilter | None = None,
     source_root_id: UUID | None = None,
     checkpoint_reference_id: Annotated[list[UUID] | None, Query()] = None,
     checkpoint_reference_match: ReferenceMatch = "any",
@@ -117,6 +122,7 @@ async def list_media(
         prefer_spatial_playback=preference_filter,
         spatial_available=spatial_available,
         favorite=favorite,
+        content_rating=content_rating,
         source_root_id=source_root_id,
         collection_id=None,
         checkpoint_reference_ids=checkpoint_reference_id or [],
@@ -197,6 +203,7 @@ async def get_slideshow_playlist(
     spatial_view_preferred: bool | None = None,
     spatial_available: bool | None = None,
     favorite: bool | None = None,
+    content_rating: ContentRatingFilter | None = None,
     source_root_id: UUID | None = None,
     collection_id: UUID | None = None,
     checkpoint_reference_id: Annotated[list[UUID] | None, Query()] = None,
@@ -229,6 +236,7 @@ async def get_slideshow_playlist(
         prefer_spatial_playback=preference_filter,
         spatial_available=spatial_available,
         favorite=favorite,
+        content_rating=content_rating,
         source_root_id=source_root_id,
         collection_id=collection_id,
         checkpoint_reference_ids=checkpoint_reference_id or [],
@@ -293,6 +301,7 @@ async def get_media_navigation(
     spatial_view_preferred: bool | None = None,
     spatial_available: bool | None = None,
     favorite: bool | None = None,
+    content_rating: ContentRatingFilter | None = None,
     source_root_id: UUID | None = None,
     checkpoint_reference_id: Annotated[list[UUID] | None, Query()] = None,
     checkpoint_reference_match: ReferenceMatch = "any",
@@ -315,6 +324,7 @@ async def get_media_navigation(
         prefer_spatial_playback=preference_filter,
         spatial_available=spatial_available,
         favorite=favorite,
+        content_rating=content_rating,
         source_root_id=source_root_id,
         collection_id=None,
         checkpoint_reference_ids=checkpoint_reference_id or [],
@@ -410,6 +420,7 @@ async def get_media(
         prefer_spatial_playback=media.prefer_spatial_playback,
         spatial_view_preferred=media.spatial_view_preferred,
         favorite=media.favorite,
+        content_rating=cast(ContentRating | None, media.content_rating),
         derivatives=[DerivativeResponse.model_validate(item) for item in media.derivatives],
         variants=[_variant_response(item) for item in media.variants if _is_public_variant(item)],
         sources=[
@@ -485,6 +496,33 @@ async def update_media_favorite(
     return MediaFavoriteResponse(
         media_id=media.id,
         favorite=media.favorite,
+        updated_at=media.updated_at,
+    )
+
+
+@router.put(
+    "/{media_id}/content-rating",
+    response_model=MediaContentRatingResponse,
+)
+async def update_media_content_rating(
+    media_id: UUID,
+    request: MediaContentRatingUpdateRequest,
+    _principal: CsrfPrincipalDep,
+    session: DbSessionDep,
+) -> MediaContentRatingResponse:
+    media = await session.get(Media, media_id)
+    if media is None:
+        raise ApiError(
+            status_code=404,
+            code="MEDIA_NOT_FOUND",
+            message="The media record was not found.",
+        )
+    media.content_rating = request.content_rating
+    await session.commit()
+    await session.refresh(media)
+    return MediaContentRatingResponse(
+        media_id=media.id,
+        content_rating=request.content_rating,
         updated_at=media.updated_at,
     )
 
@@ -671,6 +709,7 @@ def _list_item(
         prefer_spatial_playback=media.prefer_spatial_playback,
         spatial_view_preferred=media.spatial_view_preferred,
         favorite=media.favorite,
+        content_rating=cast(ContentRating | None, media.content_rating),
         file_created_at=_file_created_at(source_mtime_ns, media.created_at),
         created_at=media.created_at,
         preview_url=f"/api/v1/media/{media.id}/preview",
@@ -703,6 +742,7 @@ def _media_id_query(
     prefer_spatial_playback: bool | None,
     spatial_available: bool | None,
     favorite: bool | None,
+    content_rating: ContentRatingFilter | None,
     source_root_id: UUID | None,
     collection_id: UUID | None,
     checkpoint_reference_ids: list[UUID],
@@ -727,6 +767,10 @@ def _media_id_query(
         filters.append(Media.spatial_available.is_(spatial_available))
     if favorite is not None:
         filters.append(Media.favorite.is_(favorite))
+    if content_rating == "unknown":
+        filters.append(Media.content_rating.is_(None))
+    elif content_rating is not None:
+        filters.append(Media.content_rating == content_rating)
     if workflow_status == "unprocessed":
         filters.append(~Media.workflow_snapshot.has())
     elif workflow_status:

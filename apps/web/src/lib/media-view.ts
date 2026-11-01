@@ -25,6 +25,7 @@ export type LibraryFilterExpression = {
   prefer_spatial_playback: boolean | null;
   spatial_available: boolean | null;
   favorite: boolean | null;
+  content_rating: "sfw" | "nsfw" | "unknown" | null;
   checkpoint_reference_ids: string[];
   checkpoint_reference_match: ReferenceMatch;
   lora_reference_ids: string[];
@@ -66,6 +67,7 @@ export function libraryFilterExpression(
       booleanFilter(search, "spatial_view_preferred"),
     spatial_available: booleanFilter(search, "spatial_available"),
     favorite: booleanFilter(search, "favorite"),
+    content_rating: contentRatingFilter(search),
     checkpoint_reference_ids: uniqueValues(
       search.getAll("checkpoint_reference_id"),
     ),
@@ -83,6 +85,22 @@ export function mediaNavigationQuery(search: URLSearchParams): URLSearchParams {
   result.delete("offset");
   result.delete("panel");
   return result;
+}
+
+export function photoWallQuery(search: URLSearchParams): URLSearchParams {
+  const result = mediaNavigationQuery(search);
+  result.set("kind", "image");
+  result.delete("return_to");
+  return result;
+}
+
+export function photoWallHref(search: URLSearchParams): string {
+  const result = photoWallQuery(search);
+  const returnTo = search.toString()
+    ? `/library?${search.toString()}`
+    : "/library";
+  result.set("return_to", returnTo);
+  return `/photo-wall?${result.toString()}`;
 }
 
 export function slideshowHref(
@@ -256,6 +274,15 @@ function booleanFilter(search: URLSearchParams, name: string): boolean | null {
   return search.has(name) ? search.get(name) === "true" : null;
 }
 
+function contentRatingFilter(
+  search: URLSearchParams,
+): "sfw" | "nsfw" | "unknown" | null {
+  const value = search.get("content_rating");
+  return value === "sfw" || value === "nsfw" || value === "unknown"
+    ? value
+    : null;
+}
+
 function uniqueValues(values: string[]): string[] {
   return [...new Set(values.filter(Boolean))];
 }
@@ -271,6 +298,7 @@ const slideshowFilterParameters = [
   "prefer_spatial_playback",
   "spatial_available",
   "favorite",
+  "content_rating",
   "source_root_id",
   "collection_id",
   "tag_id",

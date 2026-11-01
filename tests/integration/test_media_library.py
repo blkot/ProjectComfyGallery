@@ -9,6 +9,8 @@ from comfy_gallery_api.errors import ApiError
 from comfy_gallery_api.evaluation_schemas import MediaFilterRequest
 from comfy_gallery_api.main import app
 from comfy_gallery_api.media_schemas import (
+    ContentRatingFilter,
+    MediaContentRatingUpdateRequest,
     MediaFavoriteUpdateRequest,
     MediaPageResponse,
     MediaPlaybackPreferenceUpdateRequest,
@@ -22,6 +24,7 @@ from comfy_gallery_api.routes.media import (
     get_media_navigation,
     get_slideshow_playlist,
     list_media,
+    update_media_content_rating,
     update_media_favorite,
     update_media_playback_preference,
     update_media_spatial_preference,
@@ -741,6 +744,72 @@ async def test_media_preferences_are_exposed_filterable_and_idempotent() -> None
     assert unauthenticated.json()["error"]["code"] == "AUTH_REQUIRED"
 
 
+async def test_media_content_rating_is_persisted_and_filterable() -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
+    async with session_factory() as session:
+        sfw = await _media_without_source(
+            session,
+            kind="image",
+            filename="sfw.png",
+            sha256="1" * 64,
+        )
+        nsfw = await _media_without_source(
+            session,
+            kind="image",
+            filename="nsfw.png",
+            sha256="2" * 64,
+        )
+        unmarked = await _media_without_source(
+            session,
+            kind="image",
+            filename="unmarked.png",
+            sha256="3" * 64,
+        )
+        await session.commit()
+
+        sfw_response = await update_media_content_rating(
+            sfw.id,
+            MediaContentRatingUpdateRequest(content_rating="sfw"),
+            None,  # type: ignore[arg-type]
+            session,
+        )
+        nsfw_response = await update_media_content_rating(
+            nsfw.id,
+            MediaContentRatingUpdateRequest(content_rating="nsfw"),
+            None,  # type: ignore[arg-type]
+            session,
+        )
+        assert sfw_response.content_rating == "sfw"
+        assert nsfw_response.content_rating == "nsfw"
+
+        sfw_page = await _library_page(session, sort="filename_asc", content_rating="sfw")
+        nsfw_page = await _library_page(session, sort="filename_asc", content_rating="nsfw")
+        unknown_page = await _library_page(
+            session,
+            sort="filename_asc",
+            content_rating="unknown",
+        )
+        assert [item.id for item in sfw_page.items] == [sfw.id]
+        assert [item.id for item in nsfw_page.items] == [nsfw.id]
+        assert [item.id for item in unknown_page.items] == [unmarked.id]
+        assert sfw_page.items[0].content_rating == "sfw"
+        assert (await get_media(sfw.id, None, session)).content_rating == "sfw"
+
+        cleared = await update_media_content_rating(
+            sfw.id,
+            MediaContentRatingUpdateRequest(content_rating=None),
+            None,  # type: ignore[arg-type]
+            session,
+        )
+        assert cleared.content_rating is None
+
+    await engine.dispose()
+
+
 async def test_slideshow_playlist_resolves_collections_and_seeded_shuffle() -> None:
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
@@ -990,6 +1059,7 @@ async def _library_page(
     spatial_view_preferred: bool | None = None,
     spatial_available: bool | None = None,
     favorite: bool | None = None,
+    content_rating: ContentRatingFilter | None = None,
     limit: int = 48,
     offset: int = 0,
 ) -> MediaPageResponse:
@@ -1007,6 +1077,7 @@ async def _library_page(
         spatial_view_preferred=spatial_view_preferred,
         spatial_available=spatial_available,
         favorite=favorite,
+        content_rating=content_rating,
         source_root_id=None,
         checkpoint_reference_id=checkpoint_reference_ids,
         checkpoint_reference_match=checkpoint_reference_match,

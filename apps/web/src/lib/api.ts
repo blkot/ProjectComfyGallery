@@ -54,6 +54,9 @@ export type MediaArchive = {
   download_url: string | null;
 };
 
+export type ContentRating = "sfw" | "nsfw";
+export type ContentRatingFilter = ContentRating | "unknown";
+
 export type ApiTokenRecord = {
   id: string;
   label: string;
@@ -89,6 +92,7 @@ export type MediaListItem = {
   prefer_spatial_playback: boolean;
   spatial_view_preferred: boolean;
   favorite: boolean;
+  content_rating: ContentRating | null;
   file_created_at: string;
   created_at: string;
   preview_url: string;
@@ -142,6 +146,12 @@ export type MediaPlaybackPreference = {
 export type MediaFavorite = {
   media_id: string;
   favorite: boolean;
+  updated_at: string;
+};
+
+export type MediaContentRating = {
+  media_id: string;
+  content_rating: ContentRating | null;
   updated_at: string;
 };
 

@@ -115,6 +115,8 @@ class ApiToken(Base):
 class Media(TimestampMixin, Base):
     __tablename__ = "media"
 
+    __table_args__ = (Index("ix_media_content_rating", "content_rating"),)
+
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid7)
     kind: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
     status: Mapped[str] = mapped_column(
@@ -165,6 +167,7 @@ class Media(TimestampMixin, Base):
         default=False,
         server_default=false(),
     )
+    content_rating: Mapped[str | None] = mapped_column(String(16), nullable=True)
     last_error_code: Mapped[str | None] = mapped_column(String(80))
     last_error_message: Mapped[str | None] = mapped_column(Text)
 

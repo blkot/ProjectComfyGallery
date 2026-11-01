@@ -2498,6 +2498,56 @@
         "title": "MediaBulkActionResponse",
         "type": "object"
       },
+      "MediaBulkContentRatingRequest": {
+        "properties": {
+          "content_rating": {
+            "anyOf": [
+              {
+                "enum": [
+                  "sfw",
+                  "nsfw",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Rating"
+          },
+          "exclude_media_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 2000,
+            "title": "Exclude Media Ids",
+            "type": "array"
+          },
+          "filter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MediaFilterRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "media_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 2000,
+            "title": "Media Ids",
+            "type": "array"
+          }
+        },
+        "title": "MediaBulkContentRatingRequest",
+        "type": "object"
+      },
       "MediaBulkFavoriteRequest": {
         "properties": {
           "exclude_media_ids": {
@@ -2580,6 +2630,63 @@
         "title": "MediaBulkTrashRequest",
         "type": "object"
       },
+      "MediaContentRatingResponse": {
+        "properties": {
+          "content_rating": {
+            "anyOf": [
+              {
+                "enum": [
+                  "sfw",
+                  "nsfw"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Rating"
+          },
+          "media_id": {
+            "format": "uuid",
+            "title": "Media Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "media_id",
+          "content_rating",
+          "updated_at"
+        ],
+        "title": "MediaContentRatingResponse",
+        "type": "object"
+      },
+      "MediaContentRatingUpdateRequest": {
+        "properties": {
+          "content_rating": {
+            "anyOf": [
+              {
+                "enum": [
+                  "sfw",
+                  "nsfw"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Rating"
+          }
+        },
+        "title": "MediaContentRatingUpdateRequest",
+        "type": "object"
+      },
       "MediaDetailResponse": {
         "properties": {
           "audio_codec": {
@@ -2607,6 +2714,21 @@
               }
             ],
             "title": "Container"
+          },
+          "content_rating": {
+            "anyOf": [
+              {
+                "enum": [
+                  "sfw",
+                  "nsfw"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Rating"
           },
           "created_at": {
             "format": "date-time",
@@ -2864,6 +2986,7 @@
           "prefer_spatial_playback",
           "spatial_view_preferred",
           "favorite",
+          "content_rating",
           "derivatives",
           "variants",
           "sources"
@@ -3077,6 +3200,22 @@
             ],
             "title": "Collection Id"
           },
+          "content_rating": {
+            "anyOf": [
+              {
+                "enum": [
+                  "sfw",
+                  "nsfw",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Rating"
+          },
           "evaluation_state": {
             "anyOf": [
               {
@@ -3288,6 +3427,21 @@
             ],
             "title": "Container"
           },
+          "content_rating": {
+            "anyOf": [
+              {
+                "enum": [
+                  "sfw",
+                  "nsfw"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Rating"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -3444,6 +3598,7 @@
           "prefer_spatial_playback",
           "spatial_view_preferred",
           "favorite",
+          "content_rating",
           "file_created_at",
           "created_at",
           "preview_url"
@@ -8934,7 +9089,7 @@
   },
   "info": {
     "title": "Project Comfy Gallery API",
-    "version": "0.1.0-rc.26"
+    "version": "0.1.0-rc.27"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -10970,6 +11125,27 @@
           },
           {
             "in": "query",
+            "name": "content_rating",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "sfw",
+                    "nsfw",
+                    "unknown"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Content Rating"
+            }
+          },
+          {
+            "in": "query",
             "name": "source_root_id",
             "required": false,
             "schema": {
@@ -11122,6 +11298,47 @@
         "summary": "List Media",
         "tags": [
           "media"
+        ]
+      }
+    },
+    "/api/v1/media/bulk/content-rating": {
+      "post": {
+        "operationId": "update_media_content_ratings_api_v1_media_bulk_content_rating_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaBulkContentRatingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaBulkActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Media Content Ratings",
+        "tags": [
+          "evaluation"
         ]
       }
     },
@@ -11563,6 +11780,27 @@
           },
           {
             "in": "query",
+            "name": "content_rating",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "sfw",
+                    "nsfw",
+                    "unknown"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Content Rating"
+            }
+          },
+          {
+            "in": "query",
             "name": "source_root_id",
             "required": false,
             "schema": {
@@ -11790,6 +12028,59 @@
           }
         },
         "summary": "Get Media",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/api/v1/media/{media_id}/content-rating": {
+      "put": {
+        "operationId": "update_media_content_rating_api_v1_media__media_id__content_rating_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Media Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaContentRatingUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaContentRatingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Media Content Rating",
         "tags": [
           "media"
         ]
@@ -12149,6 +12440,27 @@
                 }
               ],
               "title": "Favorite"
+            }
+          },
+          {
+            "in": "query",
+            "name": "content_rating",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "sfw",
+                    "nsfw",
+                    "unknown"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Content Rating"
             }
           },
           {

@@ -219,6 +219,9 @@ describe("MediaDetailPage image viewer", () => {
     expect(
       actions.getByRole("button", { name: "Spatial preference" }),
     ).toBeInTheDocument();
+    expect(
+      actions.getByRole("group", { name: "Content safety rating" }),
+    ).toBeInTheDocument();
     expect(actions.getByRole("link", { name: "Download" })).toBeInTheDocument();
     expect(
       actions.getByRole("link", { name: "Post To Civitai" }),
@@ -227,6 +230,59 @@ describe("MediaDetailPage image viewer", () => {
       actions.getByRole("button", { name: "Move to Trash" }),
     ).toBeInTheDocument();
     expect(actions.queryByRole("button", { name: /delete/i })).toBeNull();
+  });
+
+  it("marks the current media with a content safety rating", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/api/v1/media/media-1") return Promise.resolve(imageDetail);
+      if (path.startsWith("/api/v1/media/media-1/navigation?")) {
+        return Promise.resolve({
+          media_id: "media-1",
+          position: 1,
+          total: 1,
+          previous_id: null,
+          previous_position: null,
+          next_id: null,
+          next_position: null,
+        });
+      }
+      if (path === "/api/v1/media/media-1/content-rating") {
+        return Promise.resolve({
+          media_id: "media-1",
+          content_rating: "nsfw",
+          updated_at: "2026-07-31T00:00:00Z",
+        });
+      }
+      if (path.startsWith("/api/v1/media/media-1/workflow-inputs")) {
+        return Promise.resolve(emptyWorkflowInputs);
+      }
+      if (path.startsWith("/api/v1/media/media-1/workflow?")) {
+        return Promise.resolve({});
+      }
+      if (path.startsWith("/api/v1/media/media-1/")) return Promise.resolve({});
+      throw new Error(`Unexpected request: ${path}`);
+    });
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/media/media-1"]}>
+          <Routes>
+            <Route path="/media/:mediaId" element={<MediaDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "NSFW" }));
+    await waitFor(() =>
+      expect(apiRequestMock).toHaveBeenCalledWith(
+        "/api/v1/media/media-1/content-rating",
+        expect.objectContaining({ method: "PUT" }),
+      ),
+    );
   });
 
   it("starts a slideshow from the current media and preserves its filters", async () => {
@@ -611,6 +667,7 @@ const videoDetail: MediaDetail = {
   prefer_spatial_playback: false,
   spatial_view_preferred: false,
   favorite: false,
+  content_rating: null,
   file_created_at: "2026-07-31T00:00:00Z",
   created_at: "2026-07-31T00:00:00Z",
   preview_url: "/preview",

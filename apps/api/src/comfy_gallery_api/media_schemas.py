@@ -184,6 +184,10 @@ class MediaVariantImportStatusResponse(BaseModel):
     updated_at: datetime
 
 
+ContentRating = Literal["sfw", "nsfw"]
+ContentRatingFilter = Literal["sfw", "nsfw", "unknown"]
+
+
 class VariantImportAcceptedResponse(BaseModel):
     variant: MediaVariantImportStatusResponse
     job: JobResponse
@@ -229,6 +233,7 @@ class MediaListItemResponse(BaseModel):
     prefer_spatial_playback: bool
     spatial_view_preferred: bool
     favorite: bool
+    content_rating: ContentRating | None
     file_created_at: datetime
     created_at: datetime
     preview_url: str
@@ -307,6 +312,7 @@ class MediaDetailResponse(BaseModel):
     prefer_spatial_playback: bool
     spatial_view_preferred: bool
     favorite: bool
+    content_rating: ContentRating | None
     derivatives: list[DerivativeResponse]
     variants: list[MediaVariantResponse]
     sources: list[SourceOccurrenceResponse]
@@ -345,6 +351,16 @@ class MediaFavoriteUpdateRequest(BaseModel):
 class MediaFavoriteResponse(BaseModel):
     media_id: UUID
     favorite: bool
+    updated_at: datetime
+
+
+class MediaContentRatingUpdateRequest(BaseModel):
+    content_rating: ContentRating | None = None
+
+
+class MediaContentRatingResponse(BaseModel):
+    media_id: UUID
+    content_rating: ContentRating | None
     updated_at: datetime
 
 

@@ -60,6 +60,11 @@ const SlideshowPage = lazy(() =>
     default: module.SlideshowPage,
   })),
 );
+const PhotoWallPage = lazy(() =>
+  import("../pages/photo-wall-page").then((module) => ({
+    default: module.PhotoWallPage,
+  })),
+);
 const ReviewHomePage = lazy(() =>
   import("../pages/review-home-page").then((module) => ({
     default: module.ReviewHomePage,
@@ -169,7 +174,10 @@ export const router = createBrowserRouter([
   },
   {
     element: <ProtectedPresentationLayout />,
-    children: [{ path: "/slideshow", element: <SlideshowPage /> }],
+    children: [
+      { path: "/slideshow", element: <SlideshowPage /> },
+      { path: "/photo-wall", element: <PhotoWallPage /> },
+    ],
   },
   { path: "*", element: <NotFoundPage /> },
 ]);

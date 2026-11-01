@@ -5,6 +5,7 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { MediaFavoriteButton } from "../components/media-favorite-button";
 import {
   apiRequest,
+  type ContentRatingFilter,
   type Collection,
   type MediaArchive,
   type MediaBulkActionResponse,
@@ -42,6 +43,7 @@ import {
   pageOffsetForNumber,
   paginationItems,
   parseOffset,
+  photoWallHref,
   slideshowHref,
   type ReferenceMatch,
   type SlideshowSource,
@@ -49,6 +51,87 @@ import {
 
 const libraryControlsStorageKey =
   "comfy-gallery.library-controls-collapsed";
+
+const mediaTypeFilterOptions = [
+  { value: "", label: "All" },
+  { value: "image", label: "Images" },
+  { value: "video", label: "Videos" },
+];
+
+const trashFilterOptions = [
+  { value: "false", label: "Exclude" },
+  { value: "all", label: "Include" },
+  { value: "true", label: "Only" },
+];
+
+const favoriteFilterOptions = [
+  { value: "", label: "All" },
+  { value: "true", label: "Favorites" },
+  { value: "false", label: "Not fav" },
+];
+
+const contentRatingFilterOptions = [
+  { value: "", label: "All" },
+  { value: "sfw", label: "SFW" },
+  { value: "nsfw", label: "NSFW" },
+  { value: "unknown", label: "Unmarked" },
+];
+
+const spatialPreferenceFilterOptions = [
+  { value: "", label: "Any" },
+  { value: "true", label: "Spatial" },
+  { value: "false", label: "2D" },
+];
+
+const spatialAvailabilityFilterOptions = [
+  { value: "", label: "Any" },
+  { value: "true", label: "Ready" },
+  { value: "false", label: "Not ready" },
+];
+
+type LibrarySegmentedFilterProps = {
+  label: string;
+  name: string;
+  options: ReadonlyArray<{ value: string; label: string }>;
+  value: string;
+  onChange: (value: string) => void;
+};
+
+function LibrarySegmentedFilter({
+  label,
+  name,
+  options,
+  value,
+  onChange,
+}: LibrarySegmentedFilterProps) {
+  return (
+    <fieldset className="library-segmented-filter">
+      <legend>{label}</legend>
+      <div
+        className="library-segmented-options"
+        role="radiogroup"
+        aria-label={label}
+      >
+        {options.map((option) => (
+          <label
+            className="library-segmented-option"
+            data-active={value === option.value}
+            key={option.value || "all"}
+          >
+            <input
+              type="radio"
+              name={name}
+              value={option.value}
+              checked={value === option.value}
+              onChange={() => onChange(option.value)}
+            />
+            <span>{option.label}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
 
 export function LibraryPage() {
   const navigate = useNavigate();
@@ -86,6 +169,7 @@ export function LibraryPage() {
       ? trashParam
       : "false";
   const favorite = searchParams.get("favorite") ?? "";
+  const contentRating = searchParams.get("content_rating") ?? "";
   const preferSpatialPlayback =
     searchParams.get("prefer_spatial_playback") ??
     searchParams.get("spatial_view_preferred") ??
@@ -241,6 +325,26 @@ export function LibraryPage() {
         method: "POST",
         body: JSON.stringify({ ...selectionPayload(selection), favorite }),
       }),
+    onSuccess: async () => {
+      clearSelection();
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["media"] }),
+        queryClient.invalidateQueries({ queryKey: ["media-navigation"] }),
+      ]);
+    },
+  });
+  const bulkContentRating = useMutation({
+    mutationFn: (nextRating: ContentRatingFilter | null) =>
+      apiRequest<MediaBulkActionResponse>(
+        "/api/v1/media/bulk/content-rating",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            ...selectionPayload(selection),
+            content_rating: nextRating,
+          }),
+        },
+      ),
     onSuccess: async () => {
       clearSelection();
       await Promise.all([
@@ -463,6 +567,12 @@ export function LibraryPage() {
           >
             Start slideshow
           </button>
+          <Link
+            className="secondary-button link-button"
+            to={photoWallHref(searchParams)}
+          >
+            Photo wall
+          </Link>
           <Link className="primary-button link-button" to="/imports">
             Import media
           </Link>
@@ -672,19 +782,13 @@ export function LibraryPage() {
                 </button>
               </div>
             </form>
-            <label>
-              Media type
-              <select
-                value={kind}
-                onChange={(event) =>
-                  changeLibraryParameter("kind", event.target.value)
-                }
-              >
-                <option value="">All types</option>
-                <option value="image">Images</option>
-                <option value="video">Videos</option>
-              </select>
-            </label>
+            <LibrarySegmentedFilter
+              label="Media type"
+              name="library-media-type"
+              options={mediaTypeFilterOptions}
+              value={kind}
+              onChange={(value) => changeLibraryParameter("kind", value)}
+            />
             <label>
               Evaluation
               <select
@@ -699,64 +803,47 @@ export function LibraryPage() {
                 <option value="complete">Complete</option>
               </select>
             </label>
-            <label>
-              Trash
-              <select
-                value={trash}
-                onChange={(event) =>
-                  changeLibraryParameter("trash", event.target.value)
-                }
-              >
-                <option value="false">Exclude Trash</option>
-                <option value="all">Include Trash</option>
-                <option value="true">Trash only</option>
-              </select>
-            </label>
-            <label>
-              Favorite
-              <select
-                value={favorite}
-                onChange={(event) =>
-                  changeLibraryParameter("favorite", event.target.value)
-                }
-              >
-                <option value="">All media</option>
-                <option value="true">Favorites only</option>
-                <option value="false">Not favorites</option>
-              </select>
-            </label>
-            <label>
-              Spatial preference
-              <select
-                value={preferSpatialPlayback}
-                onChange={(event) =>
-                  changeLibraryParameter(
-                    "prefer_spatial_playback",
-                    event.target.value,
-                  )
-                }
-              >
-                <option value="">Any spatial preference</option>
-                <option value="true">Spatial preferred</option>
-                <option value="false">Standard 2D</option>
-              </select>
-            </label>
-            <label>
-              Spatial video
-              <select
-                value={spatialAvailable}
-                onChange={(event) =>
-                  changeLibraryParameter(
-                    "spatial_available",
-                    event.target.value,
-                  )
-                }
-              >
-                <option value="">Any availability</option>
-                <option value="true">Spatial variant ready</option>
-                <option value="false">No ready spatial variant</option>
-              </select>
-            </label>
+            <LibrarySegmentedFilter
+              label="Trash"
+              name="library-trash"
+              options={trashFilterOptions}
+              value={trash}
+              onChange={(value) => changeLibraryParameter("trash", value)}
+            />
+            <LibrarySegmentedFilter
+              label="Favorite"
+              name="library-favorite"
+              options={favoriteFilterOptions}
+              value={favorite}
+              onChange={(value) => changeLibraryParameter("favorite", value)}
+            />
+            <LibrarySegmentedFilter
+              label="Content safety"
+              name="library-content-rating"
+              options={contentRatingFilterOptions}
+              value={contentRating}
+              onChange={(value) =>
+                changeLibraryParameter("content_rating", value)
+              }
+            />
+            <LibrarySegmentedFilter
+              label="Spatial preference"
+              name="library-spatial-preference"
+              options={spatialPreferenceFilterOptions}
+              value={preferSpatialPlayback}
+              onChange={(value) =>
+                changeLibraryParameter("prefer_spatial_playback", value)
+              }
+            />
+            <LibrarySegmentedFilter
+              label="Spatial video"
+              name="library-spatial-video"
+              options={spatialAvailabilityFilterOptions}
+              value={spatialAvailable}
+              onChange={(value) =>
+                changeLibraryParameter("spatial_available", value)
+              }
+            />
             <label>
               Processing status
               <select
@@ -909,6 +996,32 @@ export function LibraryPage() {
                     onClick={() => bulkFavorite.mutate(false)}
                   >
                     ☆ Unfavorite
+                  </button>
+                  <button
+                    className="content-rating-batch-button"
+                    data-rating="sfw"
+                    type="button"
+                    disabled={!selectedCount || bulkContentRating.isPending}
+                    onClick={() => bulkContentRating.mutate("sfw")}
+                  >
+                    Mark SFW
+                  </button>
+                  <button
+                    className="content-rating-batch-button"
+                    data-rating="nsfw"
+                    type="button"
+                    disabled={!selectedCount || bulkContentRating.isPending}
+                    onClick={() => bulkContentRating.mutate("nsfw")}
+                  >
+                    Mark NSFW
+                  </button>
+                  <button
+                    className="content-rating-batch-button"
+                    type="button"
+                    disabled={!selectedCount || bulkContentRating.isPending}
+                    onClick={() => bulkContentRating.mutate(null)}
+                  >
+                    Clear rating
                   </button>
                   <button
                     className="trash-batch-button"
@@ -1126,6 +1239,7 @@ export function LibraryPage() {
           applyTag.error ||
           saveFilter.error ||
           bulkFavorite.error ||
+          bulkContentRating.error ||
           bulkTrash.error ||
           createMediaArchive.error ||
           Boolean(bulkTrash.data?.errors.length) ? (
@@ -1137,6 +1251,7 @@ export function LibraryPage() {
                 applyTag.error?.message ||
                 saveFilter.error?.message ||
                 bulkFavorite.error?.message ||
+                bulkContentRating.error?.message ||
                 bulkTrash.error?.message ||
                 createMediaArchive.error?.message ||
                 bulkTrash.data?.errors.join(" · ")}
@@ -1212,6 +1327,14 @@ export function LibraryPage() {
                           : item.spatial_available
                             ? "Spatial ready"
                             : "Spatial preferred"}
+                      </span>
+                    ) : null}
+                    {item.content_rating ? (
+                      <span
+                        className="content-rating-badge"
+                        data-rating={item.content_rating}
+                      >
+                        {item.content_rating.toUpperCase()}
                       </span>
                     ) : null}
                     <span
