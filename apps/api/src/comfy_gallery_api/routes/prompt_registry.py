@@ -14,6 +14,8 @@ from comfy_gallery_api.errors import ApiError
 from comfy_gallery_api.prompt_registry_schemas import (
     PromptRegistryEntryRequest,
     PromptRegistryEntryResponse,
+    PromptRegistryHeatmapItemResponse,
+    PromptRegistryHeatmapResponse,
     PromptRegistryImportRequest,
     PromptRegistryImportResponse,
     PromptRegistryLookupResponse,
@@ -140,6 +142,87 @@ async def list_prompt_registry_sources(
         .limit(limit)
     )
     return [str(row.source) for row in rows]
+
+
+@router.get("/heatmap", response_model=PromptRegistryHeatmapResponse)
+async def prompt_registry_heatmap(
+    _principal: PrincipalDep,
+    session: DbSessionDep,
+    source: str | None = Query(default=None, max_length=256),
+    limit: int = Query(default=20_000, ge=1, le=20_000),
+    offset: int = Query(default=0, ge=0),
+) -> PromptRegistryHeatmapResponse:
+    filters = _source_filters(source)
+    media_counts = (
+        select(
+            MediaPromptIndex.source_key.label("source_key"),
+            MediaPromptIndex.index_key.label("index_key"),
+            func.count(MediaPromptIndex.media_id).label("media_count"),
+        )
+        .where(
+            MediaPromptIndex.source_key.is_not(None),
+            MediaPromptIndex.index_key.is_not(None),
+        )
+        .group_by(MediaPromptIndex.source_key, MediaPromptIndex.index_key)
+        .subquery("prompt_registry_media_counts")
+    )
+    join_condition = and_(
+        media_counts.c.source_key == PromptRegistryEntry.source_key,
+        media_counts.c.index_key == PromptRegistryEntry.entry_index_key,
+    )
+    total = int(
+        await session.scalar(select(func.count()).select_from(PromptRegistryEntry).where(*filters))
+        or 0
+    )
+    max_media_count = int(
+        await session.scalar(
+            select(
+                func.coalesce(
+                    func.max(func.coalesce(media_counts.c.media_count, 0)),
+                    0,
+                )
+            )
+            .select_from(PromptRegistryEntry)
+            .outerjoin(media_counts, join_condition)
+            .where(*filters)
+        )
+        or 0
+    )
+    rows = list(
+        (
+            await session.execute(
+                select(
+                    PromptRegistryEntry,
+                    func.coalesce(media_counts.c.media_count, 0).label("media_count"),
+                )
+                .outerjoin(media_counts, join_condition)
+                .where(*filters)
+                .order_by(
+                    PromptRegistryEntry.source_key,
+                    func.length(PromptRegistryEntry.entry_index_key),
+                    PromptRegistryEntry.entry_index_key,
+                    PromptRegistryEntry.entry_index,
+                )
+                .offset(offset)
+                .limit(limit)
+            )
+        ).all()
+    )
+    return PromptRegistryHeatmapResponse(
+        items=[
+            PromptRegistryHeatmapItemResponse(
+                prompt_id=PromptIdentifier(source=entry.source, index=entry.entry_index).display,
+                source=entry.source,
+                index=entry.entry_index,
+                media_count=int(media_count),
+            )
+            for entry, media_count in rows
+        ],
+        total=total,
+        limit=limit,
+        offset=offset,
+        max_media_count=max_media_count,
+    )
 
 
 @router.get("/random", response_model=PromptRegistryRandomResponse)

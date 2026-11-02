@@ -86,3 +86,18 @@ class PromptRegistryStatsResponse(BaseModel):
 class PromptRegistryNeighborResponse(BaseModel):
     direction: Literal["previous", "next"]
     entry: PromptRegistryEntryResponse
+
+
+class PromptRegistryHeatmapItemResponse(BaseModel):
+    prompt_id: str
+    source: str
+    index: str
+    media_count: int
+
+
+class PromptRegistryHeatmapResponse(BaseModel):
+    items: list[PromptRegistryHeatmapItemResponse]
+    total: int
+    limit: int
+    offset: int
+    max_media_count: int

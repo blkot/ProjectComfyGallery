@@ -16,6 +16,7 @@ from comfy_gallery_api.routes.prompt_registry import (
     import_prompt_registry_entries,
     list_prompt_registry_sources,
     lookup_prompt_registry_entry,
+    prompt_registry_heatmap,
     prompt_registry_neighbor,
     prompt_registry_stats,
     random_prompt_registry_entry,
@@ -381,6 +382,22 @@ async def test_prompt_registry_random_stats_and_neighbors_use_materialized_index
             assert stats.registered_count == 3
             assert stats.materialized_count == 1
             assert stats.unmaterialized_count == 2
+
+            heatmap = await prompt_registry_heatmap(
+                None,  # type: ignore[arg-type]
+                session,
+                source="xanta-utils",
+                limit=2,
+                offset=1,
+            )
+            assert heatmap.total == 3
+            assert heatmap.limit == 2
+            assert heatmap.offset == 1
+            assert heatmap.max_media_count == 1
+            assert [(item.index, item.media_count) for item in heatmap.items] == [
+                ("00002", 0),
+                ("00010", 0),
+            ]
 
             random_any = await random_prompt_registry_entry(
                 None,  # type: ignore[arg-type]

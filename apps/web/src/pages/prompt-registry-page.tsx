@@ -9,9 +9,11 @@ import { Link, useSearchParams } from "react-router";
 
 import {
   apiRequest,
+  type PromptRegistryHeatmap,
   type PromptRegistryEntry,
   type PromptRegistryLookup,
 } from "../lib/api";
+import { PromptRegistryHeatmap as PromptRegistryHeatmapView } from "../components/prompt-registry-heatmap";
 
 type PromptIdParts = {
   source: string;
@@ -46,6 +48,7 @@ export function PromptRegistryPage() {
   const [prompt, setPrompt] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
   const [showRegister, setShowRegister] = useState(false);
+  const [heatmapSource, setHeatmapSource] = useState("");
 
   const sourceOptions = useQuery({
     queryKey: ["prompt-registry-source-options"],
@@ -59,6 +62,18 @@ export function PromptRegistryPage() {
         `/api/v1/prompt-registry/lookup?prompt_id=${encodeURIComponent(promptId)}`,
       ),
     enabled: Boolean(promptId.trim()),
+  });
+  const heatmap = useQuery({
+    queryKey: ["prompt-registry-heatmap", heatmapSource],
+    queryFn: () => {
+      const sourceQuery = heatmapSource
+        ? `&source=${encodeURIComponent(heatmapSource)}`
+        : "";
+      return apiRequest<PromptRegistryHeatmap>(
+        `/api/v1/prompt-registry/heatmap?limit=20000${sourceQuery}`,
+      );
+    },
+    staleTime: 60_000,
   });
   const create = useMutation({
     mutationFn: () =>
@@ -145,6 +160,42 @@ export function PromptRegistryPage() {
           {showRegister ? "Close editor" : "Register prompt"}
         </button>
       </header>
+
+      <section className="panel prompt-registry-heatmap-panel">
+        <div className="prompt-registry-heatmap-heading">
+          <div>
+            <p className="kicker">Usage at a glance</p>
+            <h2>Prompt heatmap</h2>
+          </div>
+          <label className="prompt-registry-heatmap-source">
+            Source
+            <select
+              value={heatmapSource}
+              aria-label="Heatmap source"
+              onChange={(event) => setHeatmapSource(event.target.value)}
+              disabled={sourceOptions.isPending || !sourceOptions.data?.length}
+            >
+              <option value="">All sources</option>
+              {sourceOptions.data?.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {heatmap.error ? (
+          <p className="notice error-notice">Could not load the prompt heatmap.</p>
+        ) : heatmap.isPending ? (
+          <p className="muted">Loading prompt usage…</p>
+        ) : heatmap.data ? (
+          <PromptRegistryHeatmapView
+            data={heatmap.data}
+            promptId={promptId}
+            onSelectPrompt={selectPrompt}
+          />
+        ) : null}
+      </section>
 
       {showRegister ? (
         <form

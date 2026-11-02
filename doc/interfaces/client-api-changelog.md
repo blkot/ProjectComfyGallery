@@ -13,6 +13,7 @@ resolve consistently for materialization checks. Authenticated clients can use:
 
 ```http
 GET /api/v1/prompt-registry/sources?q=<prefix>&limit=24
+GET /api/v1/prompt-registry/heatmap?source=<source>&limit=20000&offset=0
 GET /api/v1/prompt-registry/random?source=<source>&materialization=<state>
 GET /api/v1/prompt-registry/stats?source=<source>
 GET /api/v1/prompt-registry/neighbor?source=<source>&index=<index>&direction=<previous|next>
@@ -23,6 +24,11 @@ trash does not make a previously generated prompt unmaterialized. Random selecti
 returns `PROMPT_REGISTRY_RANDOM_NOT_FOUND` when the filters have no candidates.
 Read routes accept the existing web session or Bearer API token, while registry
 write routes keep their existing CSRF or API-token requirements.
+
+The heatmap response is optimized for a compact client-rendered contribution
+matrix. It returns `items[]` with `prompt_id`, `source`, `index`, and
+`media_count`, plus `total`, `limit`, `offset`, and `max_media_count`. Counts are
+based on the trusted materialized Prompt ID index and include trashed media.
 
 ## Unreleased: media content-safety ratings
 

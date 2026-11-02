@@ -150,6 +150,11 @@ GET /api/v1/prompt-registry/neighbor
   ?source=<source>
   &index=<numeric-index>
   &direction=previous|next
+
+GET /api/v1/prompt-registry/heatmap
+  ?source=<optional-source>
+  &limit=20000
+  &offset=0
 ```
 
 `random` combines `source` and `materialization` with AND semantics and returns
@@ -158,6 +163,13 @@ random response includes the stable `prompt_id` and the computed `media_count`.
 `stats` reports registered, materialized, and unmaterialized entry counts.
 `neighbor` returns the nearest registered entry in numeric index order, skipping
 gaps instead of requiring the caller to probe every integer.
+`heatmap` returns compact contribution-matrix cells for every registered prompt.
+Each cell includes the stable `prompt_id`, its source/index, and the number of
+rows in `media_prompt_index` that point to it. The count includes trashed media,
+so it represents generated history rather than the current visible gallery.
+Results are ordered by source and numeric index, support an optional source
+filter, and expose `total` and `max_media_count` so clients can build a relative
+color scale without loading media records.
 
 The frontend provides a Prompt Registry page under **System → Prompt Registry**.
 Prompt IDs in Media Detail are links to that page, where the definition and all

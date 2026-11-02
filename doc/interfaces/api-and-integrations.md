@@ -237,6 +237,7 @@ Prompt registry endpoints:
 ```text
 GET    /api/v1/prompt-registry
 GET    /api/v1/prompt-registry/sources?q=<prefix>&limit=24
+GET    /api/v1/prompt-registry/heatmap?source=<source>&limit=20000&offset=0
 GET    /api/v1/prompt-registry/random?source=<source>&materialization=<state>
 GET    /api/v1/prompt-registry/stats?source=<source>
 GET    /api/v1/prompt-registry/neighbor?source=<source>&index=<index>&direction=<previous|next>
@@ -256,6 +257,11 @@ The `random` endpoint supports `materialization=unmaterialized` for entries that
 have no related media in the materialized Prompt ID index. Read routes accept the
 same authenticated browser session or Bearer API token as the existing registry
 routes; write routes keep the existing CSRF or API-token requirement.
+The `heatmap` endpoint returns one compact cell per registered entry with its
+materialized media count. Counts include trashed media and are intended for a
+client-rendered contribution matrix; clients can use the response `max_media_count`
+to normalize the green intensity and resolve a clicked cell through the existing
+`lookup?prompt_id=...` route.
 
 ### Workflow input capture
 

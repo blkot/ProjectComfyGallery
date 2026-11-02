@@ -633,6 +633,21 @@ export type PromptRegistryLookup = {
   offset: number;
 };
 
+export type PromptRegistryHeatmapItem = {
+  prompt_id: string;
+  source: string;
+  index: string;
+  media_count: number;
+};
+
+export type PromptRegistryHeatmap = {
+  items: PromptRegistryHeatmapItem[];
+  total: number;
+  limit: number;
+  offset: number;
+  max_media_count: number;
+};
+
 export type NodeMapping = {
   id: string;
   node_definition_id: string;
