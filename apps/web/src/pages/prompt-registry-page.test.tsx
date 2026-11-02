@@ -18,7 +18,7 @@ function LocationProbe() {
   return <output data-testid="location-search">{location.search}</output>;
 }
 
-function renderPromptRegistry() {
+function renderPromptRegistry(initialEntry = "/system/prompt-registry") {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -26,7 +26,7 @@ function renderPromptRegistry() {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={["/system/prompt-registry"]}>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <PromptRegistryPage />
         <LocationProbe />
       </MemoryRouter>
@@ -89,5 +89,41 @@ describe("PromptRegistryPage structured lookup", () => {
       );
       expect(query.get("prompt_id")).toBe("xanta-utils - 0007");
     });
+  });
+
+  it("seeks the direct lookup index while preserving source and padding", async () => {
+    renderPromptRegistry("/system/prompt-registry?prompt_id=xanta-utils%20-%200007");
+
+    const previous = screen.getByRole("button", { name: "← Previous index" });
+    const next = screen.getByRole("button", { name: "Next index →" });
+    expect(previous).toBeEnabled();
+    expect(next).toBeEnabled();
+
+    fireEvent.click(previous);
+    await waitFor(() => {
+      const query = new URLSearchParams(
+        screen.getByTestId("location-search").textContent ?? "",
+      );
+      expect(query.get("prompt_id")).toBe("xanta-utils - 0006");
+    });
+
+    fireEvent.click(next);
+    await waitFor(() => {
+      const query = new URLSearchParams(
+        screen.getByTestId("location-search").textContent ?? "",
+      );
+      expect(query.get("prompt_id")).toBe("xanta-utils - 0007");
+    });
+  });
+
+  it("disables previous navigation at zero and invalid prompt IDs", async () => {
+    const zeroView = renderPromptRegistry("/system/prompt-registry?prompt_id=xanta-utils%20-%200000");
+    expect(screen.getByRole("button", { name: "← Previous index" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Next index →" })).toBeEnabled();
+    zeroView.unmount();
+
+    renderPromptRegistry("/system/prompt-registry?prompt_id=unstructured-id");
+    expect(screen.getByRole("button", { name: "← Previous index" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Next index →" })).toBeDisabled();
   });
 });

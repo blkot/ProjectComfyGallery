@@ -13,6 +13,28 @@ import {
   type PromptRegistryLookup,
 } from "../lib/api";
 
+type PromptIdParts = {
+  source: string;
+  index: string;
+};
+
+const PROMPT_ID_PATTERN = /^\s*(.+?)\s*-\s*(\d+)\s*$/;
+
+function parsePromptId(value: string): PromptIdParts | null {
+  const match = PROMPT_ID_PATTERN.exec(value);
+  if (!match) return null;
+  const source = match[1].trim();
+  return source ? { source, index: match[2] } : null;
+}
+
+function shiftPromptId(value: string, delta: -1 | 1): string | null {
+  const parsed = parsePromptId(value);
+  if (!parsed) return null;
+  const nextIndex = BigInt(parsed.index) + BigInt(delta);
+  if (nextIndex < 0n) return null;
+  return `${parsed.source} - ${nextIndex.toString().padStart(parsed.index.length, "0")}`;
+}
+
 export function PromptRegistryPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -87,6 +109,14 @@ export function PromptRegistryPage() {
     const normalized = String(new FormData(event.currentTarget).get("prompt_id") ?? "").trim();
     selectPrompt(normalized);
   }
+
+  function seekDirectLookup(delta: -1 | 1) {
+    const nextPromptId = shiftPromptId(promptId, delta);
+    if (nextPromptId) selectPrompt(nextPromptId);
+  }
+
+  const previousPromptId = shiftPromptId(promptId, -1);
+  const nextPromptId = shiftPromptId(promptId, 1);
 
   function submitSourceLookup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -199,6 +229,26 @@ export function PromptRegistryPage() {
             <button className="primary-button" type="submit">
               Open prompt
             </button>
+            <div className="prompt-registry-navigation" aria-label="Prompt index navigation">
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => seekDirectLookup(-1)}
+                disabled={!previousPromptId}
+                title={previousPromptId ?? "Enter a source - index prompt ID first"}
+              >
+                ← Previous index
+              </button>
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => seekDirectLookup(1)}
+                disabled={!nextPromptId}
+                title={nextPromptId ?? "Enter a source - index prompt ID first"}
+              >
+                Next index →
+              </button>
+            </div>
           </form>
 
           <form className="prompt-registry-query-card" onSubmit={submitSourceLookup}>

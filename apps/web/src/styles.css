@@ -5038,6 +5038,16 @@ textarea {
   justify-self: start;
 }
 
+.prompt-registry-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.prompt-registry-navigation button {
+  min-height: 34px;
+}
+
 .prompt-registry-source-fields {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(100px, 0.55fr);
