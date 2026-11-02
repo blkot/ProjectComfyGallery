@@ -5046,40 +5046,8 @@ textarea {
 }
 
 .prompt-registry-source-field {
-  position: relative;
-}
-
-.prompt-registry-source-options {
-  position: absolute;
-  z-index: 5;
-  inset: calc(100% + 5px) 0 auto;
-  max-height: 210px;
-  overflow: auto;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: var(--panel, #171715);
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.35);
-}
-
-.prompt-registry-source-option {
-  display: block;
-  width: 100%;
-  padding: 9px 10px;
-  border: 0;
-  color: var(--text);
-  background: transparent;
-  font: inherit;
-  text-align: left;
-}
-
-button.prompt-registry-source-option {
-  cursor: pointer;
-}
-
-button.prompt-registry-source-option:hover,
-button.prompt-registry-source-option:focus-visible {
-  color: var(--text-strong, var(--text));
-  background: rgba(255, 255, 255, 0.07);
+  display: grid;
+  gap: 6px;
 }
 
 .prompt-registry-results {

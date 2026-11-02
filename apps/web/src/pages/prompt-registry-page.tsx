@@ -4,7 +4,7 @@ import {
   useQueryClient,
   type UseQueryResult,
 } from "@tanstack/react-query";
-import { useDeferredValue, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router";
 
 import {
@@ -19,24 +19,15 @@ export function PromptRegistryPage() {
   const promptId = searchParams.get("prompt_id") ?? "";
   const [source, setSource] = useState("");
   const [index, setIndex] = useState("");
-  const [showSourceSuggestions, setShowSourceSuggestions] = useState(false);
   const [registerSource, setRegisterSource] = useState("");
   const [registerIndex, setRegisterIndex] = useState("");
   const [prompt, setPrompt] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
   const [showRegister, setShowRegister] = useState(false);
-  const deferredSource = useDeferredValue(source);
 
-  const sourceSuggestions = useQuery({
-    queryKey: ["prompt-registry-source-suggestions", deferredSource.trim()],
-    queryFn: () => {
-      const parameters = new URLSearchParams({
-        limit: "24",
-        q: deferredSource.trim(),
-      });
-      return apiRequest<string[]>(`/api/v1/prompt-registry/sources?${parameters}`);
-    },
-    enabled: deferredSource.trim().length >= 2,
+  const sourceOptions = useQuery({
+    queryKey: ["prompt-registry-source-options"],
+    queryFn: () => apiRequest<string[]>("/api/v1/prompt-registry/sources?limit=50"),
     staleTime: 30_000,
   });
   const lookup = useQuery({
@@ -66,7 +57,7 @@ export function PromptRegistryPage() {
       setPrompt("");
       setNegativePrompt("");
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["prompt-registry-source-suggestions"] }),
+        queryClient.invalidateQueries({ queryKey: ["prompt-registry-source-options"] }),
         queryClient.invalidateQueries({ queryKey: ["prompt-registry-lookup"] }),
       ]);
     },
@@ -102,7 +93,6 @@ export function PromptRegistryPage() {
     const normalizedSource = source.trim();
     const normalizedIndex = index.trim();
     if (!normalizedSource || !normalizedIndex) return;
-    setShowSourceSuggestions(false);
     selectPrompt(`${normalizedSource} - ${normalizedIndex}`);
   }
 
@@ -187,7 +177,7 @@ export function PromptRegistryPage() {
           </div>
           <p className="muted">
             Prompt Registry is indexed by <code>source - index</code>. Open an ID from Media
-            Detail, or enter the source and index directly.
+            Detail, or choose a registered source and enter its index.
           </p>
         </div>
         <div className="prompt-registry-query-grid">
@@ -219,51 +209,30 @@ export function PromptRegistryPage() {
             <div className="prompt-registry-source-fields">
               <label className="prompt-registry-source-field">
                 Source
-                <input
+                <select
                   value={source}
-                  role="combobox"
-                  aria-autocomplete="list"
-                  aria-controls="prompt-registry-source-options"
-                  aria-expanded={showSourceSuggestions}
-                  onFocus={() => setShowSourceSuggestions(true)}
-                  onChange={(event) => {
-                    setSource(event.target.value);
-                    setShowSourceSuggestions(true);
-                  }}
-                  onBlur={() => window.setTimeout(() => setShowSourceSuggestions(false), 120)}
-                  placeholder="Search a source"
-                  spellCheck={false}
-                />
-                {showSourceSuggestions && source.trim().length >= 2 ? (
-                  <div
-                    className="prompt-registry-source-options"
-                    id="prompt-registry-source-options"
-                    role="listbox"
-                  >
-                    {sourceSuggestions.isFetching ? (
-                      <span className="prompt-registry-source-option muted">Searching…</span>
-                    ) : null}
-                    {sourceSuggestions.data?.map((option) => (
-                      <button
-                        type="button"
-                        role="option"
-                        className="prompt-registry-source-option"
-                        key={option}
-                        onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => {
-                          setSource(option);
-                          setShowSourceSuggestions(false);
-                        }}
-                      >
-                        {option}
-                      </button>
-                    ))}
-                    {!sourceSuggestions.isFetching && sourceSuggestions.data?.length === 0 ? (
-                      <span className="prompt-registry-source-option muted">
-                        No matching registered source. You can still enter it manually.
-                      </span>
-                    ) : null}
-                  </div>
+                  aria-label="Source"
+                  onChange={(event) => setSource(event.target.value)}
+                  disabled={sourceOptions.isPending || !sourceOptions.data?.length}
+                >
+                  <option value="">
+                    {sourceOptions.isPending ? "Loading sources…" : "Select a source"}
+                  </option>
+                  {sourceOptions.data?.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+                {sourceOptions.error ? (
+                  <small className="notice error-notice">
+                    Could not load registered sources.
+                  </small>
+                ) : null}
+                {!sourceOptions.isPending &&
+                !sourceOptions.error &&
+                sourceOptions.data?.length === 0 ? (
+                  <small className="muted">No registered sources yet.</small>
                 ) : null}
               </label>
               <label>
