@@ -4,6 +4,13 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.34 — 2026-11-03
+
+- Add a compact Prompt Registry contribution heatmap with source filtering,
+  zoom, keyboard navigation, and click-through prompt resolution.
+- Add a bounded heatmap API that reports per-prompt materialized media counts,
+  including trashed generation history, with OpenAPI and client documentation.
+
 ## 0.1.0-rc.33 — 2026-11-03
 
 - Add authenticated Prompt Registry source, random selection, materialization
