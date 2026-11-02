@@ -22,7 +22,7 @@ def upgrade() -> None:
         ),
         sa.Column("source_key", sa.String(length=256), nullable=True),
         sa.Column("entry_index", sa.String(length=128), nullable=True),
-        sa.Column("index_value", sa.Integer(), nullable=True),
+        sa.Column("index_key", sa.String(length=128), nullable=True),
         sa.Column("prompt_id", sa.String(length=512), nullable=True),
         sa.Column("evidence_source", sa.String(length=32), nullable=False, server_default="none"),
         sa.Column("original_sha256", sa.String(length=64), nullable=True),
@@ -36,7 +36,7 @@ def upgrade() -> None:
     op.create_index(
         "ix_media_prompt_index_lookup",
         "media_prompt_index",
-        ["source_key", "index_value"],
+        ["source_key", "index_key"],
     )
 
 

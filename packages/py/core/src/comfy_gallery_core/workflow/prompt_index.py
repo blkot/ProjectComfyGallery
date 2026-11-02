@@ -80,7 +80,7 @@ async def sync_media_prompt_index(
     parsed = parse_prompt_id(prompt_id)
     record.source_key = parsed.source_key if parsed is not None else None
     record.entry_index = parsed.index if parsed is not None else None
-    record.index_value = parsed.index_value if parsed is not None else None
+    record.index_key = parsed.index_key if parsed is not None else None
     record.prompt_id = parsed.display if parsed is not None else None
     record.evidence_source = evidence_source
     record.original_sha256 = original_sha256

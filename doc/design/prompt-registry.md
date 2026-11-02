@@ -58,7 +58,9 @@ This makes stale or incomplete Xanta libraries discoverable without inventing a
 prompt definition.
 
 Trusted media Prompt IDs are materialized in `media_prompt_index`, keyed by the
-media UUID and indexed by normalized source plus numeric index. New workflow
+media UUID and indexed by normalized source plus a canonical numeric index
+string. This preserves numeric-equivalence lookup for padded IDs without
+limiting valid 128-digit indexes to a database integer type. New workflow
 extractions and verified display recovery update the row automatically. After
 the migration is deployed, backfill existing media with:
 
@@ -105,8 +107,9 @@ The importer MUST follow these rules:
   copied into the registry entry; they remain media/workflow evidence.
 - `origin` identifies the producer, defaults to `xanta-utils`, and is limited to 64
   characters.
-- A batch contains 1–2,000 entries and the encoded request body is limited to
-  8 MB. The API writes a batch with one database upsert statement and one commit.
+- A batch contains 1–2,000 entries and the received encoded request body is
+  limited to 8 MB (oversized bodies return HTTP 413). The API writes a batch
+  with one database upsert statement and one commit.
   After the bulk path is deployed, operators MAY use the full 2,000-entry limit;
   smaller batches remain appropriate when testing a new endpoint or network path.
 - A batch MUST NOT contain duplicate `(source, index)` keys. Across requests the
@@ -115,7 +118,8 @@ The importer MUST follow these rules:
 The response is returned only after the committed rows are read back from the
 database, so `created_count`, `updated_count`, and `entries` describe persisted
 records. A successful import is an HTTP 200 response. Validation errors are HTTP
-422 and do not partially apply the request.
+422 and do not partially apply the request; an oversized encoded body is HTTP
+413.
 
 If a client receives a 5xx response, it SHOULD first query the registry by source
 and compare the expected indexes before retrying. Retrying the same batch is safe

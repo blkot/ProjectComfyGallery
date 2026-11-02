@@ -20,7 +20,15 @@ class PromptIdentifier:
         return self.source.casefold()
 
     @property
+    def index_key(self) -> str:
+        """Return a canonical numeric key without losing arbitrary precision."""
+
+        return self.index.lstrip("0") or "0"
+
+    @property
     def index_value(self) -> int:
+        """Return a Python integer for callers that explicitly need arithmetic."""
+
         return int(self.index)
 
     @property
@@ -33,7 +41,8 @@ def parse_prompt_id(value: object) -> PromptIdentifier | None:
 
     The separator is the final hyphen before a numeric suffix, so sources may
     themselves contain hyphens. Leading zeroes remain part of ``index`` for
-    display and round-tripping while ``index_value`` provides numeric sorting.
+    display and round-tripping while ``index_key`` provides a stable
+    numeric-equivalence key without imposing a database integer limit.
     """
 
     if not isinstance(value, str):

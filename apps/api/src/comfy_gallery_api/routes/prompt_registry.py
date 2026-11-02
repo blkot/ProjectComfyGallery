@@ -4,8 +4,8 @@ from typing import Any
 from typing import cast as typing_cast
 from uuid import UUID
 
-from fastapi import APIRouter, Query
-from sqlalchemy import Integer, cast, func, or_, select, tuple_
+from fastapi import APIRouter, Depends, Query, Request
+from sqlalchemy import func, or_, select, tuple_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
@@ -42,6 +42,29 @@ from comfy_gallery_core.workflow.prompt_index import (
 )
 
 router = APIRouter(prefix="/api/v1/prompt-registry", tags=["prompt-registry"])
+_PROMPT_REGISTRY_IMPORT_MAX_BYTES = 8 * 1024 * 1024
+
+
+async def _enforce_import_body_size(request: Request) -> None:
+    """Reject the actual encoded request body before importing any rows."""
+
+    content_length = request.headers.get("content-length")
+    if content_length is not None:
+        try:
+            if int(content_length) > _PROMPT_REGISTRY_IMPORT_MAX_BYTES:
+                raise ApiError(
+                    status_code=413,
+                    code="PROMPT_REGISTRY_IMPORT_TOO_LARGE",
+                    message="Prompt registry import payload must be 8 MB or smaller.",
+                )
+        except ValueError:
+            pass
+    if len(await request.body()) > _PROMPT_REGISTRY_IMPORT_MAX_BYTES:
+        raise ApiError(
+            status_code=413,
+            code="PROMPT_REGISTRY_IMPORT_TOO_LARGE",
+            message="Prompt registry import payload must be 8 MB or smaller.",
+        )
 
 
 @router.get("", response_model=PromptRegistryPageResponse)
@@ -75,7 +98,7 @@ async def list_prompt_registry_entries(
             .where(*filters)
             .order_by(
                 PromptRegistryEntry.source_key,
-                cast(PromptRegistryEntry.entry_index, Integer),
+                func.length(PromptRegistryEntry.entry_index),
                 PromptRegistryEntry.entry_index,
             )
             .offset(offset)
@@ -180,19 +203,16 @@ async def get_prompt_registry_entry(
     )
 
 
-@router.post("/import", response_model=PromptRegistryImportResponse)
+@router.post(
+    "/import",
+    response_model=PromptRegistryImportResponse,
+    dependencies=[Depends(_enforce_import_body_size)],
+)
 async def import_prompt_registry_entries(
     request: PromptRegistryImportRequest,
     _principal: CsrfPrincipalDep,
     session: DbSessionDep,
 ) -> PromptRegistryImportResponse:
-    if len(request.model_dump_json().encode("utf-8")) > 8 * 1024 * 1024:
-        raise ApiError(
-            status_code=413,
-            code="PROMPT_REGISTRY_IMPORT_TOO_LARGE",
-            message="Prompt registry import payload must be 8 MB or smaller.",
-        )
-
     rows: list[dict[str, object]] = []
     keys: list[tuple[str, str]] = []
     seen: set[tuple[str, str]] = set()
@@ -346,18 +366,18 @@ async def _find_entry(
     )
     if exact is not None:
         return exact
-    try:
-        numeric_index = int(identifier.index)
-    except ValueError:
-        return None
-    return typing_cast(
-        PromptRegistryEntry | None,
-        await session.scalar(
-            select(PromptRegistryEntry).where(
-                PromptRegistryEntry.source_key == identifier.source_key,
-                cast(PromptRegistryEntry.entry_index, Integer) == numeric_index,
-            )
+    source_entries = await session.scalars(
+        select(PromptRegistryEntry).where(
+            PromptRegistryEntry.source_key == identifier.source_key,
+        )
+    )
+    return next(
+        (
+            entry
+            for entry in source_entries
+            if (entry.entry_index.lstrip("0") or "0") == identifier.index_key
         ),
+        None,
     )
 
 
@@ -413,7 +433,7 @@ async def _matching_media(
                     .join(MediaPromptIndex, MediaPromptIndex.media_id == Media.id)
                     .where(
                         MediaPromptIndex.source_key == identifier.source_key,
-                        MediaPromptIndex.index_value == identifier.index_value,
+                        MediaPromptIndex.index_key == identifier.index_key,
                     )
                     .order_by(Media.created_at.desc(), Media.id.desc())
                 )
@@ -471,7 +491,7 @@ async def _matching_media_fallback(
 
 
 def _same_identifier(left: PromptIdentifier, right: PromptIdentifier) -> bool:
-    return left.source_key == right.source_key and left.index_value == right.index_value
+    return left.source_key == right.source_key and left.index_key == right.index_key
 
 
 def _entry_response(

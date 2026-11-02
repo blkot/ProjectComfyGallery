@@ -3,6 +3,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from starlette.requests import Request
 
 from comfy_gallery_api.errors import ApiError
 from comfy_gallery_api.prompt_registry_schemas import (
@@ -10,6 +11,7 @@ from comfy_gallery_api.prompt_registry_schemas import (
     PromptRegistryImportRequest,
 )
 from comfy_gallery_api.routes.prompt_registry import (
+    _enforce_import_body_size,
     create_prompt_registry_entry,
     import_prompt_registry_entries,
     list_prompt_registry_sources,
@@ -314,3 +316,62 @@ async def test_prompt_registry_sources_are_distinct_and_source_only() -> None:
             )
     finally:
         await engine.dispose()
+
+
+async def test_prompt_registry_supports_128_digit_indexes_without_integer_casts() -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    try:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+            stored_index = "0" + ("9" * 127)
+            await import_prompt_registry_entries(
+                PromptRegistryImportRequest(
+                    entries=[
+                        PromptRegistryEntryRequest(
+                            source="large-library",
+                            index=stored_index,
+                            prompt="An arbitrary precision prompt",
+                        )
+                    ]
+                ),
+                None,  # type: ignore[arg-type]
+                session,
+            )
+
+            result = await lookup_prompt_registry_entry(
+                None,  # type: ignore[arg-type]
+                session,
+                prompt_id=f"large-library - {'9' * 127}",
+                limit=48,
+                offset=0,
+            )
+
+            assert result.entry is not None
+            assert result.entry.index == stored_index
+            assert result.prompt_id == f"large-library - {stored_index}"
+    finally:
+        await engine.dispose()
+
+
+async def test_prompt_registry_import_size_check_uses_received_body_bytes() -> None:
+    body = b"{" + (b" " * (8 * 1024 * 1024)) + b"}"
+
+    async def receive() -> dict[str, object]:
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/api/v1/prompt-registry/import",
+            "headers": [],
+        },
+        receive,
+    )
+
+    with pytest.raises(ApiError) as raised:
+        await _enforce_import_body_size(request)
+
+    assert raised.value.status_code == 413
+    assert raised.value.code == "PROMPT_REGISTRY_IMPORT_TOO_LARGE"
