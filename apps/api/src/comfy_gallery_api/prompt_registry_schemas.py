@@ -10,8 +10,6 @@ class PromptRegistryEntryRequest(BaseModel):
     index: str = Field(min_length=1, max_length=128, pattern=r"^\d+$")
     prompt: str = Field(default="", max_length=200_000)
     negative_prompt: str | None = Field(default=None, max_length=200_000)
-    character_lora: str | None = Field(default=None, max_length=1024)
-    lora_list: list[Any] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
     origin: str = Field(default="xanta-utils", min_length=1, max_length=64)
 
@@ -22,8 +20,6 @@ class PromptRegistryEntryResponse(BaseModel):
     index: str
     prompt: str
     negative_prompt: str | None
-    character_lora: str | None
-    lora_list: list[Any]
     metadata: dict[str, Any]
     origin: str
     media_count: int = 0

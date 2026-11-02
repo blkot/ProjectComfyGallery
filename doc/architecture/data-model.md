@@ -284,11 +284,12 @@ Observations are append/version based. “Current” is a query over precedence,
 
 - Reusable Xanta-style prompt definition keyed by normalized source and a
   zero-padded numeric index.
-- Positive/negative prompt text, optional character LoRA, structured LoRA list,
-  origin, and operator metadata.
+- Positive/negative prompt text, origin, and operator metadata.
 - Registry entries are enrichment, not workflow evidence. Media lookup parses
   the trusted Prompt ID from each workflow and can therefore show unregistered
   IDs without inventing a definition.
+- Character LoRA and ordinary LoRA lists remain media/workflow evidence and are
+  intentionally decoupled from reusable prompt definitions.
 
 ## Model registry
 

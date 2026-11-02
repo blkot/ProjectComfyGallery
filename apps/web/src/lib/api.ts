@@ -595,8 +595,6 @@ export type PromptRegistryEntry = {
   index: string;
   prompt: string;
   negative_prompt: string | null;
-  character_lora: string | null;
-  lora_list: unknown[];
   metadata: Record<string, unknown>;
   origin: string;
   media_count: number;

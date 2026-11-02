@@ -880,13 +880,6 @@ class PromptRegistryEntry(TimestampMixin, Base):
     entry_index: Mapped[str] = mapped_column(String(128), nullable=False)
     prompt: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
     negative_prompt: Mapped[str | None] = mapped_column(Text)
-    character_lora: Mapped[str | None] = mapped_column(String(1024))
-    lora_list: Mapped[list[object]] = mapped_column(
-        json_type,
-        nullable=False,
-        default=list,
-        server_default="[]",
-    )
     entry_metadata: Mapped[dict[str, object]] = mapped_column(
         "metadata",
         json_type,

@@ -227,7 +227,7 @@ export function PromptRegistryPage() {
           </div>
         </section>
 
-        <PromptRegistryDetail lookup={lookup} />
+        <PromptRegistryDetail lookup={lookup} promptId={promptId} />
       </div>
     </main>
   );
@@ -235,9 +235,19 @@ export function PromptRegistryPage() {
 
 function PromptRegistryDetail({
   lookup,
+  promptId,
 }: {
   lookup: UseQueryResult<PromptRegistryLookup>;
+  promptId: string;
 }) {
+  if (!promptId.trim()) {
+    return (
+      <section className="panel prompt-registry-detail empty-state">
+        <strong>Select a prompt ID</strong>
+        <p>Choose a registry entry or paste a source - index identifier above.</p>
+      </section>
+    );
+  }
   if (!lookup.data && !lookup.isPending) {
     return (
       <section className="panel prompt-registry-detail empty-state">
@@ -272,12 +282,6 @@ function PromptRegistryDetail({
         <>
           <PromptText label="Positive prompt" value={data.entry.prompt} />
           <PromptText label="Negative prompt" value={data.entry.negative_prompt} />
-          {data.entry.character_lora ? (
-            <div className="prompt-registry-fact">
-              <small>Character LoRA</small>
-              <code>{data.entry.character_lora}</code>
-            </div>
-          ) : null}
         </>
       ) : (
         <p className="muted">

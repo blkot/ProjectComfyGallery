@@ -4,6 +4,13 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.30 — 2026-11-02
+
+- Decouple reusable Prompt Registry definitions from media-specific Character
+  LoRA and ordinary LoRA list evidence.
+- Fix the Prompt Registry detail panel so an unselected prompt shows an empty
+  state instead of an endless loading indicator.
+
 ## 0.1.0-rc.29 — 2026-11-02
 
 - Prefer visual workflow widget values over stale API ShowText caches when

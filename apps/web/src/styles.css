@@ -5065,8 +5065,7 @@ textarea {
   margin-top: 22px;
 }
 
-.prompt-registry-text > small,
-.prompt-registry-fact > small {
+.prompt-registry-text > small {
   display: block;
   margin-bottom: 7px;
   color: var(--muted);
@@ -5087,16 +5086,6 @@ textarea {
   font: 11px/1.65 "SFMono-Regular", Consolas, monospace;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-
-.prompt-registry-fact {
-  margin-top: 18px;
-}
-
-.prompt-registry-fact code {
-  overflow-wrap: anywhere;
-  color: #c6e5f4;
-  font-size: 10px;
 }
 
 .prompt-registry-media-heading {

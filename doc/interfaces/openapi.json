@@ -5723,29 +5723,12 @@
       },
       "PromptRegistryEntryRequest": {
         "properties": {
-          "character_lora": {
-            "anyOf": [
-              {
-                "maxLength": 1024,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Character Lora"
-          },
           "index": {
             "maxLength": 128,
             "minLength": 1,
             "pattern": "^\\d+$",
             "title": "Index",
             "type": "string"
-          },
-          "lora_list": {
-            "items": {},
-            "title": "Lora List",
-            "type": "array"
           },
           "metadata": {
             "additionalProperties": true,
@@ -5793,17 +5776,6 @@
       },
       "PromptRegistryEntryResponse": {
         "properties": {
-          "character_lora": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Character Lora"
-          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -5817,11 +5789,6 @@
           "index": {
             "title": "Index",
             "type": "string"
-          },
-          "lora_list": {
-            "items": {},
-            "title": "Lora List",
-            "type": "array"
           },
           "media_count": {
             "default": 0,
@@ -5868,8 +5835,6 @@
           "index",
           "prompt",
           "negative_prompt",
-          "character_lora",
-          "lora_list",
           "metadata",
           "origin",
           "created_at",
@@ -9568,7 +9533,7 @@
   },
   "info": {
     "title": "Project Comfy Gallery API",
-    "version": "0.1.0-rc.29"
+    "version": "0.1.0-rc.30"
   },
   "openapi": "3.1.0",
   "paths": {

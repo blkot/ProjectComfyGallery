@@ -169,8 +169,6 @@ async def import_prompt_registry_entries(
                 entry_index=entry_index,
                 prompt=item.prompt,
                 negative_prompt=item.negative_prompt,
-                character_lora=item.character_lora,
-                lora_list=item.lora_list,
                 entry_metadata=item.metadata,
                 origin=item.origin,
             )
@@ -182,8 +180,6 @@ async def import_prompt_registry_entries(
             entry.entry_index = entry_index
             entry.prompt = item.prompt
             entry.negative_prompt = item.negative_prompt
-            entry.character_lora = item.character_lora
-            entry.lora_list = item.lora_list
             entry.entry_metadata = item.metadata
             entry.origin = item.origin
             updated_count += 1
@@ -221,8 +217,6 @@ async def create_prompt_registry_entry(
         entry_index=entry_index,
         prompt=request.prompt,
         negative_prompt=request.negative_prompt,
-        character_lora=request.character_lora,
-        lora_list=request.lora_list,
         entry_metadata=request.metadata,
         origin=request.origin,
     )
@@ -263,8 +257,6 @@ async def update_prompt_registry_entry(
     entry.entry_index = entry_index
     entry.prompt = request.prompt
     entry.negative_prompt = request.negative_prompt
-    entry.character_lora = request.character_lora
-    entry.lora_list = request.lora_list
     entry.entry_metadata = request.metadata
     entry.origin = request.origin
     await session.commit()
@@ -372,8 +364,6 @@ def _entry_response(
         index=entry.entry_index,
         prompt=entry.prompt,
         negative_prompt=entry.negative_prompt,
-        character_lora=entry.character_lora,
-        lora_list=entry.lora_list,
         metadata=entry.entry_metadata,
         origin=entry.origin,
         media_count=media_count,

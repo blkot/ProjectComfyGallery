@@ -26,7 +26,7 @@ snapshot, or an evaluation.
 
 ## Evidence precedence
 
-For Prompt ID and Character LoRA display fields:
+For Prompt ID and related workflow display fields:
 
 1. Explicit `comfy_gallery_display_v1` values written by the saver.
 2. Verified execution output stored by historical recovery.
@@ -43,8 +43,11 @@ Each entry stores:
 
 - `source` and the zero-padded `index` from the Prompt ID;
 - positive and optional negative prompt text;
-- optional character LoRA and structured LoRA list;
 - source metadata and origin (`xanta-utils` by default).
+
+Character LoRA and ordinary LoRA lists are deliberately not part of a registry
+entry. They remain media/workflow evidence and can vary between generations
+that reuse the same prompt library item.
 
 The first implementation exposes authenticated list, lookup, create, update, and
 bulk upsert/import API operations. Lookup also returns every media whose trusted
@@ -68,8 +71,6 @@ translate whichever file format a local Xanta Utils installation uses:
   "index": "03786",
   "prompt": "...",
   "negative_prompt": "...",
-  "character_lora": "...",
-  "lora_list": [],
   "metadata": {}
 }
 ```
