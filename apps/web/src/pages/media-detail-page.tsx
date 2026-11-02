@@ -45,6 +45,7 @@ export function MediaDetailPage() {
   const queryClient = useQueryClient();
   const videoRef = useRef<HTMLVideoElement>(null);
   const favoriteButtonRef = useRef<HTMLButtonElement>(null);
+  const contentRatingShortcutRef = useRef<HTMLButtonElement>(null);
   const lastWheelNavigationAtRef = useRef(0);
   const activePanel =
     searchParams.get("panel") === "evaluation" ? "evaluation" : "information";
@@ -173,6 +174,14 @@ export function MediaDetailPage() {
         if (!favoriteButton || favoriteButton.disabled) return;
         event.preventDefault();
         favoriteButton.click();
+        return;
+      }
+
+      if (event.key.toLowerCase() === "n") {
+        const contentRatingButton = contentRatingShortcutRef.current;
+        if (!contentRatingButton || contentRatingButton.disabled) return;
+        event.preventDefault();
+        contentRatingButton.click();
       }
     }
 
@@ -221,7 +230,7 @@ export function MediaDetailPage() {
   return (
     <main
       className="media-record-workspace"
-      aria-keyshortcuts="ArrowLeft ArrowRight Space F"
+      aria-keyshortcuts="ArrowLeft ArrowRight Space F N"
     >
       <section className="media-record-preview" aria-label="Media preview">
         <header className="media-record-toolbar">
@@ -292,6 +301,7 @@ export function MediaDetailPage() {
               mediaId={item.id}
               rating={item.content_rating}
               className="media-record-content-rating"
+              shortcutButtonRef={contentRatingShortcutRef}
             />
             <a
               className="media-record-download"

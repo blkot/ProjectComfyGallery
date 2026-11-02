@@ -1278,7 +1278,7 @@ code {
   cursor: pointer;
 }
 
-.library-segmented-option span {
+.library-segmented-option > span {
   min-height: 34px;
   padding: 7px 8px;
   display: flex;
@@ -1298,13 +1298,24 @@ code {
     background 120ms ease;
 }
 
-.library-segmented-option[data-active="true"] span {
+.library-filter-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.library-segmented-option[data-active="true"] > span {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
-.library-segmented-option:hover span {
+.library-segmented-option:hover > span {
   border-color: var(--line);
   color: var(--text);
 }
@@ -6282,6 +6293,73 @@ textarea {
   gap: 18px;
 }
 
+.photo-wall-export {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  align-items: end;
+  gap: 6px;
+}
+
+.photo-wall-export legend {
+  margin: 0 0 4px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1;
+}
+
+.photo-wall-export label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.photo-wall-export input {
+  width: 48px;
+  height: 28px;
+  padding: 0 5px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text);
+  background: #11110f;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.photo-wall-export .secondary-button {
+  min-height: 28px;
+  padding: 5px 8px;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.photo-wall-export-status {
+  position: sticky;
+  z-index: 9;
+  top: 78px;
+  margin: 0;
+  padding: 7px 22px;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--muted);
+  background: rgba(10, 10, 9, 0.94);
+  font-size: 10px;
+  text-align: center;
+}
+
+.photo-wall-export-status[data-status="success"] {
+  color: #b9e58a;
+}
+
+.photo-wall-export-status[data-status="error"] {
+  color: #f09b91;
+}
+
 .photo-wall-zoom {
   gap: 9px;
   margin: 0;
@@ -6522,7 +6600,13 @@ textarea {
 
   .photo-wall-actions {
     width: 100%;
+    flex-wrap: wrap;
     justify-content: space-between;
+  }
+
+  .photo-wall-export {
+    width: 100%;
+    justify-content: flex-end;
   }
 
   .photo-wall-zoom input {

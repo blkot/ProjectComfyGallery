@@ -53,46 +53,67 @@ const libraryControlsStorageKey =
   "comfy-gallery.library-controls-collapsed";
 
 const mediaTypeFilterOptions = [
-  { value: "", label: "All" },
-  { value: "image", label: "Images" },
-  { value: "video", label: "Videos" },
-];
+  { value: "", label: "All", icon: "all" },
+  { value: "image", label: "Images", icon: "image" },
+  { value: "video", label: "Videos", icon: "video" },
+] as const;
 
 const trashFilterOptions = [
-  { value: "false", label: "Exclude" },
-  { value: "all", label: "Include" },
-  { value: "true", label: "Only" },
-];
+  { value: "false", label: "Exclude", icon: "exclude" },
+  { value: "all", label: "Include", icon: "include" },
+  { value: "true", label: "Only", icon: "only" },
+] as const;
 
 const favoriteFilterOptions = [
-  { value: "", label: "All" },
-  { value: "true", label: "Favorites" },
-  { value: "false", label: "Not fav" },
-];
+  { value: "", label: "All", icon: "all" },
+  { value: "true", label: "Favorites", icon: "favorite" },
+  { value: "false", label: "Not fav", icon: "not-favorite" },
+] as const;
 
 const contentRatingFilterOptions = [
-  { value: "", label: "All" },
-  { value: "sfw", label: "SFW" },
-  { value: "nsfw", label: "NSFW" },
-  { value: "unknown", label: "Unmarked" },
-];
+  { value: "", label: "All", icon: "all" },
+  { value: "sfw", label: "SFW", icon: "sfw" },
+  { value: "nsfw", label: "NSFW", icon: "nsfw" },
+  { value: "unknown", label: "Unmarked", icon: "unmarked" },
+] as const;
 
 const spatialPreferenceFilterOptions = [
-  { value: "", label: "Any" },
-  { value: "true", label: "Spatial" },
-  { value: "false", label: "2D" },
-];
+  { value: "", label: "Any", icon: "all" },
+  { value: "true", label: "Spatial", icon: "spatial" },
+  { value: "false", label: "2D", icon: "two-d" },
+] as const;
 
 const spatialAvailabilityFilterOptions = [
-  { value: "", label: "Any" },
-  { value: "true", label: "Ready" },
-  { value: "false", label: "Not ready" },
-];
+  { value: "", label: "Any", icon: "all" },
+  { value: "true", label: "Ready", icon: "ready" },
+  { value: "false", label: "Not ready", icon: "not-ready" },
+] as const;
+
+type LibraryFilterIconName =
+  | "all"
+  | "exclude"
+  | "favorite"
+  | "image"
+  | "include"
+  | "not-favorite"
+  | "not-ready"
+  | "nsfw"
+  | "only"
+  | "ready"
+  | "sfw"
+  | "spatial"
+  | "two-d"
+  | "unmarked"
+  | "video";
 
 type LibrarySegmentedFilterProps = {
   label: string;
   name: string;
-  options: ReadonlyArray<{ value: string; label: string }>;
+  options: ReadonlyArray<{
+    value: string;
+    label: string;
+    icon: LibraryFilterIconName;
+  }>;
   value: string;
   onChange: (value: string) => void;
 };
@@ -117,6 +138,7 @@ function LibrarySegmentedFilter({
             className="library-segmented-option"
             data-active={value === option.value}
             key={option.value || "all"}
+            title={option.label}
           >
             <input
               type="radio"
@@ -125,12 +147,133 @@ function LibrarySegmentedFilter({
               checked={value === option.value}
               onChange={() => onChange(option.value)}
             />
-            <span>{option.label}</span>
+            <span>
+              <LibraryFilterIcon name={option.icon} />
+              <span className="sr-only">{option.label}</span>
+            </span>
           </label>
         ))}
       </div>
     </fieldset>
   );
+}
+
+function LibraryFilterIcon({ name }: { name: LibraryFilterIconName }) {
+  const commonProps = {
+    "aria-hidden": true,
+    className: "library-filter-icon",
+    viewBox: "0 0 24 24",
+  } as const;
+
+  switch (name) {
+    case "all":
+      return (
+        <svg {...commonProps}>
+          <circle cx="6" cy="6" r="2" />
+          <circle cx="18" cy="6" r="2" />
+          <circle cx="6" cy="18" r="2" />
+          <circle cx="18" cy="18" r="2" />
+        </svg>
+      );
+    case "image":
+      return (
+        <svg {...commonProps}>
+          <rect x="3" y="4" width="18" height="16" rx="2" />
+          <circle cx="8" cy="9" r="1.5" />
+          <path d="m4 17 5-5 3 3 2-2 6 6" />
+        </svg>
+      );
+    case "video":
+      return (
+        <svg {...commonProps}>
+          <rect x="3" y="5" width="13" height="14" rx="2" />
+          <path d="m16 10 5-3v10l-5-3z" />
+        </svg>
+      );
+    case "exclude":
+      return (
+        <svg {...commonProps}>
+          <circle cx="12" cy="12" r="8" />
+          <path d="M8 8l8 8" />
+        </svg>
+      );
+    case "include":
+      return (
+        <svg {...commonProps}>
+          <circle cx="12" cy="12" r="8" />
+          <path d="M12 8v8M8 12h8" />
+        </svg>
+      );
+    case "only":
+      return (
+        <svg {...commonProps}>
+          <circle cx="12" cy="12" r="8" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      );
+    case "favorite":
+      return (
+        <svg {...commonProps}>
+          <path d="M12 20S4 15.5 4 9.5a4.5 4.5 0 0 1 8-2.8 4.5 4.5 0 0 1 8 2.8C20 15.5 12 20 12 20Z" />
+        </svg>
+      );
+    case "not-favorite":
+      return (
+        <svg {...commonProps}>
+          <path d="M12 20S4 15.5 4 9.5a4.5 4.5 0 0 1 8-2.8 4.5 4.5 0 0 1 8 2.8C20 15.5 12 20 12 20Z" />
+          <path d="m5 5 14 14" />
+        </svg>
+      );
+    case "sfw":
+      return (
+        <svg {...commonProps}>
+          <path d="M12 3 20 6v5c0 5-3.3 8.2-8 10-4.7-1.8-8-5-8-10V6z" />
+          <path d="m8 12 2.5 2.5L16 9" />
+        </svg>
+      );
+    case "nsfw":
+      return (
+        <svg {...commonProps}>
+          <path d="M12 3 20 6v5c0 5-3.3 8.2-8 10-4.7-1.8-8-5-8-10V6z" />
+          <path d="M12 8v5M12 16h.01" />
+        </svg>
+      );
+    case "unmarked":
+      return (
+        <svg {...commonProps}>
+          <path d="M12 3 20 6v5c0 5-3.3 8.2-8 10-4.7-1.8-8-5-8-10V6z" />
+          <path d="M8 12h8" />
+        </svg>
+      );
+    case "spatial":
+      return (
+        <svg {...commonProps}>
+          <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z" />
+          <path d="m4 7.5 8 4.5 8-4.5M12 12v9" />
+        </svg>
+      );
+    case "two-d":
+      return (
+        <svg {...commonProps}>
+          <rect x="4" y="5" width="16" height="14" rx="2" />
+          <path d="m7 15 3-3 2 2 2-2 3 3" />
+        </svg>
+      );
+    case "ready":
+      return (
+        <svg {...commonProps}>
+          <circle cx="12" cy="12" r="8" />
+          <path d="m8 12 2.5 2.5L16 9" />
+        </svg>
+      );
+    case "not-ready":
+      return (
+        <svg {...commonProps}>
+          <circle cx="12" cy="12" r="8" />
+          <path d="M12 8v4l3 2" />
+        </svg>
+      );
+  }
 }
 
 export function LibraryPage() {

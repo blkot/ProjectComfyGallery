@@ -627,6 +627,19 @@ describe("MediaDetailPage keyboard controls", () => {
     fireEvent.keyDown(video, { key: "f" });
     expect(favoriteClickMock).toHaveBeenCalledTimes(1);
 
+    fireEvent.keyDown(video, { key: "n" });
+    await waitFor(() => {
+      const contentRatingCall = apiRequestMock.mock.calls.find(
+        ([path]) => path === "/api/v1/media/media-1/content-rating",
+      );
+      expect(contentRatingCall?.[1]).toEqual(
+        expect.objectContaining({
+          method: "PUT",
+          body: JSON.stringify({ content_rating: "nsfw" }),
+        }),
+      );
+    });
+
     fireEvent.keyDown(video, { key: "ArrowRight" });
     await waitFor(() =>
       expect(screen.getByTestId("media-location")).toHaveTextContent(

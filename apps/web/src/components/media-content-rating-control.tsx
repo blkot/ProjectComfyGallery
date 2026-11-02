@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type { RefObject } from "react";
 
 import {
   apiRequest,
@@ -20,10 +21,12 @@ export function MediaContentRatingControl({
   mediaId,
   rating,
   className = "",
+  shortcutButtonRef,
 }: {
   mediaId: string;
   rating: ContentRating | null;
   className?: string;
+  shortcutButtonRef?: RefObject<HTMLButtonElement | null>;
 }) {
   const queryClient = useQueryClient();
   const mutation = useMutation({
@@ -79,12 +82,19 @@ export function MediaContentRatingControl({
       <span className="media-content-rating-label">Safety</span>
       {ratingOptions.map((option) => (
         <button
+          ref={
+            option.value === "nsfw" && rating !== "nsfw"
+              ? shortcutButtonRef
+              : undefined
+          }
           className="media-content-rating-option"
           data-rating={option.value}
           type="button"
           aria-pressed={rating === option.value}
+          aria-keyshortcuts={option.value === "nsfw" ? "N" : undefined}
           disabled={mutation.isPending}
           key={option.value}
+          title={option.value === "nsfw" ? "Mark NSFW (N)" : option.label}
           onClick={() => mutation.mutate(option.value)}
         >
           {option.label}
@@ -92,10 +102,13 @@ export function MediaContentRatingControl({
       ))}
       {rating ? (
         <button
+          ref={rating === "nsfw" ? shortcutButtonRef : undefined}
           className="media-content-rating-clear"
           type="button"
           aria-label="Clear content safety rating"
+          aria-keyshortcuts="N"
           disabled={mutation.isPending}
+          title="Clear content safety rating (N)"
           onClick={() => mutation.mutate(null)}
         >
           Clear

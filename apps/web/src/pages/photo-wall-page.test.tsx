@@ -94,6 +94,23 @@ describe("PhotoWallPage", () => {
     const backLink = await screen.findByRole("link", { name: "← Library" });
     expect(backLink).toHaveAttribute("href", "/library?kind=video&offset=48");
   });
+
+  it("validates the requested export row range", async () => {
+    renderPhotoWall("/photo-wall?kind=image");
+
+    await screen.findByRole("img", { name: "one.png" });
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Export from row" }), {
+      target: { value: "3" },
+    });
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Export to row" }), {
+      target: { value: "2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Export PNG" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Enter a valid row range.",
+    );
+  });
 });
 
 function renderPhotoWall(initialEntry: string) {

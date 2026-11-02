@@ -5,6 +5,11 @@ import { Link, useSearchParams } from "react-router";
 import { apiRequest, type MediaPage } from "../lib/api";
 import { buildPhotoWallRows } from "../lib/photo-wall";
 import {
+  photoWallSummaryTargetWidth,
+  renderPhotoWallSummary,
+  selectPhotoWallRows,
+} from "../lib/photo-wall-export";
+import {
   mediaDetailHref,
   mediaPageSize,
   photoWallQuery,
@@ -15,12 +20,23 @@ const minimumZoom = 0.5;
 const maximumZoom = 2;
 const zoomStep = 0.1;
 
+type PhotoWallExportState = {
+  status: "idle" | "working" | "success" | "error";
+  message: string;
+};
+
 export function PhotoWallPage() {
   const [searchParams] = useSearchParams();
   const wallRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(readViewportWidth);
   const [zoom, setZoom] = useState(1);
+  const [exportFromRow, setExportFromRow] = useState("1");
+  const [exportToRow, setExportToRow] = useState("1");
+  const [exportState, setExportState] = useState<PhotoWallExportState>({
+    status: "idle",
+    message: "",
+  });
   const loadingMoreRef = useRef(false);
   const wallSearch = useMemo(
     () => photoWallQuery(searchParams).toString(),
@@ -74,6 +90,76 @@ export function PhotoWallPage() {
       loadingMoreRef.current = false;
     });
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+
+  const loadRowsThrough = useCallback(
+    async (targetRow: number) => {
+      let currentItems = items;
+      let currentRows = buildPhotoWallRows(
+        currentItems,
+        containerWidth,
+        imageWidth,
+      );
+      let hasMore = hasNextPage;
+
+      while (currentRows.length < targetRow && hasMore) {
+        const result = await fetchNextPage();
+        currentItems =
+          result.data?.pages.flatMap((page) => page.items) ?? currentItems;
+        currentRows = buildPhotoWallRows(
+          currentItems,
+          containerWidth,
+          imageWidth,
+        );
+        hasMore = result.hasNextPage;
+      }
+
+      return currentRows;
+    },
+    [containerWidth, fetchNextPage, hasNextPage, imageWidth, items],
+  );
+
+  const handleExportSummary = useCallback(async () => {
+    const fromRow = parseRowNumber(exportFromRow);
+    const toRow = parseRowNumber(exportToRow);
+    if (fromRow === null || toRow === null || toRow < fromRow) {
+      setExportState({
+        status: "error",
+        message: "Enter a valid row range.",
+      });
+      return;
+    }
+
+    setExportState({ status: "working", message: "Loading selected rows…" });
+    try {
+      const loadedRows = await loadRowsThrough(toRow);
+      const selectedRows = selectPhotoWallRows(loadedRows, fromRow, toRow);
+      if (selectedRows.length !== toRow - fromRow + 1) {
+        throw new Error("The requested row range is outside the loaded images.");
+      }
+
+      setExportState({ status: "working", message: "Encoding summary PNG…" });
+      const blob = await renderPhotoWallSummary(
+        selectedRows,
+        photoWallSummaryTargetWidth,
+      );
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = `photo-wall-rows-${fromRow}-${toRow}.png`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+      setExportState({
+        status: "success",
+        message: `Downloaded rows ${fromRow}–${toRow} at approximately 4K width.`,
+      });
+    } catch (error) {
+      setExportState({
+        status: "error",
+        message:
+          error instanceof Error ? error.message : "Could not create the summary PNG.",
+      });
+    }
+  }, [exportFromRow, exportToRow, loadRowsThrough]);
 
   useEffect(() => {
     const element = wallRef.current;
@@ -158,8 +244,49 @@ export function PhotoWallPage() {
           <span className="photo-wall-count" aria-live="polite">
             {items.length} / {total || "—"} loaded
           </span>
+          <fieldset className="photo-wall-export">
+            <legend>Export rows</legend>
+            <label>
+              <span>From</span>
+              <input
+                aria-label="Export from row"
+                min="1"
+                onChange={(event) => setExportFromRow(event.target.value)}
+                type="number"
+                value={exportFromRow}
+              />
+            </label>
+            <label>
+              <span>To</span>
+              <input
+                aria-label="Export to row"
+                min="1"
+                onChange={(event) => setExportToRow(event.target.value)}
+                type="number"
+                value={exportToRow}
+              />
+            </label>
+            <button
+              className="secondary-button"
+              disabled={wall.isPending || exportState.status === "working"}
+              onClick={() => void handleExportSummary()}
+              type="button"
+            >
+              {exportState.status === "working" ? "Preparing…" : "Export PNG"}
+            </button>
+          </fieldset>
         </div>
       </header>
+
+      {exportState.message ? (
+        <p
+          className="photo-wall-export-status"
+          data-status={exportState.status}
+          role={exportState.status === "error" ? "alert" : "status"}
+        >
+          {exportState.message}
+        </p>
+      ) : null}
 
       {wall.isError ? (
         <section className="photo-wall-status" role="alert">
@@ -247,6 +374,11 @@ export function PhotoWallPage() {
 
 function readViewportWidth(): number {
   return typeof window === "undefined" ? 1280 : Math.max(window.innerWidth, 1);
+}
+
+function parseRowNumber(value: string): number | null {
+  const row = Number(value);
+  return Number.isInteger(row) && row > 0 ? row : null;
 }
 
 function safeLibraryPath(value: string | null): string {
