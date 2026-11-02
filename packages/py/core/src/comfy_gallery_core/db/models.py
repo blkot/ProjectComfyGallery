@@ -860,6 +860,48 @@ class WorkflowSnapshot(Base):
     )
 
 
+class PromptRegistryEntry(TimestampMixin, Base):
+    """A reusable Xanta-style prompt-library entry keyed by source and index."""
+
+    __tablename__ = "prompt_registry_entry"
+    __table_args__ = (
+        UniqueConstraint(
+            "source_key",
+            "entry_index",
+            name="uq_prompt_registry_source_index",
+        ),
+        Index("ix_prompt_registry_source", "source_key"),
+        Index("ix_prompt_registry_index", "entry_index"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid7)
+    source: Mapped[str] = mapped_column(String(256), nullable=False)
+    source_key: Mapped[str] = mapped_column(String(256), nullable=False)
+    entry_index: Mapped[str] = mapped_column(String(128), nullable=False)
+    prompt: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    negative_prompt: Mapped[str | None] = mapped_column(Text)
+    character_lora: Mapped[str | None] = mapped_column(String(1024))
+    lora_list: Mapped[list[object]] = mapped_column(
+        json_type,
+        nullable=False,
+        default=list,
+        server_default="[]",
+    )
+    entry_metadata: Mapped[dict[str, object]] = mapped_column(
+        "metadata",
+        json_type,
+        nullable=False,
+        default=dict,
+        server_default="{}",
+    )
+    origin: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        default="xanta-utils",
+        server_default="xanta-utils",
+    )
+
+
 class WorkflowNode(Base):
     __tablename__ = "workflow_node"
     __table_args__ = (

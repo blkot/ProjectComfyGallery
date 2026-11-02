@@ -4,6 +4,15 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.29 — 2026-11-02
+
+- Prefer visual workflow widget values over stale API ShowText caches when
+  resolving Prompt ID, Character LoRA, and related display fields.
+- Add a source-index Prompt Registry with bulk import, media lookup, and a
+  frontend registry page.
+- Make Prompt IDs in Media Detail link to their registry lookup and matching
+  media.
+
 ## 0.1.0-rc.28 — 2026-11-02
 
 - Browse output-declared model, LoRA, prompt and prompt library fields in Media Detail.

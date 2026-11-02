@@ -18,6 +18,7 @@ type NavigationIcon =
   | "models"
   | "nodes"
   | "operations"
+  | "prompts"
   | "review"
   | "tokens";
 
@@ -40,6 +41,7 @@ const navigationGroups: {
     items: [
       { to: "/registries/nodes", label: "Node Registry", icon: "nodes" },
       { to: "/registries/models", label: "Model Registry", icon: "models" },
+      { to: "/registries/prompts", label: "Prompt Registry", icon: "prompts" },
       { to: "/jobs", label: "Jobs", icon: "jobs" },
       { to: "/operations", label: "Operations", icon: "operations" },
       { to: "/settings/tokens", label: "API Tokens", icon: "tokens" },
@@ -190,6 +192,7 @@ function NavIcon({ name }: { name: NavigationIcon }) {
     models: ["M12 3 4 7v10l8 4 8-4V7z", "m4 7 8 4 8-4", "M12 11v10"],
     jobs: ["M4 7h16v12H4z", "M9 7V4h6v3", "M9 12h6"],
     operations: ["M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z", "M12 2v3", "M12 19v3", "m4.9 4.9-2.1-2.1", "m19.2 19.2-2.1-2.1", "M2 12h3", "M19 12h3", "m4.9 19.1-2.1 2.1", "m19.2 4.8-2.1 2.1"],
+    prompts: ["M5 4h14v16H5z", "M8 8h8", "M8 12h8", "M8 16h5"],
     tokens: ["M14 7a5 5 0 1 0-1 7l2 2h2v2h2v2h2v-3l-7-7", "M7.5 9.5h.01"],
   };
   return (

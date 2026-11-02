@@ -173,8 +173,8 @@ async def get_media_workflow(
             k: WorkflowDisplayFieldResponse.model_validate(asdict(v)) for k, v in fields.items()
         },
         display_candidates={
-            key: WorkflowWidgetCandidateResponse(value=value, node_id=node_id)
-            for key, (value, node_id) in candidates.items()
+            key: WorkflowWidgetCandidateResponse(value=value, node_id=node_id, source=source)
+            for key, (value, node_id, source) in candidates.items()
             if key not in fields
         },
         snapshot=WorkflowSnapshotResponse.model_validate(snapshot),

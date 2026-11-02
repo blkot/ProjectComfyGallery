@@ -280,6 +280,16 @@ Manual mappings have precedence. New schema variants may inherit a mapping only 
 
 Observations are append/version based. “Current” is a query over precedence, not destructive replacement.
 
+### `prompt_registry_entry`
+
+- Reusable Xanta-style prompt definition keyed by normalized source and a
+  zero-padded numeric index.
+- Positive/negative prompt text, optional character LoRA, structured LoRA list,
+  origin, and operator metadata.
+- Registry entries are enrichment, not workflow evidence. Media lookup parses
+  the trusted Prompt ID from each workflow and can therefore show unregistered
+  IDs without inventing a definition.
+
 ## Model registry
 
 ### `model_artifact`

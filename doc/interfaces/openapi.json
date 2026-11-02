@@ -5721,6 +5721,383 @@
         "title": "OperationalStatusResponse",
         "type": "object"
       },
+      "PromptRegistryEntryRequest": {
+        "properties": {
+          "character_lora": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Character Lora"
+          },
+          "index": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^\\d+$",
+            "title": "Index",
+            "type": "string"
+          },
+          "lora_list": {
+            "items": {},
+            "title": "Lora List",
+            "type": "array"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "negative_prompt": {
+            "anyOf": [
+              {
+                "maxLength": 200000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Negative Prompt"
+          },
+          "origin": {
+            "default": "xanta-utils",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Origin",
+            "type": "string"
+          },
+          "prompt": {
+            "default": "",
+            "maxLength": 200000,
+            "title": "Prompt",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "index"
+        ],
+        "title": "PromptRegistryEntryRequest",
+        "type": "object"
+      },
+      "PromptRegistryEntryResponse": {
+        "properties": {
+          "character_lora": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Character Lora"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "index": {
+            "title": "Index",
+            "type": "string"
+          },
+          "lora_list": {
+            "items": {},
+            "title": "Lora List",
+            "type": "array"
+          },
+          "media_count": {
+            "default": 0,
+            "title": "Media Count",
+            "type": "integer"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "negative_prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Negative Prompt"
+          },
+          "origin": {
+            "title": "Origin",
+            "type": "string"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "index",
+          "prompt",
+          "negative_prompt",
+          "character_lora",
+          "lora_list",
+          "metadata",
+          "origin",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PromptRegistryEntryResponse",
+        "type": "object"
+      },
+      "PromptRegistryImportRequest": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/PromptRegistryEntryRequest"
+            },
+            "maxItems": 2000,
+            "minItems": 1,
+            "title": "Entries",
+            "type": "array"
+          }
+        },
+        "required": [
+          "entries"
+        ],
+        "title": "PromptRegistryImportRequest",
+        "type": "object"
+      },
+      "PromptRegistryImportResponse": {
+        "properties": {
+          "created_count": {
+            "title": "Created Count",
+            "type": "integer"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/PromptRegistryEntryResponse"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "updated_count": {
+            "title": "Updated Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "created_count",
+          "updated_count",
+          "entries"
+        ],
+        "title": "PromptRegistryImportResponse",
+        "type": "object"
+      },
+      "PromptRegistryLookupResponse": {
+        "properties": {
+          "entry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PromptRegistryEntryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "index": {
+            "title": "Index",
+            "type": "string"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "media": {
+            "items": {
+              "$ref": "#/components/schemas/PromptRegistryMediaResponse"
+            },
+            "title": "Media",
+            "type": "array"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "prompt_id": {
+            "title": "Prompt Id",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "total_media": {
+            "title": "Total Media",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "prompt_id",
+          "source",
+          "index",
+          "entry",
+          "media",
+          "total_media",
+          "limit",
+          "offset"
+        ],
+        "title": "PromptRegistryLookupResponse",
+        "type": "object"
+      },
+      "PromptRegistryMediaResponse": {
+        "properties": {
+          "content_rating": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Rating"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Seconds"
+          },
+          "favorite": {
+            "title": "Favorite",
+            "type": "boolean"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "original_filename": {
+            "title": "Original Filename",
+            "type": "string"
+          },
+          "preview_url": {
+            "title": "Preview Url",
+            "type": "string"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "original_filename",
+          "width",
+          "height",
+          "duration_seconds",
+          "favorite",
+          "content_rating",
+          "preview_url",
+          "created_at"
+        ],
+        "title": "PromptRegistryMediaResponse",
+        "type": "object"
+      },
+      "PromptRegistryPageResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PromptRegistryEntryResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "PromptRegistryPageResponse",
+        "type": "object"
+      },
       "RegistrySyncCreatedResponse": {
         "properties": {
           "job": {
@@ -9166,6 +9543,14 @@
             "title": "Node Id",
             "type": "string"
           },
+          "source": {
+            "enum": [
+              "visual_workflow",
+              "api_prompt"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
           "value": {
             "title": "Value",
             "type": "string"
@@ -9173,7 +9558,8 @@
         },
         "required": [
           "value",
-          "node_id"
+          "node_id",
+          "source"
         ],
         "title": "WorkflowWidgetCandidateResponse",
         "type": "object"
@@ -9182,7 +9568,7 @@
   },
   "info": {
     "title": "Project Comfy Gallery API",
-    "version": "0.1.0-rc.28"
+    "version": "0.1.0-rc.29"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -14369,6 +14755,360 @@
         "summary": "Sync Node Registry",
         "tags": [
           "registries"
+        ]
+      }
+    },
+    "/api/v1/prompt-registry": {
+      "get": {
+        "operationId": "list_prompt_registry_entries_api_v1_prompt_registry_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 48,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptRegistryPageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Prompt Registry Entries",
+        "tags": [
+          "prompt-registry"
+        ]
+      },
+      "post": {
+        "operationId": "create_prompt_registry_entry_api_v1_prompt_registry_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromptRegistryEntryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptRegistryEntryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Prompt Registry Entry",
+        "tags": [
+          "prompt-registry"
+        ]
+      }
+    },
+    "/api/v1/prompt-registry/import": {
+      "post": {
+        "operationId": "import_prompt_registry_entries_api_v1_prompt_registry_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromptRegistryImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptRegistryImportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Prompt Registry Entries",
+        "tags": [
+          "prompt-registry"
+        ]
+      }
+    },
+    "/api/v1/prompt-registry/lookup": {
+      "get": {
+        "operationId": "lookup_prompt_registry_entry_api_v1_prompt_registry_lookup_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "prompt_id",
+            "required": true,
+            "schema": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Prompt Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 48,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptRegistryLookupResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lookup Prompt Registry Entry",
+        "tags": [
+          "prompt-registry"
+        ]
+      }
+    },
+    "/api/v1/prompt-registry/{entry_id}": {
+      "get": {
+        "operationId": "get_prompt_registry_entry_api_v1_prompt_registry__entry_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Entry Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 48,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptRegistryLookupResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Prompt Registry Entry",
+        "tags": [
+          "prompt-registry"
+        ]
+      },
+      "put": {
+        "operationId": "update_prompt_registry_entry_api_v1_prompt_registry__entry_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromptRegistryEntryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptRegistryEntryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Prompt Registry Entry",
+        "tags": [
+          "prompt-registry"
         ]
       }
     },

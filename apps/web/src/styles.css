@@ -3947,6 +3947,161 @@ textarea {
   background: var(--surface);
 }
 
+.workflow-display-card {
+  display: grid;
+  gap: 0;
+}
+
+.workflow-display-row {
+  min-width: 0;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line-soft);
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: start;
+  gap: 7px;
+}
+
+.workflow-display-row:last-child {
+  border-bottom: 0;
+}
+
+.workflow-display-row .workflow-display-label {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.workflow-display-inline-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.35;
+  white-space: pre-wrap;
+}
+
+.workflow-display-inline-value--prompt_id {
+  color: var(--accent);
+  font-family: "SFMono-Regular", Consolas, monospace;
+}
+
+.workflow-display-inline-value--prompt_id a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 38%, transparent);
+  text-underline-offset: 3px;
+}
+
+.workflow-display-inline-value--character_lora {
+  color: #c6e5f4;
+}
+
+.workflow-display-content {
+  min-width: 0;
+  max-height: 190px;
+  margin: 0;
+  padding: 10px 11px;
+  overflow: auto;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  color: var(--text);
+  background: #0d0d0b;
+  font: 10px/1.55 "SFMono-Regular", Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.workflow-display-content--prompt {
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.workflow-display-lora-list {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.workflow-display-lora-item {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  background: #0d0d0b;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.workflow-display-lora-name {
+  min-width: 0;
+  color: var(--text);
+  font-size: 10px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.workflow-display-lora-strengths {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+.workflow-display-lora-strength {
+  padding: 3px 5px;
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 8px;
+  white-space: nowrap;
+}
+
+.workflow-display-lora-strength strong {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.workflow-display-lora-empty {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.workflow-display-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.workflow-display-card-heading h2 {
+  margin: 0;
+}
+
+.workflow-candidate-card {
+  display: grid;
+  gap: 0;
+}
+
+@media (max-width: 580px) {
+  .workflow-display-lora-item {
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+
+  .workflow-display-lora-strengths {
+    justify-content: flex-start;
+  }
+}
+
 .workflow-priority-card .section-heading {
   align-items: flex-start;
   margin-bottom: 15px;
@@ -4827,6 +4982,185 @@ textarea {
   overflow-wrap: anywhere;
 }
 
+.prompt-registry-search {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 0.7fr);
+  gap: 14px;
+  align-items: end;
+}
+
+.prompt-registry-search form {
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.prompt-registry-search form label {
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+.prompt-registry-search .primary-button {
+  flex: 0 0 auto;
+}
+
+.prompt-registry-editor {
+  margin-top: 18px;
+  display: grid;
+  gap: 15px;
+}
+
+.prompt-registry-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.35fr) minmax(120px, 0.2fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.prompt-registry-editor-grid .wide-field {
+  grid-column: span 3;
+}
+
+.prompt-registry-layout {
+  margin-top: 32px;
+  display: grid;
+  grid-template-columns: minmax(360px, 0.75fr) minmax(520px, 1.25fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.prompt-registry-list {
+  min-width: 0;
+}
+
+.prompt-registry-detail {
+  position: sticky;
+  top: 18px;
+  min-width: 0;
+  max-height: calc(100vh - 36px);
+  overflow: auto;
+}
+
+.prompt-registry-detail.empty-state {
+  min-height: 280px;
+  display: grid;
+  align-content: center;
+}
+
+.prompt-registry-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.prompt-registry-detail-header h2 {
+  margin-bottom: 0;
+  overflow-wrap: anywhere;
+  font-family: "SFMono-Regular", Consolas, monospace;
+}
+
+.prompt-registry-text {
+  margin-top: 22px;
+}
+
+.prompt-registry-text > small,
+.prompt-registry-fact > small {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.prompt-registry-text pre {
+  max-height: 230px;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+  color: var(--text);
+  background: #0d0d0b;
+  font: 11px/1.65 "SFMono-Regular", Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.prompt-registry-fact {
+  margin-top: 18px;
+}
+
+.prompt-registry-fact code {
+  overflow-wrap: anywhere;
+  color: #c6e5f4;
+  font-size: 10px;
+}
+
+.prompt-registry-media-heading {
+  margin-top: 28px;
+  padding-top: 17px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.prompt-registry-media-heading h3 {
+  margin-bottom: 0;
+  font-size: 12px;
+}
+
+.prompt-registry-media-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.prompt-registry-media-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+  color: var(--text);
+  background: #0d0d0b;
+  text-decoration: none;
+}
+
+.prompt-registry-media-card:hover {
+  border-color: var(--accent);
+}
+
+.prompt-registry-media-card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+}
+
+.prompt-registry-media-card > span {
+  min-width: 0;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.prompt-registry-media-card strong,
+.prompt-registry-media-card small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prompt-registry-media-card strong {
+  font-size: 9px;
+}
+
+.prompt-registry-media-card small {
+  color: var(--muted);
+  font-size: 8px;
+}
+
 .breakable {
   overflow-wrap: anywhere;
 }
@@ -5183,14 +5517,25 @@ textarea {
 
   .registry-sync-panel,
   .registry-split,
-  .alias-columns {
+  .alias-columns,
+  .prompt-registry-layout,
+  .prompt-registry-search {
     grid-template-columns: 1fr;
   }
 
   .registry-detail,
-  .registry-detail.empty-state {
+  .registry-detail.empty-state,
+  .prompt-registry-detail {
     position: static;
     max-height: none;
+  }
+
+  .prompt-registry-editor-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .prompt-registry-editor-grid .wide-field {
+    grid-column: span 2;
   }
 
   .media-grid {
@@ -5389,8 +5734,26 @@ textarea {
   }
 
   .registry-toolbar,
-  .registry-form-row {
+  .registry-form-row,
+  .prompt-registry-editor-grid {
     grid-template-columns: 1fr;
+  }
+
+  .prompt-registry-editor-grid .wide-field {
+    grid-column: auto;
+  }
+
+  .prompt-registry-search form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .prompt-registry-search .primary-button {
+    align-self: flex-start;
+  }
+
+  .prompt-registry-media-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .registry-record {
@@ -6384,9 +6747,17 @@ textarea {
 }
 
 .photo-wall-grid {
+  --photo-wall-row-label-width: 34px;
   width: 100%;
   display: flex;
   flex-direction: column;
+}
+
+.photo-wall-row-shell {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--photo-wall-row-label-width);
+  align-items: stretch;
 }
 
 .photo-wall-row {
@@ -6395,6 +6766,21 @@ textarea {
   display: flex;
   align-items: center;
   overflow: hidden;
+}
+
+.photo-wall-row-number {
+  align-self: center;
+  justify-self: center;
+  min-width: 20px;
+  padding: 5px 4px;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgba(17, 17, 15, 0.92);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-align: center;
 }
 
 .photo-wall-item {

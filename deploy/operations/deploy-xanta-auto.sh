@@ -55,8 +55,8 @@ Examples:
   ./deploy/operations/deploy-xanta-auto.sh plan
   ./deploy/operations/deploy-xanta-auto.sh auto --dry-run
   ./deploy/operations/deploy-xanta-auto.sh auto --yes
-  ./deploy/operations/deploy-xanta-auto.sh ship --release-version 0.1.0-rc.28
-  ./deploy/operations/deploy-xanta-auto.sh release --release-version 0.1.0-rc.28
+  ./deploy/operations/deploy-xanta-auto.sh ship --release-version 0.1.0-rc.29
+  ./deploy/operations/deploy-xanta-auto.sh release --release-version 0.1.0-rc.29
 
 Environment overrides:
   XANTA_NAS_HELPER

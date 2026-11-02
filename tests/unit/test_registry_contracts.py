@@ -4,6 +4,7 @@ import pytest
 from comfy_gallery_core.config import Settings
 from comfy_gallery_core.db.models import NodeDefinition
 from comfy_gallery_core.media.errors import IngestionError
+from comfy_gallery_core.prompt_registry import parse_prompt_id
 from comfy_gallery_core.registry.aliases import (
     model_reference_alias_display,
     model_reference_alias_key,
@@ -125,6 +126,17 @@ def test_input_loader_mapping_is_suggested_from_node_schema() -> None:
     assert suggestions[0].locator == "input:file"
     assert suggestions[0].semantic_type == "input_media_reference"
     assert suggestions[0].role == "video"
+
+
+def test_prompt_id_parser_uses_the_final_numeric_suffix_and_preserves_padding() -> None:
+    parsed = parse_prompt_id(" sfw-zimage-por-v3 - 003786 ")
+
+    assert parsed is not None
+    assert parsed.source == "sfw-zimage-por-v3"
+    assert parsed.index == "003786"
+    assert parsed.index_value == 3786
+    assert parsed.display == "sfw-zimage-por-v3 - 003786"
+    assert parse_prompt_id("not-a-prompt-id") is None
 
 
 def test_model_reference_alias_key_only_sanitizes_path_extension_and_match_case() -> None:

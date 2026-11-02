@@ -56,6 +56,7 @@ describe("PhotoWallPage", () => {
 
     expect(await screen.findByRole("img", { name: "one.png" })).toBeVisible();
     expect(screen.getByRole("img", { name: "two.png" })).toBeVisible();
+    expect(screen.getByRole("group", { name: "Row 1" })).toBeVisible();
 
     const firstRequest = new URL(
       apiRequestMock.mock.calls[0]?.[0] as string,

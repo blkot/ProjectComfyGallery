@@ -365,7 +365,7 @@ export type WorkflowSnapshot = {
 };
 
 export type WorkflowDetail = {
-  display_candidates?: Partial<Record<"base_model" | "lora_list" | "character_lora" | "prompt" | "prompt_id", { value: string; node_id: string }>>;
+  display_candidates?: Partial<Record<"base_model" | "lora_list" | "character_lora" | "prompt" | "prompt_id", { value: string; node_id: string; source: "visual_workflow" | "api_prompt" }>>;
   display_fields?: Partial<Record<"base_model" | "lora_list" | "character_lora" | "prompt" | "prompt_id", WorkflowDisplayField>>;
   media_id: string;
   status: string;
@@ -587,6 +587,52 @@ export type RegistrySyncRun = {
 export type RegistrySyncCreated = {
   sync_run: RegistrySyncRun;
   job: Job;
+};
+
+export type PromptRegistryEntry = {
+  id: string;
+  source: string;
+  index: string;
+  prompt: string;
+  negative_prompt: string | null;
+  character_lora: string | null;
+  lora_list: unknown[];
+  metadata: Record<string, unknown>;
+  origin: string;
+  media_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PromptRegistryPage = {
+  items: PromptRegistryEntry[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export type PromptRegistryMedia = {
+  id: string;
+  kind: "image" | "video" | string;
+  original_filename: string;
+  width: number | null;
+  height: number | null;
+  duration_seconds: number | null;
+  favorite: boolean;
+  content_rating: ContentRating | null;
+  preview_url: string;
+  created_at: string;
+};
+
+export type PromptRegistryLookup = {
+  prompt_id: string;
+  source: string;
+  index: string;
+  entry: PromptRegistryEntry | null;
+  media: PromptRegistryMedia[];
+  total_media: number;
+  limit: number;
+  offset: number;
 };
 
 export type NodeMapping = {

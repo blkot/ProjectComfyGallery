@@ -16,6 +16,7 @@ import {
 } from "../lib/media-view";
 
 const defaultImageWidth = 190;
+const photoWallRowLabelWidth = 34;
 const minimumZoom = 0.5;
 const maximumZoom = 2;
 const zoomStep = 0.1;
@@ -70,9 +71,13 @@ export function PhotoWallPage() {
   );
   const total = wall.data?.pages[0]?.total ?? 0;
   const imageWidth = defaultImageWidth * zoom;
+  const photoWallContentWidth = Math.max(
+    1,
+    containerWidth - photoWallRowLabelWidth,
+  );
   const rows = useMemo(
-    () => buildPhotoWallRows(items, containerWidth, imageWidth),
-    [containerWidth, imageWidth, items],
+    () => buildPhotoWallRows(items, photoWallContentWidth, imageWidth),
+    [imageWidth, items, photoWallContentWidth],
   );
   const eagerItemIds = useMemo(
     () => new Set(items.slice(0, 16).map((item) => item.id)),
@@ -96,7 +101,7 @@ export function PhotoWallPage() {
       let currentItems = items;
       let currentRows = buildPhotoWallRows(
         currentItems,
-        containerWidth,
+        photoWallContentWidth,
         imageWidth,
       );
       let hasMore = hasNextPage;
@@ -107,7 +112,7 @@ export function PhotoWallPage() {
           result.data?.pages.flatMap((page) => page.items) ?? currentItems;
         currentRows = buildPhotoWallRows(
           currentItems,
-          containerWidth,
+          photoWallContentWidth,
           imageWidth,
         );
         hasMore = result.hasNextPage;
@@ -115,7 +120,7 @@ export function PhotoWallPage() {
 
       return currentRows;
     },
-    [containerWidth, fetchNextPage, hasNextPage, imageWidth, items],
+    [fetchNextPage, hasNextPage, imageWidth, items, photoWallContentWidth],
   );
 
   const handleExportSummary = useCallback(async () => {
@@ -317,35 +322,44 @@ export function PhotoWallPage() {
           >
             {rows.map((row, rowIndex) => (
               <div
-                className="photo-wall-row"
+                className="photo-wall-row-shell"
                 key={`${row.items[0]?.item.id ?? "row"}-${rowIndex}`}
-                style={{ minHeight: `${row.height}px` }}
+                role="group"
+                aria-label={`Row ${rowIndex + 1}`}
               >
-                {row.items.map(({ item, width, height }) => (
-                  <Link
-                    className="photo-wall-item"
-                    key={item.id}
-                    style={{ height: `${height}px`, width: `${width}px` }}
-                    to={mediaDetailHref(item.id, detailSearch)}
-                    title={item.original_filename}
-                  >
-                    {item.status === "ready" ||
-                    item.status === "ready_with_warnings" ? (
-                      <img
-                        alt={item.original_filename}
-                        decoding="async"
-                        height={height}
-                        loading={eagerItemIds.has(item.id) ? "eager" : "lazy"}
-                        src={item.preview_url}
-                        width={width}
-                      />
-                    ) : (
-                      <span className="photo-wall-placeholder">
-                        {item.original_filename}
-                      </span>
-                    )}
-                  </Link>
-                ))}
+                <div
+                  className="photo-wall-row"
+                  style={{ minHeight: `${row.height}px` }}
+                >
+                  {row.items.map(({ item, width, height }) => (
+                    <Link
+                      className="photo-wall-item"
+                      key={item.id}
+                      style={{ height: `${height}px`, width: `${width}px` }}
+                      to={mediaDetailHref(item.id, detailSearch)}
+                      title={item.original_filename}
+                    >
+                      {item.status === "ready" ||
+                      item.status === "ready_with_warnings" ? (
+                        <img
+                          alt={item.original_filename}
+                          decoding="async"
+                          height={height}
+                          loading={eagerItemIds.has(item.id) ? "eager" : "lazy"}
+                          src={item.preview_url}
+                          width={width}
+                        />
+                      ) : (
+                        <span className="photo-wall-placeholder">
+                          {item.original_filename}
+                        </span>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+                <span className="photo-wall-row-number" aria-hidden="true">
+                  {rowIndex + 1}
+                </span>
               </div>
             ))}
           </section>

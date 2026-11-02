@@ -232,6 +232,23 @@ gallery list response. The raw endpoint returns preserved decoded carrier metada
 exact prompt/workflow strings where available, and decoded JSON only after an
 explicit detail request.
 
+Prompt registry endpoints:
+
+```text
+GET    /api/v1/prompt-registry
+GET    /api/v1/prompt-registry/lookup?prompt_id=<source%20-%20index>
+GET    /api/v1/prompt-registry/:entryId
+POST   /api/v1/prompt-registry
+POST   /api/v1/prompt-registry/import
+PUT    /api/v1/prompt-registry/:entryId
+```
+
+Prompt registry entries follow the Xanta-compatible `source - index` identity.
+The lookup endpoint parses the final numeric suffix, preserves leading zeroes,
+and returns both the optional registry definition and every media whose trusted
+workflow Prompt ID resolves to the same source/index. A registry definition is
+optional: unregistered but parseable IDs remain discoverable from media evidence.
+
 ### Workflow input capture
 
 Workflow extraction detects input images and videos from API-prompt nodes. Built-in

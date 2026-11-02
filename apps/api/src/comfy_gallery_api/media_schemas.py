@@ -494,6 +494,7 @@ class WorkflowDisplayFieldResponse(BaseModel):
 class WorkflowWidgetCandidateResponse(BaseModel):
     value: str
     node_id: str
+    source: Literal["visual_workflow", "api_prompt"]
 
 
 class WorkflowDetailResponse(BaseModel):

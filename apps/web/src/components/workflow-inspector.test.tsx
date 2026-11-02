@@ -113,6 +113,7 @@ describe("WorkflowInspector LoRA evidence", () => {
       display_fields: {
         prompt: { value: "executed prompt", source: "save_node", node_id: "9" },
         prompt_id: { value: "0007", source: "verified_history", node_id: "827", job_id: "job" },
+        character_lora: { value: "character.safetensors", source: "save_node", node_id: "9" },
         lora_list: { value: [], source: "save_node", node_id: "9" },
       },
     });
@@ -120,11 +121,46 @@ describe("WorkflowInspector LoRA evidence", () => {
     render(<QueryClientProvider client={client}><WorkflowInspector mediaId="media-1" /></QueryClientProvider>);
     expect(await screen.findByText("executed prompt")).toBeVisible();
     expect(screen.getByText("0007")).toBeVisible();
+    expect(screen.getByText("character.safetensors")).toBeVisible();
+    expect(screen.getByText("0007")).toHaveClass("workflow-display-inline-value");
+    expect(screen.getByText("character.safetensors")).toHaveClass(
+      "workflow-display-inline-value",
+    );
+    expect(screen.getByRole("heading", { level: 3, name: "Prompt ID" })).toBeVisible();
+    expect(screen.getByRole("heading", { level: 3, name: "Character LoRA" })).toBeVisible();
+    expect(screen.getByRole("heading", { level: 3, name: "LoRA list" })).toBeVisible();
+    expect(screen.getByRole("heading", { level: 3, name: "Positive prompt" })).toBeVisible();
+    expect(screen.queryByText("Display overrides")).not.toBeInTheDocument();
+    expect(screen.queryByText("Declared by save node")).not.toBeInTheDocument();
     expect(screen.getByText("No LoRAs")).toBeVisible();
     const original = screen.getByText("Original LoRA evidence").closest("details");
     expect(original).not.toHaveAttribute("open");
     expect(original).toHaveTextContent("style.safetensors");
   });
+
+  it("extracts common LoRA tokens from a string-valued display field", async () => {
+    apiRequestMock.mockResolvedValue({
+      ...workflow,
+      display_fields: {
+        lora_list: {
+          value: "<lora:character.safetensors:0.8>, style.safetensors:0.4",
+          source: "save_node",
+          node_id: "9",
+        },
+      },
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={client}><WorkflowInspector mediaId="media-1" /></QueryClientProvider>);
+
+    const row = await screen.findByRole("heading", { level: 3, name: "LoRA list" });
+    const loraItems = row.parentElement?.querySelectorAll(".workflow-display-lora-item");
+    expect(loraItems).toHaveLength(2);
+    expect(loraItems?.[0]).toHaveTextContent("character.safetensors");
+    expect(loraItems?.[0]).toHaveTextContent("Strength 0.80");
+    expect(loraItems?.[1]).toHaveTextContent("style.safetensors");
+    expect(loraItems?.[1]).toHaveTextContent("Strength 0.40");
+  });
+
   it("distinguishes missing runtime values from prompt text and model uses", async () => {
     const base = workflow.observations[0];
     apiRequestMock.mockResolvedValue({

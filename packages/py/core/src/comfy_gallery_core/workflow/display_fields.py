@@ -7,9 +7,11 @@ import json
 import math
 from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Literal
 
 DISPLAY_KEY = "comfy_gallery_display_v1"
 FIELDS = ("base_model", "lora_list", "character_lora", "prompt", "prompt_id")
+WidgetCandidateSource = Literal["visual_workflow", "api_prompt"]
 
 
 def wire(value: object) -> tuple[str, int] | None:
@@ -140,9 +142,20 @@ def workflow_uuid(visual: Mapping[str, object] | None) -> str | None:
 
 
 def widget_candidates(
-    api: Mapping[str, object], bindings: Mapping[str, str]
-) -> dict[str, str | None]:
-    values = {}
+    api: Mapping[str, object],
+    bindings: Mapping[str, str],
+    visual: Mapping[str, object] | None = None,
+) -> dict[str, tuple[str | None, WidgetCandidateSource]]:
+    """Return unverified ShowText candidates with their evidence source.
+
+    The API graph's ``text_0`` value is a ComfyUI widget cache.  For dynamic
+    prompt-library nodes it can be stale even when the saved canvas is correct.
+    Prefer the visual workflow's widget snapshot, then fall back to the API
+    cache for workflows that do not carry a visual representation.
+    """
+
+    values: dict[str, tuple[str | None, WidgetCandidateSource]] = {}
+    visual_nodes = _visual_nodes(visual)
     for field, node_id in bindings.items():
         node = api.get(node_id)
         if (
@@ -154,15 +167,41 @@ def widget_candidates(
             or link[0] not in api
         ):
             raise ValueError(f"Invalid ShowText binding for {field} at node {node_id}.")
+        visual_value = _visual_widget_text(visual_nodes.get(str(node_id)))
+        if visual_value is not None:
+            values[field] = (visual_value, "visual_workflow")
+            continue
         cached = node["inputs"].get("text_0")
-        values[field] = cached if isinstance(cached, str) else None
+        values[field] = (cached if isinstance(cached, str) else None, "api_prompt")
     return values
+
+
+def _visual_nodes(visual: Mapping[str, object] | None) -> dict[str, Mapping[str, object]]:
+    raw_nodes = visual.get("nodes") if isinstance(visual, Mapping) else None
+    if not isinstance(raw_nodes, list):
+        return {}
+    return {
+        str(node.get("id")): node
+        for node in raw_nodes
+        if isinstance(node, Mapping) and node.get("id") is not None
+    }
+
+
+def _visual_widget_text(node: Mapping[str, object] | None) -> str | None:
+    if node is None:
+        return None
+    widgets = node.get("widgets_values")
+    if not isinstance(widgets, list):
+        return None
+    # ShowText has one visible text widget in the supported Xanta workflow.
+    # Keep this conservative: only a string can be promoted to a candidate.
+    return next((value for value in widgets if isinstance(value, str)), None)
 
 
 def read_shows(
     api: Mapping[str, object], outputs: Mapping[str, object], bindings: Mapping[str, str]
 ) -> dict[str, str]:
-    widget_candidates(api, bindings)  # validate the wiring; never promote the cached strings
+    widget_candidates(api, bindings)  # validate the wiring; never promote widget snapshots
     values = {}
     for field, node_id in bindings.items():
         output = outputs.get(node_id)

@@ -45,6 +45,11 @@ const ModelRegistryPage = lazy(() =>
     default: module.ModelRegistryPage,
   })),
 );
+const PromptRegistryPage = lazy(() =>
+  import("../pages/prompt-registry-page").then((module) => ({
+    default: module.PromptRegistryPage,
+  })),
+);
 const MediaDetailPage = lazy(() =>
   import("../pages/media-detail-page").then((module) => ({
     default: module.MediaDetailPage,
@@ -169,6 +174,7 @@ export const router = createBrowserRouter([
       { path: "/registries", element: <Navigate to="/registries/nodes" replace /> },
       { path: "/registries/nodes", element: <NodeRegistryPage /> },
       { path: "/registries/models", element: <ModelRegistryPage /> },
+      { path: "/registries/prompts", element: <PromptRegistryPage /> },
       { path: "/settings/tokens", element: <TokensPage /> },
     ],
   },

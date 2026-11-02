@@ -226,7 +226,16 @@ async def test_offline_profile_projects_only_approved_graphs_without_job_history
                     visual_workflow_status="parsed",
                     parse_status="parsed",
                     api_prompt=api,
-                    visual_workflow={"id": uid if n != 3 else str(uuid4())},
+                    visual_workflow={
+                        "id": uid if n != 3 else str(uuid4()),
+                        "nodes": [
+                            {
+                                "id": "827",
+                                "type": "ShowText|pysssss",
+                                "widgets_values": [f"visual-{n:04d}"],
+                            }
+                        ],
+                    },
                 )
                 session.add(s)
                 rows.append(s)
@@ -243,7 +252,9 @@ async def test_offline_profile_projects_only_approved_graphs_without_job_history
             assert not await candidate_fields(session, rows[0])
             for _ in range(2):
                 await install_profile(session, spec, apply=True)
-            assert await candidate_fields(session, rows[1]) == {"prompt_id": ("cached-007", "827")}
+            assert await candidate_fields(session, rows[1]) == {
+                "prompt_id": ("visual-0001", "827", "visual_workflow")
+            }
             assert not await candidate_fields(session, rows[2])
             assert not await candidate_fields(session, rows[3])
             with pytest.raises(ValueError, match="different mapping"):

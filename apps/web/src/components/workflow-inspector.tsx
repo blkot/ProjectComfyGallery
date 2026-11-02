@@ -9,6 +9,7 @@ import {
   type WorkflowDetail,
   type WorkflowModelUsage,
   type WorkflowNode,
+  type WorkflowDisplayField,
   type WorkflowRawEvidence,
 } from "../lib/api";
 import { copyText } from "../lib/clipboard";
@@ -452,35 +453,39 @@ function ObservationPanel({
 }
 
 const displayLabels = {
-  prompt_id: "Prompt library ID",
+  prompt_id: "Prompt ID",
   character_lora: "Character LoRA",
-  base_model: "Base model",
   lora_list: "LoRA list",
   prompt: "Positive prompt",
+  base_model: "Base model",
 } as const;
 
+type DisplayFieldKey = keyof typeof displayLabels;
+
+const displayFieldKeys: DisplayFieldKey[] = [
+  "prompt_id",
+  "character_lora",
+  "lora_list",
+  "prompt",
+  "base_model",
+];
+
 function DisplayFields({ fields }: { fields: WorkflowDetail["display_fields"] }) {
-  if (!fields || !Object.keys(fields).length) return null;
+  const availableKeys = displayFieldKeys.filter((key) => fields?.[key]);
+  if (!availableKeys.length) return null;
+
   return (
-    <article className="workflow-priority-card">
-      <h2>Display overrides</h2>
-      {(Object.keys(displayLabels) as (keyof typeof displayLabels)[]).map((key) => {
-        const field = fields[key];
+    <article
+      className="workflow-priority-card workflow-display-card"
+      aria-label="Workflow display metadata"
+    >
+      {availableKeys.map((key) => {
+        const field = fields?.[key];
         if (!field) return null;
-        const text = typeof field.value === "string"
-          ? field.value
-          : field.value.map(([name, model, clip]) =>
-              `${name} · model ${model}, CLIP ${clip}`,
-            ).join("\n");
         return (
-          <section className="model-evidence-group" key={key}>
-            <h3>{displayLabels[key]}</h3>
-            <pre className="workflow-prompt">
-              {text || (key === "lora_list" ? "No LoRAs" : "(empty)")}
-            </pre>
-            <small className="muted" title={field.job_id ?? undefined}>
-              {field.source === "save_node" ? "Declared by save node" : "Verified execution · display node"} {field.node_id}
-            </small>
+          <section className="workflow-display-row" data-field={key} key={key}>
+            <h3 className="workflow-display-label">{displayLabels[key]}</h3>
+            <DisplayFieldValue fieldKey={key} value={field.value} />
           </section>
         );
       })}
@@ -489,22 +494,183 @@ function DisplayFields({ fields }: { fields: WorkflowDetail["display_fields"] })
 }
 
 function WidgetCandidates({ candidates }: { candidates: WorkflowDetail["display_candidates"] }) {
-  if (!candidates || !Object.keys(candidates).length) return null;
+  if (!candidates) return null;
+  const availableKeys = displayFieldKeys.filter((key) => candidates[key]);
+  if (!availableKeys.length) return null;
   return (
-    <article className="workflow-priority-card">
-      <h2>Embedded workflow text</h2>
-      <p className="muted">Saved widget text can come from an earlier run. These values are unverified.</p>
-      {(Object.keys(displayLabels) as (keyof typeof displayLabels)[]).map(key => {
+    <article className="workflow-priority-card workflow-candidate-card">
+      <header className="workflow-display-card-heading">
+        <h2>Embedded text</h2>
+        <span className="status-chip" data-status="unverified">Unverified</span>
+      </header>
+      {availableKeys.map((key) => {
         const item = candidates[key];
-        return item ? (
-          <section className="model-evidence-group" key={key}>
-            <h3>{displayLabels[key]}</h3>
-            <pre className="workflow-prompt">{item.value || "(empty)"}</pre>
-            <small className="muted">Embedded ShowText node {item.node_id}</small>
+        if (!item) return null;
+        return (
+          <section className="workflow-display-row" data-field={key} key={key}>
+            <h3 className="workflow-display-label">{displayLabels[key]}</h3>
+            <DisplayFieldValue fieldKey={key} value={item.value || "(empty)"} />
           </section>
-        ) : null;
+        );
       })}
-    </article>);
+    </article>
+  );
+}
+
+function DisplayFieldValue({
+  fieldKey,
+  value,
+}: {
+  fieldKey: DisplayFieldKey;
+  value: WorkflowDisplayField["value"];
+}) {
+  if (fieldKey === "prompt_id" || fieldKey === "character_lora") {
+    const text = formatDisplayFieldValue(value) || "—";
+    return (
+      <div
+        className={`workflow-display-inline-value workflow-display-inline-value--${fieldKey}`}
+      >
+        {fieldKey === "prompt_id" && text !== "—" ? (
+          <a
+            className={`workflow-display-inline-value workflow-display-inline-value--${fieldKey}`}
+            href={`/registries/prompts?prompt_id=${encodeURIComponent(text)}`}
+          >
+            {text}
+          </a>
+        ) : (
+          text
+        )}
+      </div>
+    );
+  }
+
+  if (fieldKey === "lora_list") return <LoraListValue value={value} />;
+
+  return (
+    <pre className={`workflow-display-content workflow-display-content--${fieldKey}`}>
+      {formatDisplayFieldValue(value)}
+    </pre>
+  );
+}
+
+function formatDisplayFieldValue(value: WorkflowDisplayField["value"]): string {
+  const text = typeof value === "string"
+    ? value
+    : value.map(([name, model, clip]) => `${name} · model ${model}, CLIP ${clip}`).join("\n");
+  return text || "(empty)";
+}
+
+type LoraDisplayEntry = {
+  name: string;
+  modelStrength: number | string | null;
+  clipStrength: number | string | null;
+  strengthLabel?: "strength";
+};
+
+function LoraListValue({ value }: { value: WorkflowDisplayField["value"] }) {
+  const entries = parseLoraListValue(value);
+  if (entries === null) {
+    return (
+      <pre className="workflow-display-content workflow-display-content--lora-list">
+        {typeof value === "string" && value.trim() ? value : "No LoRAs"}
+      </pre>
+    );
+  }
+  if (entries.length === 0) {
+    return <div className="workflow-display-lora-empty">No LoRAs</div>;
+  }
+  return (
+    <div className="workflow-display-lora-list">
+      {entries.map((entry, index) => (
+        <div className="workflow-display-lora-item" key={`${entry.name}-${index}`}>
+          <strong className="workflow-display-lora-name">{entry.name}</strong>
+          <div className="workflow-display-lora-strengths">
+            {entry.strengthLabel ? (
+              <span className="workflow-display-lora-strength">
+                Strength <strong>{formatLoraStrength(entry.modelStrength)}</strong>
+              </span>
+            ) : (
+              <>
+                <span className="workflow-display-lora-strength">
+                  Model <strong>{formatLoraStrength(entry.modelStrength)}</strong>
+                </span>
+                <span className="workflow-display-lora-strength">
+                  CLIP <strong>{formatLoraStrength(entry.clipStrength)}</strong>
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function parseLoraListValue(value: WorkflowDisplayField["value"]): LoraDisplayEntry[] | null {
+  if (Array.isArray(value)) {
+    return value.map(([name, model, clip]) => ({
+      name,
+      modelStrength: model,
+      clipStrength: clip,
+    }));
+  }
+
+  const text = value.trim();
+  if (!text) return [];
+
+  const tagMatches = Array.from(
+    text.matchAll(
+      /<lora:([^:>]+)(?::(-?(?:\d+(?:\.\d+)?|\.\d+)))?(?::(-?(?:\d+(?:\.\d+)?|\.\d+)))?>/gi,
+    ),
+  );
+  const fileMatches = Array.from(
+    text.matchAll(
+      /(?:^|[\s,;|])([^<>\s,;|]+?\.(?:safetensors|ckpt|pt|bin))(?::(-?(?:\d+(?:\.\d+)?|\.\d+)))?(?=$|[\s,;|])/gi,
+    ),
+  );
+  const extracted = [
+    ...tagMatches.map((match) => {
+      const [, name, modelStrength, clipStrength] = match;
+      const strengths = [modelStrength, clipStrength]
+        .filter(Boolean)
+        .map((strength) => Number(strength).toFixed(2));
+      const strengthLabel: "strength" | undefined = strengths.length === 1
+        ? "strength"
+        : undefined;
+      return {
+        index: match.index ?? Number.MAX_SAFE_INTEGER,
+        entry: {
+          name: name.trim(),
+          modelStrength: modelStrength ? Number(modelStrength).toFixed(2) : null,
+          clipStrength: clipStrength ? Number(clipStrength).toFixed(2) : null,
+          strengthLabel,
+        },
+      };
+    }),
+    ...fileMatches.map((match) => {
+      const [, name, strength] = match;
+      return {
+        index: match.index ?? Number.MAX_SAFE_INTEGER,
+        entry: {
+          name,
+          modelStrength: strength ? Number(strength).toFixed(2) : null,
+          clipStrength: null,
+          strengthLabel: "strength" as const,
+        },
+      };
+    }),
+  ].sort((left, right) => left.index - right.index);
+  if (extracted.length) {
+    return extracted.map(({ entry }) => entry);
+  }
+
+  return null;
+}
+
+function formatLoraStrength(value: number | string | null): string {
+  if (value === null || value === "") return "—";
+  const numeric = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numeric) ? numeric.toFixed(2) : String(value);
 }
 
 function OriginalEvidence({ overridden, title, children }: {
