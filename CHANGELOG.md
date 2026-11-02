@@ -4,6 +4,15 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.33 — 2026-11-03
+
+- Add authenticated Prompt Registry source, random selection, materialization
+  stats, and numeric neighbor lookup APIs.
+- Track canonical prompt index keys so padded Prompt IDs share reliable media
+  materialization semantics.
+- Preserve the existing Prompt Registry UI navigation and document the new API
+  contract in the OpenAPI snapshot.
+
 ## 0.1.0-rc.32 — 2026-11-02
 
 - Optimize Prompt Registry bulk imports and source suggestions for large

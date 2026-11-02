@@ -6032,6 +6032,27 @@
         "title": "PromptRegistryMediaResponse",
         "type": "object"
       },
+      "PromptRegistryNeighborResponse": {
+        "properties": {
+          "direction": {
+            "enum": [
+              "previous",
+              "next"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "entry": {
+            "$ref": "#/components/schemas/PromptRegistryEntryResponse"
+          }
+        },
+        "required": [
+          "direction",
+          "entry"
+        ],
+        "title": "PromptRegistryNeighborResponse",
+        "type": "object"
+      },
       "PromptRegistryPageResponse": {
         "properties": {
           "items": {
@@ -6061,6 +6082,129 @@
           "offset"
         ],
         "title": "PromptRegistryPageResponse",
+        "type": "object"
+      },
+      "PromptRegistryRandomResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "index": {
+            "title": "Index",
+            "type": "string"
+          },
+          "materialization": {
+            "enum": [
+              "materialized",
+              "unmaterialized"
+            ],
+            "title": "Materialization",
+            "type": "string"
+          },
+          "media_count": {
+            "default": 0,
+            "title": "Media Count",
+            "type": "integer"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "negative_prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Negative Prompt"
+          },
+          "origin": {
+            "title": "Origin",
+            "type": "string"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "prompt_id": {
+            "title": "Prompt Id",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "index",
+          "prompt",
+          "negative_prompt",
+          "metadata",
+          "origin",
+          "created_at",
+          "updated_at",
+          "prompt_id",
+          "materialization"
+        ],
+        "title": "PromptRegistryRandomResponse",
+        "type": "object"
+      },
+      "PromptRegistryStatsResponse": {
+        "properties": {
+          "materialized_count": {
+            "title": "Materialized Count",
+            "type": "integer"
+          },
+          "registered_count": {
+            "title": "Registered Count",
+            "type": "integer"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "source_count": {
+            "title": "Source Count",
+            "type": "integer"
+          },
+          "unmaterialized_count": {
+            "title": "Unmaterialized Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source",
+          "source_count",
+          "registered_count",
+          "materialized_count",
+          "unmaterialized_count"
+        ],
+        "title": "PromptRegistryStatsResponse",
         "type": "object"
       },
       "RegistrySyncCreatedResponse": {
@@ -9533,7 +9677,7 @@
   },
   "info": {
     "title": "Project Comfy Gallery API",
-    "version": "0.1.0-rc.32"
+    "version": "0.1.0-rc.33"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -14960,6 +15104,140 @@
         ]
       }
     },
+    "/api/v1/prompt-registry/neighbor": {
+      "get": {
+        "operationId": "prompt_registry_neighbor_api_v1_prompt_registry_neighbor_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "source",
+            "required": true,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Source",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "index",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^\\d+$",
+              "title": "Index",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "direction",
+            "required": true,
+            "schema": {
+              "enum": [
+                "previous",
+                "next"
+              ],
+              "title": "Direction",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptRegistryNeighborResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prompt Registry Neighbor",
+        "tags": [
+          "prompt-registry"
+        ]
+      }
+    },
+    "/api/v1/prompt-registry/random": {
+      "get": {
+        "operationId": "random_prompt_registry_entry_api_v1_prompt_registry_random_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "in": "query",
+            "name": "materialization",
+            "required": false,
+            "schema": {
+              "default": "any",
+              "enum": [
+                "any",
+                "materialized",
+                "unmaterialized"
+              ],
+              "title": "Materialization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptRegistryRandomResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Random Prompt Registry Entry",
+        "tags": [
+          "prompt-registry"
+        ]
+      }
+    },
     "/api/v1/prompt-registry/sources": {
       "get": {
         "description": "Return distinct source labels without searching prompt text.",
@@ -15022,6 +15300,56 @@
           }
         },
         "summary": "List Prompt Registry Sources",
+        "tags": [
+          "prompt-registry"
+        ]
+      }
+    },
+    "/api/v1/prompt-registry/stats": {
+      "get": {
+        "operationId": "prompt_registry_stats_api_v1_prompt_registry_stats_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptRegistryStatsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prompt Registry Stats",
         "tags": [
           "prompt-registry"
         ]
