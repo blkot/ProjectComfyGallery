@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+from typing import Any
+from typing import cast as typing_cast
 from uuid import UUID
 
 from fastapi import APIRouter, Query
-from sqlalchemy import Integer, cast, func, or_, select
+from sqlalchemy import Integer, cast, func, or_, select, tuple_
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from comfy_gallery_api.dependencies import CsrfPrincipalDep, DbSessionDep, PrincipalDep
 from comfy_gallery_api.errors import ApiError
@@ -29,8 +33,12 @@ from comfy_gallery_core.prompt_registry import (
     normalize_prompt_source,
     parse_prompt_id,
 )
-from comfy_gallery_core.workflow.display_fields import saved_fields
-from comfy_gallery_core.workflow.library_profiles import candidate_fields
+from comfy_gallery_core.workflow.display_fields import (
+    saved_fields,
+    topology,
+    widget_candidates,
+    workflow_uuid,
+)
 
 router = APIRouter(prefix="/api/v1/prompt-registry", tags=["prompt-registry"])
 
@@ -79,6 +87,31 @@ async def list_prompt_registry_entries(
         limit=limit,
         offset=offset,
     )
+
+
+@router.get("/sources", response_model=list[str])
+async def list_prompt_registry_sources(
+    _principal: PrincipalDep,
+    session: DbSessionDep,
+    q: str | None = Query(default=None, max_length=256),
+    limit: int = Query(default=24, ge=1, le=50),
+) -> list[str]:
+    """Return distinct source labels without searching prompt text."""
+
+    filters = []
+    if q and q.strip():
+        filters.append(PromptRegistryEntry.source_key.startswith(normalize_prompt_source(q)))
+    rows = await session.execute(
+        select(
+            PromptRegistryEntry.source_key,
+            func.min(PromptRegistryEntry.source).label("source"),
+        )
+        .where(*filters)
+        .group_by(PromptRegistryEntry.source_key)
+        .order_by(PromptRegistryEntry.source_key)
+        .limit(limit)
+    )
+    return [str(row.source) for row in rows]
 
 
 @router.get("/lookup", response_model=PromptRegistryLookupResponse)
@@ -152,54 +185,66 @@ async def import_prompt_registry_entries(
     _principal: CsrfPrincipalDep,
     session: DbSessionDep,
 ) -> PromptRegistryImportResponse:
-    created_count = 0
-    updated_count = 0
-    imported: list[PromptRegistryEntry] = []
+    if len(request.model_dump_json().encode("utf-8")) > 8 * 1024 * 1024:
+        raise ApiError(
+            status_code=413,
+            code="PROMPT_REGISTRY_IMPORT_TOO_LARGE",
+            message="Prompt registry import payload must be 8 MB or smaller.",
+        )
+
+    rows: list[dict[str, object]] = []
+    keys: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
     for item in request.entries:
         source = _normalized_source(item.source)
         entry_index = item.index.strip()
-        entry = await _find_entry(
-            session,
-            PromptIdentifier(source=source, index=entry_index),
-        )
-        if entry is None:
-            entry = PromptRegistryEntry(
-                source=source,
-                source_key=normalize_prompt_source(source),
-                entry_index=entry_index,
-                prompt=item.prompt,
-                negative_prompt=item.negative_prompt,
-                entry_metadata=item.metadata,
-                origin=item.origin,
+        source_key = normalize_prompt_source(source)
+        key = (source_key, entry_index)
+        if key in seen:
+            raise ApiError(
+                status_code=422,
+                code="DUPLICATE_PROMPT_REGISTRY_KEY",
+                message="A batch cannot contain duplicate source and index keys.",
+                details={"source": source, "index": entry_index},
             )
-            session.add(entry)
-            created_count += 1
-        else:
-            entry.source = source
-            entry.source_key = normalize_prompt_source(source)
-            entry.entry_index = entry_index
-            entry.prompt = item.prompt
-            entry.negative_prompt = item.negative_prompt
-            entry.entry_metadata = item.metadata
-            entry.origin = item.origin
-            updated_count += 1
-        imported.append(entry)
-    imported_keys = [(entry.source_key, entry.entry_index) for entry in imported]
-    await session.flush()
+        seen.add(key)
+        keys.append(key)
+        rows.append(
+            {
+                "source": source,
+                "source_key": source_key,
+                "entry_index": entry_index,
+                "prompt": item.prompt,
+                "negative_prompt": item.negative_prompt,
+                "metadata": item.metadata,
+                "origin": item.origin,
+            }
+        )
+
+    existing_result = await session.execute(
+        select(PromptRegistryEntry.source_key, PromptRegistryEntry.entry_index).where(
+            tuple_(PromptRegistryEntry.source_key, PromptRegistryEntry.entry_index).in_(keys)
+        )
+    )
+    existing_keys = {(source_key, entry_index) for source_key, entry_index in existing_result}
+    statement = _prompt_registry_upsert_statement(session, rows)
+    await session.execute(statement)
     await session.commit()
-    imported_predicates = [
-        (PromptRegistryEntry.source_key == source_key)
-        & (PromptRegistryEntry.entry_index == entry_index)
-        for source_key, entry_index in imported_keys
-    ]
+
+    imported_predicates = tuple_(
+        PromptRegistryEntry.source_key,
+        PromptRegistryEntry.entry_index,
+    ).in_(keys)
     persisted_entries = list(
-        await session.scalars(select(PromptRegistryEntry).where(or_(*imported_predicates)))
+        await session.scalars(select(PromptRegistryEntry).where(imported_predicates))
     )
     persisted_by_key = {(entry.source_key, entry.entry_index): entry for entry in persisted_entries}
+    created_count = len(keys) - len(existing_keys)
+    updated_count = len(keys) - created_count
     return PromptRegistryImportResponse(
         created_count=created_count,
         updated_count=updated_count,
-        entries=[_entry_response(persisted_by_key[entry_key]) for entry_key in imported_keys],
+        entries=[_entry_response(persisted_by_key[entry_key]) for entry_key in keys],
     )
 
 
@@ -289,16 +334,57 @@ async def _find_entry(
     session: DbSessionDep,
     identifier: PromptIdentifier,
 ) -> PromptRegistryEntry | None:
-    entries = list(
-        await session.scalars(
+    exact = typing_cast(
+        PromptRegistryEntry | None,
+        await session.scalar(
             select(PromptRegistryEntry).where(
-                PromptRegistryEntry.source_key == identifier.source_key
+                PromptRegistryEntry.source_key == identifier.source_key,
+                PromptRegistryEntry.entry_index == identifier.index,
             )
-        )
+        ),
     )
-    return next(
-        (entry for entry in entries if _same_index(entry.entry_index, identifier.index)),
-        None,
+    if exact is not None:
+        return exact
+    try:
+        numeric_index = int(identifier.index)
+    except ValueError:
+        return None
+    return typing_cast(
+        PromptRegistryEntry | None,
+        await session.scalar(
+            select(PromptRegistryEntry).where(
+                PromptRegistryEntry.source_key == identifier.source_key,
+                cast(PromptRegistryEntry.entry_index, Integer) == numeric_index,
+            )
+        ),
+    )
+
+
+def _prompt_registry_upsert_statement(
+    session: DbSessionDep,
+    rows: list[dict[str, object]],
+) -> Any:
+    dialect_name = session.get_bind().dialect.name
+    table = typing_cast(Any, PromptRegistryEntry.__table__)
+    statement: Any
+    if dialect_name == "postgresql":
+        statement = pg_insert(table).values(rows)
+    elif dialect_name == "sqlite":
+        statement = sqlite_insert(table).values(rows)
+    else:
+        raise RuntimeError(f"Prompt registry bulk import is not supported on {dialect_name}.")
+    return statement.on_conflict_do_update(
+        index_elements=[
+            table.c.source_key,
+            table.c.entry_index,
+        ],
+        set_={
+            "prompt": statement.excluded.prompt,
+            "negative_prompt": statement.excluded.negative_prompt,
+            "metadata": statement.excluded.metadata,
+            "origin": statement.excluded.origin,
+            "updated_at": func.now(),
+        },
     )
 
 
@@ -329,6 +415,9 @@ async def _matching_media(
         media_id: (value, original_sha256) for media_id, value, original_sha256 in recovery_rows
     }
     profiles = list(await session.scalars(select(WorkflowDisplayProfile)))
+    profiles_by_scope: dict[str, list[WorkflowDisplayProfile]] = {}
+    for profile in profiles:
+        profiles_by_scope.setdefault(profile.scope, []).append(profile)
     matches: list[tuple[Media, MediaAsset]] = []
     for media, asset, snapshot in rows:
         value: str | None = None
@@ -342,25 +431,42 @@ async def _matching_media(
                 if recovered is not None and recovered[1] == asset.sha256:
                     value = recovered[0]
                 elif snapshot.api_prompt:
-                    candidates = await candidate_fields(session, snapshot, profiles=profiles)
-                    candidate = candidates.get("prompt_id")
-                    if candidate is not None:
-                        value = candidate[0]
+                    value = _prompt_id_candidate(snapshot, profiles_by_scope)
         parsed = parse_prompt_id(value)
         if parsed is not None and _same_identifier(parsed, identifier):
             matches.append((media, asset))
     return matches
 
 
+def _prompt_id_candidate(
+    snapshot: WorkflowSnapshot,
+    profiles_by_scope: dict[str, list[WorkflowDisplayProfile]],
+) -> str | None:
+    """Resolve a profile-backed candidate without a per-media async query."""
+
+    workflow_id = workflow_uuid(snapshot.visual_workflow)
+    scope = f"workflow:{workflow_id}" if workflow_id else f"media:{snapshot.media_id}"
+    profiles = profiles_by_scope.get(scope)
+    if not profiles or not snapshot.api_prompt:
+        return None
+    try:
+        signature = topology(snapshot.api_prompt)
+        profile = next((item for item in profiles if item.topology_sha256 == signature), None)
+        if profile is None:
+            return None
+        candidates = widget_candidates(
+            snapshot.api_prompt,
+            profile.bindings,
+            snapshot.visual_workflow,
+        )
+    except ValueError:
+        return None
+    candidate = candidates.get("prompt_id")
+    return candidate[0] if candidate is not None else None
+
+
 def _same_identifier(left: PromptIdentifier, right: PromptIdentifier) -> bool:
     return left.source_key == right.source_key and left.index_value == right.index_value
-
-
-def _same_index(left: str, right: str) -> bool:
-    try:
-        return int(left) == int(right)
-    except ValueError:
-        return left == right
 
 
 def _entry_response(

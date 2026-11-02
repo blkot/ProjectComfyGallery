@@ -1,7 +1,10 @@
 from uuid import uuid4
 
+import pytest
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from comfy_gallery_api.errors import ApiError
 from comfy_gallery_api.prompt_registry_schemas import (
     PromptRegistryEntryRequest,
     PromptRegistryImportRequest,
@@ -9,6 +12,7 @@ from comfy_gallery_api.prompt_registry_schemas import (
 from comfy_gallery_api.routes.prompt_registry import (
     create_prompt_registry_entry,
     import_prompt_registry_entries,
+    list_prompt_registry_sources,
     lookup_prompt_registry_entry,
 )
 from comfy_gallery_core.db import Base
@@ -153,5 +157,138 @@ async def test_prompt_registry_import_returns_rows_after_commit() -> None:
             assert result.entries[0].index == "0001"
             assert result.entries[0].created_at is not None
             assert result.entries[0].updated_at is not None
+    finally:
+        await engine.dispose()
+
+
+async def test_prompt_registry_import_uses_a_bounded_number_of_sql_statements() -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    statements: list[str] = []
+
+    def record_statement(_connection, _cursor, statement, _parameters, _context, _executemany):
+        statements.append(statement)
+
+    event.listen(engine.sync_engine, "before_cursor_execute", record_statement)
+    try:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        statements.clear()
+        async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+            entries = [
+                PromptRegistryEntryRequest(
+                    source="xanta-utils",
+                    index=f"{index:05d}",
+                    prompt=f"Prompt {index}",
+                )
+                for index in range(200)
+            ]
+            result = await import_prompt_registry_entries(
+                PromptRegistryImportRequest(entries=entries),
+                None,  # type: ignore[arg-type]
+                session,
+            )
+
+            assert result.created_count == 200
+            assert result.updated_count == 0
+            assert len(result.entries) == 200
+
+        # One read for existing keys, one bulk upsert, and one read for the
+        # committed response. This guards against regressing to one query per row.
+        assert len(statements) <= 4
+
+        statements.clear()
+        async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+            repeated = await import_prompt_registry_entries(
+                PromptRegistryImportRequest(entries=entries),
+                None,  # type: ignore[arg-type]
+                session,
+            )
+            assert repeated.created_count == 0
+            assert repeated.updated_count == 200
+        assert len(statements) <= 4
+    finally:
+        event.remove(engine.sync_engine, "before_cursor_execute", record_statement)
+        await engine.dispose()
+
+
+async def test_prompt_registry_import_rejects_duplicate_keys_in_one_batch() -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    try:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+            request = PromptRegistryImportRequest(
+                entries=[
+                    PromptRegistryEntryRequest(
+                        source="xanta-utils",
+                        index="00001",
+                        prompt="first",
+                    ),
+                    PromptRegistryEntryRequest(
+                        source="XANTA-UTILS",
+                        index="00001",
+                        prompt="duplicate",
+                    ),
+                ]
+            )
+
+            with pytest.raises(ApiError, match="duplicate") as raised:
+                await import_prompt_registry_entries(
+                    request,
+                    None,  # type: ignore[arg-type]
+                    session,
+                )
+
+            assert raised.value.status_code == 422
+            assert raised.value.code == "DUPLICATE_PROMPT_REGISTRY_KEY"
+    finally:
+        await engine.dispose()
+
+
+async def test_prompt_registry_sources_are_distinct_and_source_only() -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    try:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+            await import_prompt_registry_entries(
+                PromptRegistryImportRequest(
+                    entries=[
+                        PromptRegistryEntryRequest(
+                            source="xanta-utils",
+                            index="00001",
+                            prompt="portrait prompt",
+                        ),
+                        PromptRegistryEntryRequest(
+                            source="xanta-utils",
+                            index="00002",
+                            prompt="another portrait prompt",
+                        ),
+                        PromptRegistryEntryRequest(
+                            source="other-library",
+                            index="00001",
+                            prompt="portrait prompt from another source",
+                        ),
+                    ]
+                ),
+                None,  # type: ignore[arg-type]
+                session,
+            )
+
+            assert await list_prompt_registry_sources(
+                None,  # type: ignore[arg-type]
+                session,
+                q="xan",
+                limit=24,
+            ) == ["xanta-utils"]
+            assert (
+                await list_prompt_registry_sources(
+                    None,  # type: ignore[arg-type]
+                    session,
+                    q="prompt",
+                    limit=24,
+                )
+                == []
+            )
     finally:
         await engine.dispose()

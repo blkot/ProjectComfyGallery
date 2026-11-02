@@ -4,34 +4,40 @@ import {
   useQueryClient,
   type UseQueryResult,
 } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { useDeferredValue, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router";
 
 import {
   apiRequest,
   type PromptRegistryEntry,
   type PromptRegistryLookup,
-  type PromptRegistryPage,
 } from "../lib/api";
 
 export function PromptRegistryPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  const search = searchParams.get("q") ?? "";
   const promptId = searchParams.get("prompt_id") ?? "";
   const [source, setSource] = useState("");
   const [index, setIndex] = useState("");
+  const [showSourceSuggestions, setShowSourceSuggestions] = useState(false);
+  const [registerSource, setRegisterSource] = useState("");
+  const [registerIndex, setRegisterIndex] = useState("");
   const [prompt, setPrompt] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
   const [showRegister, setShowRegister] = useState(false);
+  const deferredSource = useDeferredValue(source);
 
-  const entries = useQuery({
-    queryKey: ["prompt-registry", search],
+  const sourceSuggestions = useQuery({
+    queryKey: ["prompt-registry-source-suggestions", deferredSource.trim()],
     queryFn: () => {
-      const parameters = new URLSearchParams({ limit: "48", offset: "0" });
-      if (search.trim()) parameters.set("q", search.trim());
-      return apiRequest<PromptRegistryPage>(`/api/v1/prompt-registry?${parameters}`);
+      const parameters = new URLSearchParams({
+        limit: "24",
+        q: deferredSource.trim(),
+      });
+      return apiRequest<string[]>(`/api/v1/prompt-registry/sources?${parameters}`);
     },
+    enabled: deferredSource.trim().length >= 2,
+    staleTime: 30_000,
   });
   const lookup = useQuery({
     queryKey: ["prompt-registry-lookup", promptId],
@@ -46,8 +52,8 @@ export function PromptRegistryPage() {
       apiRequest<PromptRegistryEntry>("/api/v1/prompt-registry", {
         method: "POST",
         body: JSON.stringify({
-          source: source.trim(),
-          index: index.trim(),
+          source: registerSource.trim(),
+          index: registerIndex.trim(),
           prompt,
           negative_prompt: negativePrompt.trim() || null,
         }),
@@ -55,30 +61,49 @@ export function PromptRegistryPage() {
     onSuccess: async (entry) => {
       setShowRegister(false);
       selectPrompt(`${entry.source} - ${entry.index}`);
-      setSource("");
-      setIndex("");
+      setRegisterSource("");
+      setRegisterIndex("");
       setPrompt("");
       setNegativePrompt("");
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["prompt-registry"] }),
+        queryClient.invalidateQueries({ queryKey: ["prompt-registry-source-suggestions"] }),
         queryClient.invalidateQueries({ queryKey: ["prompt-registry-lookup"] }),
       ]);
     },
   });
 
   function selectPrompt(nextPromptId: string) {
+    const normalized = nextPromptId.trim();
+    if (!normalized) return;
     setSearchParams((current) => {
       const next = new URLSearchParams(current);
-      next.set("prompt_id", nextPromptId);
+      next.set("prompt_id", normalized);
+      next.delete("q");
       return next;
     });
   }
 
-  function submitSearch(event: FormEvent<HTMLFormElement>) {
+  function clearPrompt() {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete("prompt_id");
+      return next;
+    });
+  }
+
+  function submitDirectLookup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const normalized = String(new FormData(event.currentTarget).get("prompt_id") ?? "").trim();
-    if (!normalized) return;
     selectPrompt(normalized);
+  }
+
+  function submitSourceLookup(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalizedSource = source.trim();
+    const normalizedIndex = index.trim();
+    if (!normalizedSource || !normalizedIndex) return;
+    setShowSourceSuggestions(false);
+    selectPrompt(`${normalizedSource} - ${normalizedIndex}`);
   }
 
   return (
@@ -119,15 +144,19 @@ export function PromptRegistryPage() {
           <div className="prompt-registry-editor-grid">
             <label>
               Source
-              <input value={source} onChange={(event) => setSource(event.target.value)} required />
+              <input
+                value={registerSource}
+                onChange={(event) => setRegisterSource(event.target.value)}
+                required
+              />
             </label>
             <label>
               Index
               <input
-                value={index}
+                value={registerIndex}
                 inputMode="numeric"
                 pattern="[0-9]+"
-                onChange={(event) => setIndex(event.target.value)}
+                onChange={(event) => setRegisterIndex(event.target.value)}
                 required
               />
             </label>
@@ -151,83 +180,117 @@ export function PromptRegistryPage() {
       ) : null}
 
       <section className="prompt-registry-search panel">
-        <form onSubmit={submitSearch}>
-          <label className="wide-field">
-            Find prompt ID
-            <input
-              key={promptId}
-              name="prompt_id"
-              defaultValue={promptId}
-              placeholder="e.g. sfw-zimage-por-v3 - 03786"
-            />
-          </label>
-          <button className="primary-button" type="submit">
-            Find media
-          </button>
-        </form>
-        <label className="wide-field">
-          Search registry
-          <input
-            type="search"
-            defaultValue={search}
-            placeholder="Source, index, or prompt text"
-            onChange={(event) => {
-              setSearchParams((current) => {
-                const next = new URLSearchParams(current);
-                if (event.target.value.trim()) next.set("q", event.target.value);
-                else next.delete("q");
-                return next;
-              });
-            }}
-          />
-        </label>
+        <div className="prompt-registry-search-intro">
+          <div>
+            <p className="kicker">Locate an entry</p>
+            <h2>Open a prompt definition</h2>
+          </div>
+          <p className="muted">
+            Prompt Registry is indexed by <code>source - index</code>. Open an ID from Media
+            Detail, or enter the source and index directly.
+          </p>
+        </div>
+        <div className="prompt-registry-query-grid">
+          <form className="prompt-registry-query-card" onSubmit={submitDirectLookup}>
+            <div>
+              <p className="kicker">Direct lookup</p>
+              <h3>Prompt ID</h3>
+            </div>
+            <label>
+              <span className="sr-only">Prompt ID</span>
+              <input
+                key={promptId}
+                name="prompt_id"
+                defaultValue={promptId}
+                placeholder="e.g. sfw-zimage-por-v3 - 03786"
+                spellCheck={false}
+              />
+            </label>
+            <button className="primary-button" type="submit">
+              Open prompt
+            </button>
+          </form>
+
+          <form className="prompt-registry-query-card" onSubmit={submitSourceLookup}>
+            <div>
+              <p className="kicker">Structured lookup</p>
+              <h3>Source + index</h3>
+            </div>
+            <div className="prompt-registry-source-fields">
+              <label className="prompt-registry-source-field">
+                Source
+                <input
+                  value={source}
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-controls="prompt-registry-source-options"
+                  aria-expanded={showSourceSuggestions}
+                  onFocus={() => setShowSourceSuggestions(true)}
+                  onChange={(event) => {
+                    setSource(event.target.value);
+                    setShowSourceSuggestions(true);
+                  }}
+                  onBlur={() => window.setTimeout(() => setShowSourceSuggestions(false), 120)}
+                  placeholder="Search a source"
+                  spellCheck={false}
+                />
+                {showSourceSuggestions && source.trim().length >= 2 ? (
+                  <div
+                    className="prompt-registry-source-options"
+                    id="prompt-registry-source-options"
+                    role="listbox"
+                  >
+                    {sourceSuggestions.isFetching ? (
+                      <span className="prompt-registry-source-option muted">Searching…</span>
+                    ) : null}
+                    {sourceSuggestions.data?.map((option) => (
+                      <button
+                        type="button"
+                        role="option"
+                        className="prompt-registry-source-option"
+                        key={option}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => {
+                          setSource(option);
+                          setShowSourceSuggestions(false);
+                        }}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                    {!sourceSuggestions.isFetching && sourceSuggestions.data?.length === 0 ? (
+                      <span className="prompt-registry-source-option muted">
+                        No matching registered source. You can still enter it manually.
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
+              </label>
+              <label>
+                Index
+                <input
+                  value={index}
+                  inputMode="numeric"
+                  pattern="[0-9]+"
+                  onChange={(event) => setIndex(event.target.value)}
+                  placeholder="03786"
+                  spellCheck={false}
+                />
+              </label>
+            </div>
+            <button
+              className="secondary-button"
+              type="submit"
+              disabled={!source.trim() || !index.trim()}
+            >
+              Open source + index
+            </button>
+          </form>
+        </div>
       </section>
 
-      <div className="prompt-registry-layout">
-        <section className="prompt-registry-list">
-          <div className="section-heading">
-            <div>
-              <p className="kicker">Definitions</p>
-              <h2>Prompt entries</h2>
-            </div>
-            <span className="document-count">{entries.data?.total ?? "—"}</span>
-          </div>
-          {entries.error ? <p className="notice error-notice">Registry failed to load.</p> : null}
-          <div className="registry-records">
-            {entries.data?.items.map((entry) => {
-              const id = `${entry.source} - ${entry.index}`;
-              return (
-                <button
-                  className="registry-record"
-                  data-selected={promptId === id}
-                  type="button"
-                  key={entry.id}
-                  onClick={() => selectPrompt(id)}
-                >
-                  <span>
-                    <strong>{id}</strong>
-                    <small>{entry.prompt || "No positive prompt stored"}</small>
-                  </span>
-                  <span>
-                    <small>{entry.origin}</small>
-                    <span className="registry-chips">
-                      <em>Open media</em>
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
-            {entries.isPending ? <p className="muted registry-loading">Loading…</p> : null}
-            {entries.data?.items.length === 0 ? (
-              <div className="empty-state">
-                <strong>No registered prompts</strong>
-                <p>Register an entry or search an ID directly from a media workflow.</p>
-              </div>
-            ) : null}
-          </div>
-        </section>
-
-        <PromptRegistryDetail lookup={lookup} promptId={promptId} />
+      <div className="prompt-registry-results">
+        <PromptRegistryDetail lookup={lookup} promptId={promptId} onClear={clearPrompt} />
       </div>
     </main>
   );
@@ -236,23 +299,27 @@ export function PromptRegistryPage() {
 function PromptRegistryDetail({
   lookup,
   promptId,
+  onClear,
 }: {
   lookup: UseQueryResult<PromptRegistryLookup>;
   promptId: string;
+  onClear: () => void;
 }) {
   if (!promptId.trim()) {
     return (
       <section className="panel prompt-registry-detail empty-state">
-        <strong>Select a prompt ID</strong>
-        <p>Choose a registry entry or paste a source - index identifier above.</p>
+        <strong>Nothing opened yet</strong>
+        <p>Enter a prompt ID, or choose a source and index above to inspect its definition.</p>
       </section>
     );
   }
-  if (!lookup.data && !lookup.isPending) {
+  if (lookup.error) {
     return (
       <section className="panel prompt-registry-detail empty-state">
-        <strong>Select a prompt ID</strong>
-        <p>Choose a registry entry or paste a source - index identifier above.</p>
+        <p className="notice error-notice">Prompt ID could not be parsed or loaded.</p>
+        <button className="secondary-button" type="button" onClick={onClear}>
+          Back to lookup
+        </button>
       </section>
     );
   }
@@ -274,9 +341,14 @@ function PromptRegistryDetail({
           <p className="kicker">Resolved prompt ID</p>
           <h2>{data.prompt_id}</h2>
         </div>
-        <span className="status-chip" data-status={data.entry ? "ready" : "partial"}>
-          {data.entry ? "Registered" : "Unregistered"}
-        </span>
+        <div className="prompt-registry-detail-actions">
+          <span className="status-chip" data-status={data.entry ? "ready" : "partial"}>
+            {data.entry ? "Registered" : "Unregistered"}
+          </span>
+          <button className="secondary-button" type="button" onClick={onClear}>
+            New lookup
+          </button>
+        </div>
       </header>
       {data.entry ? (
         <>

@@ -4985,25 +4985,105 @@ textarea {
 .prompt-registry-search {
   margin-top: 18px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(250px, 0.7fr);
-  gap: 14px;
-  align-items: end;
+  gap: 21px;
 }
 
-.prompt-registry-search form {
-  min-width: 0;
+.prompt-registry-search-intro {
   display: flex;
   align-items: flex-end;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line-soft);
 }
 
-.prompt-registry-search form label {
-  flex: 1 1 auto;
+.prompt-registry-search-intro h2 {
+  margin-bottom: 0;
+}
+
+.prompt-registry-search-intro .muted {
+  max-width: 520px;
+  margin: 0;
+  text-align: right;
+}
+
+.prompt-registry-query-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.prompt-registry-query-card {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.prompt-registry-query-card h3 {
+  margin-bottom: 0;
+  font-size: 14px;
+}
+
+.prompt-registry-query-card label {
   margin: 0;
 }
 
-.prompt-registry-search .primary-button {
-  flex: 0 0 auto;
+.prompt-registry-query-card > .primary-button,
+.prompt-registry-query-card > .secondary-button {
+  justify-self: start;
+}
+
+.prompt-registry-source-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(100px, 0.55fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.prompt-registry-source-field {
+  position: relative;
+}
+
+.prompt-registry-source-options {
+  position: absolute;
+  z-index: 5;
+  inset: calc(100% + 5px) 0 auto;
+  max-height: 210px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel, #171715);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.35);
+}
+
+.prompt-registry-source-option {
+  display: block;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  color: var(--text);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+}
+
+button.prompt-registry-source-option {
+  cursor: pointer;
+}
+
+button.prompt-registry-source-option:hover,
+button.prompt-registry-source-option:focus-visible {
+  color: var(--text-strong, var(--text));
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.prompt-registry-results {
+  margin-top: 24px;
 }
 
 .prompt-registry-editor {
@@ -5022,24 +5102,8 @@ textarea {
   grid-column: span 3;
 }
 
-.prompt-registry-layout {
-  margin-top: 32px;
-  display: grid;
-  grid-template-columns: minmax(360px, 0.75fr) minmax(520px, 1.25fr);
-  gap: 18px;
-  align-items: start;
-}
-
-.prompt-registry-list {
-  min-width: 0;
-}
-
 .prompt-registry-detail {
-  position: sticky;
-  top: 18px;
   min-width: 0;
-  max-height: calc(100vh - 36px);
-  overflow: auto;
 }
 
 .prompt-registry-detail.empty-state {
@@ -5053,6 +5117,14 @@ textarea {
   align-items: flex-start;
   justify-content: space-between;
   gap: 15px;
+}
+
+.prompt-registry-detail-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .prompt-registry-detail-header h2 {
@@ -5507,8 +5579,7 @@ textarea {
   .registry-sync-panel,
   .registry-split,
   .alias-columns,
-  .prompt-registry-layout,
-  .prompt-registry-search {
+  .prompt-registry-query-grid {
     grid-template-columns: 1fr;
   }
 
@@ -5732,13 +5803,18 @@ textarea {
     grid-column: auto;
   }
 
-  .prompt-registry-search form {
+  .prompt-registry-search-intro {
+    align-items: flex-start;
     flex-direction: column;
-    align-items: stretch;
+    gap: 10px;
   }
 
-  .prompt-registry-search .primary-button {
-    align-self: flex-start;
+  .prompt-registry-search-intro .muted {
+    text-align: left;
+  }
+
+  .prompt-registry-source-fields {
+    grid-template-columns: 1fr;
   }
 
   .prompt-registry-media-grid {

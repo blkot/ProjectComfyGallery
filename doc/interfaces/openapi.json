@@ -14960,6 +14960,73 @@
         ]
       }
     },
+    "/api/v1/prompt-registry/sources": {
+      "get": {
+        "description": "Return distinct source labels without searching prompt text.",
+        "operationId": "list_prompt_registry_sources_api_v1_prompt_registry_sources_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response List Prompt Registry Sources Api V1 Prompt Registry Sources Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Prompt Registry Sources",
+        "tags": [
+          "prompt-registry"
+        ]
+      }
+    },
     "/api/v1/prompt-registry/{entry_id}": {
       "get": {
         "operationId": "get_prompt_registry_entry_api_v1_prompt_registry__entry_id__get",

@@ -49,10 +49,11 @@ Character LoRA and ordinary LoRA lists are deliberately not part of a registry
 entry. They remain media/workflow evidence and can vary between generations
 that reuse the same prompt library item.
 
-The first implementation exposes authenticated list, lookup, create, update, and
-bulk upsert/import API operations. Lookup also returns every media whose trusted
-Prompt ID resolves to the requested source/index, including IDs that have not
-been registered yet.
+The implementation exposes authenticated list, lookup, create, update, and bulk
+upsert/import API operations. It also exposes a source-only suggestion endpoint
+for the Prompt Registry combobox; that endpoint never searches the large prompt
+text column. Lookup returns every media whose trusted Prompt ID resolves to the
+requested source/index, including IDs that have not been registered yet.
 This makes stale or incomplete Xanta libraries discoverable without inventing a
 prompt definition.
 
@@ -91,8 +92,10 @@ The importer MUST follow these rules:
   copied into the registry entry; they remain media/workflow evidence.
 - `origin` identifies the producer, defaults to `xanta-utils`, and is limited to 64
   characters.
-- A batch contains 1–2,000 entries. Operators SHOULD use 100–500 entries per
-  request on the NAS so a failed request can be retried and verified quickly.
+- A batch contains 1–2,000 entries and the encoded request body is limited to
+  8 MB. The API writes a batch with one database upsert statement and one commit.
+  After the bulk path is deployed, operators MAY use the full 2,000-entry limit;
+  smaller batches remain appropriate when testing a new endpoint or network path.
 - A batch MUST NOT contain duplicate `(source, index)` keys. Across requests the
   operation is an idempotent upsert keyed by normalized source plus index.
 
@@ -106,6 +109,10 @@ and compare the expected indexes before retrying. Retrying the same batch is saf
 because the operation is an upsert; clients MUST NOT generate new indexes to work
 around a failed response. Prompt Registry import is independent of node/model
 registry synchronization and does not require a live ComfyUI connection.
+
+For source selection, use `GET /api/v1/prompt-registry/sources?q=<prefix>&limit=24`.
+It returns distinct display source labels and intentionally does not search prompt
+text or calculate a full registry count.
 
 The frontend provides a Prompt Registry page under **System → Prompt Registry**.
 Prompt IDs in Media Detail are links to that page, where the definition and all
