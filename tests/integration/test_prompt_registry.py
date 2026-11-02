@@ -131,7 +131,8 @@ async def test_prompt_registry_lookup_prefers_visual_show_text_and_returns_all_m
                 "prompt-1.png",
             }
             assert not any(
-                "workflow_snapshot" in statement.lower() for statement in lookup_statements
+                "left outer join workflow_snapshot" in statement.lower()
+                for statement in lookup_statements
             )
             imported = await import_prompt_registry_entries(
                 PromptRegistryImportRequest(

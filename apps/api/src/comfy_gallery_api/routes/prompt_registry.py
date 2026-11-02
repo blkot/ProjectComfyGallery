@@ -393,11 +393,18 @@ async def _matching_media(
     session: DbSessionDep,
     identifier: PromptIdentifier,
 ) -> list[tuple[Media, MediaAsset]]:
-    media_count = int(await session.scalar(select(func.count()).select_from(Media)) or 0)
-    indexed_count = int(
-        await session.scalar(select(func.count()).select_from(MediaPromptIndex)) or 0
+    snapshot_count = int(
+        await session.scalar(select(func.count()).select_from(WorkflowSnapshot)) or 0
     )
-    if media_count == indexed_count:
+    indexed_count = int(
+        await session.scalar(
+            select(func.count())
+            .select_from(MediaPromptIndex)
+            .join(WorkflowSnapshot, WorkflowSnapshot.media_id == MediaPromptIndex.media_id)
+        )
+        or 0
+    )
+    if snapshot_count == indexed_count:
         rows = list(
             (
                 await session.execute(
