@@ -484,6 +484,18 @@ class WorkflowSnapshotResponse(BaseModel):
     created_at: datetime
 
 
+class WorkflowDisplayFieldResponse(BaseModel):
+    value: str | list[tuple[str, float, float]]
+    source: Literal["save_node", "verified_history"]
+    node_id: str
+    job_id: str | None = None
+
+
+class WorkflowWidgetCandidateResponse(BaseModel):
+    value: str
+    node_id: str
+
+
 class WorkflowDetailResponse(BaseModel):
     media_id: UUID
     status: str
@@ -492,6 +504,8 @@ class WorkflowDetailResponse(BaseModel):
     edges: list[WorkflowEdgeResponse] = Field(default_factory=list)
     observations: list[SemanticObservationResponse] = Field(default_factory=list)
     model_usages: list[WorkflowModelUsageResponse] = Field(default_factory=list)
+    display_fields: dict[str, WorkflowDisplayFieldResponse] = Field(default_factory=dict)
+    display_candidates: dict[str, WorkflowWidgetCandidateResponse] = Field(default_factory=dict)
     runs: list[ExtractionRunResponse] = Field(default_factory=list)
     node_limit: int
     node_offset: int

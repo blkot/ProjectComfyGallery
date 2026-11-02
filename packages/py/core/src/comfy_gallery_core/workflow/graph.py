@@ -1,13 +1,27 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 GRAPH_VERSION = "generic-graph-v1"
 EXTRACTOR_NAME = "builtin_semantics"
-EXTRACTOR_VERSION = "2.2.0"
+EXTRACTOR_VERSION = "2.3.0"
 
 API_REPRESENTATION = "api_prompt"
 VISUAL_REPRESENTATION = "visual_workflow"
+EXECUTION_RECORDER_CLASS = "ComfyGalleryRecordExecution"
+
+
+def dynamic_lm_prompt(class_type: str, inputs: object) -> bool:
+    """The manager expands wildcard/options and appends connected trigger words at execution."""
+    if class_type != "Prompt (LoraManager)" or not isinstance(inputs, dict):
+        return False
+    text = inputs.get("text")
+    return (
+        not isinstance(text, str)
+        or bool(re.search(r"__[^\n]+?__|\{[^{}]*\}", text))
+        or any(re.fullmatch(r"trigger_words\d*", key) and value for key, value in inputs.items())
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,7 +153,7 @@ def _normalize_api_prompt(
                     )
                 )
                 api_edge_ordinal += 1
-            else:
+            elif not (input_name == "text" and dynamic_lm_prompt(class_type, raw_inputs)):
                 observation = _builtin_observation(
                     class_type=class_type,
                     node_id=node_id,
@@ -298,6 +312,8 @@ def _builtin_observation(
 ) -> ObservationSpec | None:
     lowered_name = input_name.casefold()
     lowered_class = class_type.casefold()
+    if class_type == EXECUTION_RECORDER_CLASS:
+        return None
     if lowered_name == "lora_name" and isinstance(value, str):
         return _observation(
             node_id,

@@ -18,8 +18,11 @@ from comfy_gallery_core.db.models import (
     SemanticObservation,
     WorkflowEdge,
     WorkflowNode,
+    WorkflowSnapshot,
 )
 from comfy_gallery_core.media.errors import IngestionError
+from comfy_gallery_core.registry.dynamic_sources import CAPTURE_KEY, dynamic_fields
+from comfy_gallery_core.workflow.graph import EXECUTION_RECORDER_CLASS, dynamic_lm_prompt
 
 GENERATION_PARAMETER_NAMES = {
     "seed",
@@ -334,6 +337,15 @@ async def create_registry_observations(
             value = values_by_locator.get(mapping.locator)
             if value is None or value.value_kind == "link":
                 continue
+            if node.class_type == EXECUTION_RECORDER_CLASS and mapping.source != "manual":
+                continue
+            if (
+                mapping.source != "manual"
+                and mapping.semantic_type == "prompt"
+                and mapping.locator == "input:text"
+                and dynamic_lm_prompt(node.class_type, node.raw_inputs)
+            ):
+                continue
             role, role_evidence = _resolved_mapping_role(
                 mapping=mapping,
                 node=node,
@@ -389,6 +401,71 @@ async def create_registry_observations(
                 session.add(observation)
                 existing_by_key[key] = observation
                 created_count += 1
+    snapshot = await session.get(WorkflowSnapshot, snapshot_id)
+    for field in dynamic_fields(
+        nodes, inferred_prompt_roles, snapshot.raw_metadata if snapshot else {}
+    ):
+        locator = f"input:{field.input_name}"
+        definition = field.node.node_definition
+        manual = (
+            next(
+                (m for m in definition.mappings if m.locator == locator and m.source == "manual"),
+                None,
+            )
+            if definition
+            else None
+        )
+        family = {"prompt_unresolved": "prompt", "lora_unresolved": "lora_reference"}.get(
+            field.semantic_type, field.semantic_type
+        )
+        if manual and (manual.state != "active" or manual.semantic_type != family):
+            continue
+        role = field.role
+        manual_evidence: dict[str, object] = {}
+        if manual:
+            role, role_evidence = _resolved_mapping_role(
+                mapping=manual,
+                node=field.node,
+                inferred_prompt_roles=inferred_prompt_roles,
+            )
+            manual_evidence = {
+                "mapping_id": str(manual.id),
+                "mapping_source": "manual",
+                **role_evidence,
+            }
+        for item in _mapped_observation_values(field.semantic_type, field.value):
+            if not isinstance(item.value, str):
+                continue
+            key = (field.node.id, field.semantic_type, _canonical_json(item.value))
+            if key in existing_by_key:
+                continue
+            observation = SemanticObservation(
+                run_id=run_id,
+                node_id=field.node.id,
+                observation_type=field.semantic_type,
+                value=item.value,
+                role=role,
+                correction_state=manual.correction_state if manual else "uncorrected",
+                confidence=0.0 if field.semantic_type.endswith("_unresolved") else 1.0,
+                evidence={
+                    "representation": "api_prompt",
+                    "node_id": field.node.original_node_id,
+                    "class_type": field.node.class_type,
+                    "locator": locator,
+                    "method": field.method,
+                    **manual_evidence,
+                    **item.evidence,
+                    **({"source_output": list(field.wire)} if field.wire else {}),
+                    **(
+                        {"metadata_key": CAPTURE_KEY}
+                        if field.method.startswith("executed_")
+                        else {}
+                    ),
+                },
+            )
+            session.add(observation)
+            existing_by_key[key] = observation
+            created_count += 1
     await session.flush()
     return RegistryObservationOutcome(created_count=created_count)
 
@@ -415,11 +492,23 @@ def _infer_prompt_roles(
     edges: list[WorkflowEdge],
 ) -> dict[UUID, str]:
     node_ids = {(node.representation, node.original_node_id): node.id for node in nodes}
+    recorders = {
+        (node.representation, node.original_node_id)
+        for node in nodes
+        if node.class_type == EXECUTION_RECORDER_CLASS
+    }
+    zeroed = {
+        (node.representation, node.original_node_id)
+        for node in nodes
+        if node.class_type == "ConditioningZeroOut"
+    }
     incoming: dict[tuple[str, str], set[tuple[str, str]]] = defaultdict(set)
     pending: deque[tuple[tuple[str, str], str]] = deque()
     for edge in edges:
         source_key = (edge.representation, edge.source_node_id)
         destination_key = (edge.representation, edge.destination_node_id)
+        if destination_key in recorders:
+            continue
         incoming[destination_key].add(source_key)
         input_role = _conditioning_input_role(edge.destination_input_name)
         if input_role is not None:
@@ -434,7 +523,8 @@ def _infer_prompt_roles(
             continue
         visited.add(visit_key)
         roles_by_key[node_key].add(role)
-        pending.extend((source_key, role) for source_key in incoming.get(node_key, set()))
+        if node_key not in zeroed:
+            pending.extend((source_key, role) for source_key in incoming.get(node_key, set()))
 
     inferred: dict[UUID, str] = {}
     for node_key, roles in roles_by_key.items():

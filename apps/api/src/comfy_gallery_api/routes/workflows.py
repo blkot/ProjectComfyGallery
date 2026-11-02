@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from datetime import UTC, datetime
 from typing import cast
 from uuid import UUID
@@ -16,23 +17,29 @@ from comfy_gallery_api.media_schemas import (
     WorkflowBulkReprocessRequest,
     WorkflowBulkReprocessResponse,
     WorkflowDetailResponse,
+    WorkflowDisplayFieldResponse,
     WorkflowEdgeResponse,
     WorkflowModelUsageResponse,
     WorkflowNodeResponse,
     WorkflowRawEvidenceResponse,
     WorkflowSnapshotResponse,
+    WorkflowWidgetCandidateResponse,
 )
 from comfy_gallery_core.db.models import (
     ExtractionRun,
     Job,
     Media,
+    MediaAsset,
     ModelUsage,
     SemanticObservation,
+    WorkflowDisplayRecovery,
     WorkflowEdge,
     WorkflowNode,
     WorkflowSnapshot,
 )
 from comfy_gallery_core.queue import enqueue_workflow
+from comfy_gallery_core.workflow.display_fields import DisplayValue, saved_fields
+from comfy_gallery_core.workflow.library_profiles import candidate_fields
 
 router = APIRouter(prefix="/api/v1", tags=["workflows"])
 
@@ -144,9 +151,32 @@ async def get_media_workflow(
             .order_by(ModelUsage.usage_order)
         )
     )
+    fields = {
+        record.field_name: DisplayValue(
+            record.value, "verified_history", record.node_id, str(record.job_id)
+        )
+        for record in await session.scalars(
+            select(WorkflowDisplayRecovery)
+            .join(MediaAsset, MediaAsset.media_id == WorkflowDisplayRecovery.media_id)
+            .where(
+                WorkflowDisplayRecovery.media_id == media_id,
+                WorkflowDisplayRecovery.original_sha256 == MediaAsset.sha256,
+            )
+        )
+    }
+    fields.update(saved_fields(snapshot.raw_metadata, snapshot.api_prompt or {}))
+    candidates = await candidate_fields(session, snapshot)
     return WorkflowDetailResponse(
         media_id=media_id,
         status=snapshot.parse_status,
+        display_fields={
+            k: WorkflowDisplayFieldResponse.model_validate(asdict(v)) for k, v in fields.items()
+        },
+        display_candidates={
+            key: WorkflowWidgetCandidateResponse(value=value, node_id=node_id)
+            for key, (value, node_id) in candidates.items()
+            if key not in fields
+        },
         snapshot=WorkflowSnapshotResponse.model_validate(snapshot),
         nodes=[WorkflowNodeResponse.model_validate(node) for node in nodes],
         edges=[WorkflowEdgeResponse.model_validate(edge) for edge in edges],

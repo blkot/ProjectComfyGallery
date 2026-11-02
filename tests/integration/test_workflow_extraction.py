@@ -1,3 +1,4 @@
+import importlib.util
 import json
 import shutil
 from pathlib import Path
@@ -14,6 +15,8 @@ from comfy_gallery_core.db.models import (
     ExtractionRun,
     Job,
     Media,
+    ModelReference,
+    ModelUsage,
     SemanticObservation,
     WorkflowNode,
     WorkflowSnapshot,
@@ -309,3 +312,204 @@ async def test_snapshot_persistence_failure_is_non_blocking(tmp_path: Path) -> N
     finally:
         event.remove(Session, "before_flush", reject_workflow_snapshot)
         await engine.dispose()
+
+
+def _execution_recorder():
+    path = (
+        Path(__file__).resolve().parents[2]
+        / "integrations/comfyui/comfy_gallery_execution_capture/__init__.py"
+    )
+    spec = importlib.util.spec_from_file_location("execution_capture", path)
+    assert spec and spec.loader
+    plugin = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(plugin)
+    return plugin.NODE_CLASS_MAPPINGS["ComfyGalleryRecordExecution"]()
+
+
+async def test_dynamic_conditioning_and_lora_stack_import_and_reprocessing(tmp_path: Path) -> None:
+    """Replay a dynamic library → text merge → encoder, and a cycler + stack → loader."""
+    settings = _settings(tmp_path)
+    entry = {"name": "style", "active": True, "strength": 0.6, "clipStrength": 0.4}
+    prompt = {
+        "1": {"class_type": "XantaPromptLibrary", "inputs": {"library": "portraits"}},
+        "2": {
+            "class_type": "StringFunction|pysssss",
+            "inputs": {"text_a": ["1", 0], "result": "previous execution"},
+        },
+        "3": {"class_type": "CLIPTextEncode", "inputs": {"text": ["2", 0]}},
+        "4": {"class_type": "ConditioningZeroOut", "inputs": {"conditioning": ["3", 0]}},
+        "5": {
+            "class_type": "KSampler",
+            "inputs": {
+                "positive": ["3", 0],
+                "negative": ["4", 0],
+                "model": ["9", 0],
+            },
+        },
+        "6": {
+            "class_type": "Lora Cycler (LoraManager)",
+            "inputs": {
+                "cycler_config": {"current_lora_filename": "previous", "current_index": 2},
+            },
+        },
+        "7": {
+            "class_type": "Lora Stacker (LoraManager)",
+            "inputs": {
+                "loras": {"__value__": [entry, {**entry, "name": "disabled", "active": False}]},
+            },
+        },
+        "8": {
+            "class_type": "Lora Stack Combiner (LoraManager)",
+            "inputs": {
+                "lora_stack1": ["6", 0],
+                "lora_stack2": ["7", 0],
+            },
+        },
+        "9": {
+            "class_type": "Lora Loader (LoraManager)",
+            "inputs": {
+                "lora_stack": ["8", 0],
+                "loras": [{**entry, "name": "local"}],
+            },
+        },
+        "10": {
+            "class_type": "Lora Stacker (LoraManager)",
+            "inputs": {
+                "loras": [{**entry, "name": "not connected"}],
+            },
+        },
+    }
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+    try:
+        async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+            for capture in (False, True):
+                metadata = PngImagePlugin.PngInfo()
+                if capture:
+                    prompt["11"] = {
+                        "class_type": "ComfyGalleryRecordExecution",
+                        "inputs": {"positive": ["2", 0], "stack": ["6", 0]},
+                    }
+                    pnginfo: dict[str, object] = {}
+                    recorder = _execution_recorder()
+                    pixels = object()
+                    assert recorder.record(
+                        pixels,
+                        positive="expanded this run",
+                        stack=[("cycled.safetensors", 0.7, 0.5)],
+                        extra_pnginfo=pnginfo,
+                        unique_id="11",
+                    ) == (pixels,)
+                    for name, value in pnginfo.items():
+                        metadata.add_text(name, json.dumps(value))
+                metadata.add_text("prompt", json.dumps(prompt))
+                path = settings.resolved_staging_root / "dynamic.png"
+                Image.new("RGB", (16, 16)).save(path, pnginfo=metadata)
+                job = Job(
+                    kind="test",
+                    queue="test",
+                    resource_type="test",
+                    resource_id=uuid7(),
+                    progress_total=1,
+                )
+                session.add(job)
+                await session.commit()
+                await begin_job(session, job)
+                result = await ingest_staged_file(
+                    session,
+                    staged_path=path,
+                    original_filename="dynamic.png",
+                    job=job,
+                    settings=settings,
+                )
+                for reason in ("ingest", "reprocess"):
+                    if reason == "reprocess":
+                        await extract_workflow_for_media(
+                            session, media_id=result.media_id, settings=settings, reason=reason
+                        )
+                    obs = list(
+                        await session.scalars(
+                            select(SemanticObservation)
+                            .join(ExtractionRun)
+                            .join(WorkflowSnapshot)
+                            .where(
+                                WorkflowSnapshot.media_id == result.media_id,
+                                ExtractionRun.is_current,
+                            )
+                        )
+                    )
+                    loras = {x.value for x in obs if x.observation_type == "lora_reference"}
+                    assert loras == {"local", "style"} | (
+                        {"cycled.safetensors"} if capture else set()
+                    )
+                    indexed = set(
+                        await session.scalars(
+                            select(ModelReference.raw_value)
+                            .join(ModelUsage, ModelUsage.model_reference_id == ModelReference.id)
+                            .join(WorkflowSnapshot, WorkflowSnapshot.id == ModelUsage.snapshot_id)
+                            .where(WorkflowSnapshot.media_id == result.media_id)
+                        )
+                    )
+                    assert indexed == loras
+                    assert [(x.role, x.value) for x in obs if x.observation_type == "prompt"] == (
+                        [("positive", "expanded this run")] if capture else []
+                    )
+                    assert {
+                        x.observation_type
+                        for x in obs
+                        if x.observation_type.endswith("_unresolved")
+                    } == (set() if capture else {"prompt_unresolved", "lora_unresolved"})
+    finally:
+        await engine.dispose()
+
+
+def test_runtime_capture_is_bound_to_the_same_wire_and_ambiguous_values_stay_unknown() -> None:
+    from comfy_gallery_core.registry.dynamic_sources import dynamic_fields
+
+    pnginfo: dict[str, dict] = {}
+    recorder = _execution_recorder()
+    recorder.record(None, positive="one", stack=[], extra_pnginfo=pnginfo, unique_id="tap")
+    recorder.record(None, positive="two", stack=[], extra_pnginfo=pnginfo, unique_id="tap")
+    assert pnginfo["comfy_gallery_execution_v1"]["tap"] == {"positive": None, "stack": []}
+
+    source = WorkflowNode(
+        id=uuid7(),
+        representation="api_prompt",
+        original_node_id="source",
+        class_type="XantaPromptLibrary",
+        raw_inputs={},
+    )
+    encoder = WorkflowNode(
+        id=uuid7(),
+        representation="api_prompt",
+        original_node_id="encoder",
+        class_type="CLIPTextEncode",
+        raw_inputs={"text": ["source", 0]},
+    )
+    tap = WorkflowNode(
+        id=uuid7(),
+        representation="api_prompt",
+        original_node_id="tap",
+        class_type="ComfyGalleryRecordExecution",
+        raw_inputs={"positive": ["source", 1]},
+    )
+
+    def extract(encoded: str):
+        return [
+            (f.semantic_type, f.value)
+            for f in dynamic_fields(
+                [source, encoder, tap],
+                {encoder.id: "positive"},
+                {"text_chunks": {"comfy_gallery_execution_v1": encoded}},
+            )
+        ]
+
+    assert extract(json.dumps({"tap": {"positive": "library label from slot 1"}})) == [
+        ("prompt_unresolved", "XantaPromptLibrary")
+    ]
+    tap.raw_inputs = {"positive": ["source", 0]}
+    assert extract(json.dumps(pnginfo["comfy_gallery_execution_v1"])) == [
+        ("prompt_unresolved", "XantaPromptLibrary")
+    ]
+    assert extract("{") == [("prompt_unresolved", "XantaPromptLibrary")]

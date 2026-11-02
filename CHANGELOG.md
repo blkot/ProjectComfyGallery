@@ -4,6 +4,15 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.28 — 2026-11-02
+
+- Browse output-declared model, LoRA, prompt and prompt library fields in Media Detail.
+- Migrate scoped character LoRA and prompt ID displays from existing Gallery
+  snapshots without a live ComfyUI connection. Cached widget text stays explicitly
+  unverified and separate from original evidence and model analytics.
+- Recover enabled LoRAs from connected stackers; surface unresolved dynamic
+  conditioning and cyclers without treating UI caches as execution results.
+
 ## 0.1.0-rc.27 — 2026-11-01
 
 - Add SFW/NSFW/Unmarked media ratings, library filtering, card badges, detail

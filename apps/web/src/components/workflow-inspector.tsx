@@ -220,10 +220,15 @@ export function WorkflowInspector({ mediaId }: WorkflowInspectorProps) {
         </article>
       ) : (
         <>
-          <PromptPanel observations={data.observations} />
+          <DisplayFields fields={data.display_fields} />
+          <WidgetCandidates candidates={data.display_candidates} />
+          <OriginalEvidence overridden={Boolean(data.display_fields?.prompt)} title="Original prompt evidence">
+            <PromptPanel observations={data.observations} />
+          </OriginalEvidence>
           <ModelUsagePanel
             usages={data.model_usages}
             observations={data.observations}
+            fields={data.display_fields}
           />
           <GenerationParameters observations={data.observations} />
 
@@ -409,6 +414,8 @@ function ObservationPanel({
         "generation_parameter",
         "lora_reference",
         "prompt",
+        "prompt_unresolved",
+        "lora_unresolved",
       ].includes(observation.observation_type),
   );
   if (!supplemental.length) return null;
@@ -444,12 +451,84 @@ function ObservationPanel({
   );
 }
 
+const displayLabels = {
+  prompt_id: "Prompt library ID",
+  character_lora: "Character LoRA",
+  base_model: "Base model",
+  lora_list: "LoRA list",
+  prompt: "Positive prompt",
+} as const;
+
+function DisplayFields({ fields }: { fields: WorkflowDetail["display_fields"] }) {
+  if (!fields || !Object.keys(fields).length) return null;
+  return (
+    <article className="workflow-priority-card">
+      <h2>Display overrides</h2>
+      {(Object.keys(displayLabels) as (keyof typeof displayLabels)[]).map((key) => {
+        const field = fields[key];
+        if (!field) return null;
+        const text = typeof field.value === "string"
+          ? field.value
+          : field.value.map(([name, model, clip]) =>
+              `${name} · model ${model}, CLIP ${clip}`,
+            ).join("\n");
+        return (
+          <section className="model-evidence-group" key={key}>
+            <h3>{displayLabels[key]}</h3>
+            <pre className="workflow-prompt">
+              {text || (key === "lora_list" ? "No LoRAs" : "(empty)")}
+            </pre>
+            <small className="muted" title={field.job_id ?? undefined}>
+              {field.source === "save_node" ? "Declared by save node" : "Verified execution · display node"} {field.node_id}
+            </small>
+          </section>
+        );
+      })}
+    </article>
+  );
+}
+
+function WidgetCandidates({ candidates }: { candidates: WorkflowDetail["display_candidates"] }) {
+  if (!candidates || !Object.keys(candidates).length) return null;
+  return (
+    <article className="workflow-priority-card">
+      <h2>Embedded workflow text</h2>
+      <p className="muted">Saved widget text can come from an earlier run. These values are unverified.</p>
+      {(Object.keys(displayLabels) as (keyof typeof displayLabels)[]).map(key => {
+        const item = candidates[key];
+        return item ? (
+          <section className="model-evidence-group" key={key}>
+            <h3>{displayLabels[key]}</h3>
+            <pre className="workflow-prompt">{item.value || "(empty)"}</pre>
+            <small className="muted">Embedded ShowText node {item.node_id}</small>
+          </section>
+        ) : null;
+      })}
+    </article>);
+}
+
+function OriginalEvidence({ overridden, title, children }: {
+  overridden: boolean;
+  title: string;
+  children: React.ReactNode;
+}) {
+  if (!overridden) return children;
+  return (
+    <details className="workflow-inspector-disclosure">
+      <summary>{title}</summary>
+      {children}
+    </details>
+  );
+}
+
 function ModelUsagePanel({
   usages,
   observations,
+  fields,
 }: {
   usages: WorkflowModelUsage[];
   observations: SemanticObservation[];
+  fields: WorkflowDetail["display_fields"];
 }) {
   const checkpointUsages = usages.filter(
     (usage) => usage.observation_type === "checkpoint_reference",
@@ -474,21 +553,30 @@ function ModelUsagePanel({
           {usages.length || checkpointFallback.length + loraFallback.length} uses
         </span>
       </div>
-      <ModelUsageGroup
-        title="Checkpoints"
-        emptyMessage="No checkpoint reference was extracted."
-        usages={checkpointUsages}
-        fallback={checkpointFallback}
-        observations={observations}
-      />
-      <ModelUsageGroup
-        title="LoRAs"
-        emptyMessage="No LoRA reference was extracted."
-        usages={loraUsages}
-        fallback={loraFallback}
-        observations={observations}
-        showStrength
-      />
+      <OriginalEvidence overridden={Boolean(fields?.base_model)} title="Original checkpoint evidence">
+        <ModelUsageGroup
+          title="Checkpoints"
+          emptyMessage="No checkpoint reference was extracted."
+          usages={checkpointUsages}
+          fallback={checkpointFallback}
+          observations={observations}
+        />
+      </OriginalEvidence>
+      <OriginalEvidence overridden={Boolean(fields?.lora_list)} title="Original LoRA evidence">
+        <ModelUsageGroup
+          title="LoRAs"
+          emptyMessage="No LoRA reference was extracted."
+          usages={loraUsages}
+          fallback={loraFallback}
+          observations={observations}
+          showStrength
+        />
+        {observations.filter((o) => o.observation_type === "lora_unresolved").map((o) => (
+          <p key={o.id} className="muted">
+            {displayValue(o.value)}: the selected LoRA was not recorded in this file.
+          </p>
+        ))}
+      </OriginalEvidence>
     </article>
   );
 }
@@ -608,6 +696,7 @@ function PromptPanel({
       (observation) => observation.observation_type === "prompt",
     ),
   );
+  const unresolved = observations.filter((o) => o.observation_type === "prompt_unresolved");
 
   async function copyPrompt(index: number, text: string) {
     setCopyState({ index, status: "copying" });
@@ -662,7 +751,13 @@ function PromptPanel({
           </details>
         );
       })}
-      {prompts.length === 0 ? (
+      {unresolved.map((o) => (
+        <p key={o.id} className="muted">
+          {titleCase(o.role ?? "Unclassified")} prompt from {displayValue(o.value)}:
+          the executed text was not recorded in this file.
+        </p>
+      ))}
+      {prompts.length === 0 && unresolved.length === 0 ? (
         <p className="muted">No prompt was extracted for this media.</p>
       ) : null}
     </article>

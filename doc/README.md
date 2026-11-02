@@ -35,6 +35,7 @@ This structure borrows the audience separation of the Diátaxis documentation mo
 
 - [Media ingestion and processing](design/media-ingestion.md)
 - [Workflow intelligence and node registry](design/workflow-intelligence.md)
+- [Per-output display fields and scoped historical recovery](design/workflow-display-overrides.md)
 - [ComfyUI runtime integration cycle](design/comfyui-runtime-integration-cycle.md)
 - [Model registry](design/model-registry.md)
 - [Manual evaluation](design/evaluation.md)

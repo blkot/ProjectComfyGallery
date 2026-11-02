@@ -34,6 +34,8 @@ EXPORT_TABLE_NAMES = (
     "scan_batch",
     "source_occurrence",
     "workflow_snapshot",
+    "workflow_display_recovery",
+    "workflow_display_profile",
     "workflow_node",
     "workflow_edge",
     "workflow_value",
@@ -76,6 +78,8 @@ EXPORT_TABLE_NAMES = (
 )
 WORKFLOW_EVIDENCE_TABLES = {
     "workflow_snapshot",
+    "workflow_display_recovery",
+    "workflow_display_profile",
     "workflow_node",
     "workflow_edge",
     "workflow_value",

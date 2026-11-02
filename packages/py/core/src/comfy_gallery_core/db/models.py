@@ -754,6 +754,33 @@ class ExportRun(Base):
     created_by: Mapped[User] = relationship(back_populates="export_runs")
 
 
+class WorkflowDisplayProfile(Base):
+    """One unverified widget mapping per approved workflow scope and graph revision."""
+
+    __tablename__ = "workflow_display_profile"
+
+    scope: Mapped[str] = mapped_column(String(64), primary_key=True)
+    topology_sha256: Mapped[str] = mapped_column(String(64), primary_key=True)
+    reference_media_id: Mapped[UUID] = mapped_column(ForeignKey("media.id", ondelete="RESTRICT"))
+    bindings: Mapped[dict[str, str]] = mapped_column(json_type)
+
+
+class WorkflowDisplayRecovery(Base):
+    """Operator-verified per-file overlay; re-extraction never replaces it."""
+
+    __tablename__ = "workflow_display_recovery"
+    media_id: Mapped[UUID] = mapped_column(
+        ForeignKey("media.id", ondelete="CASCADE"), primary_key=True
+    )
+    field_name: Mapped[str] = mapped_column(String(40), primary_key=True)
+    value: Mapped[str] = mapped_column(Text)
+    original_sha256: Mapped[str] = mapped_column(String(64))
+    profile_sha256: Mapped[str] = mapped_column(String(64))
+    workflow_uuid: Mapped[str | None] = mapped_column(String(36))
+    node_id: Mapped[str] = mapped_column(String(128))
+    job_id: Mapped[UUID] = mapped_column()
+
+
 class WorkflowSnapshot(Base):
     __tablename__ = "workflow_snapshot"
 

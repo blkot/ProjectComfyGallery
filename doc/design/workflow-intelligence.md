@@ -370,3 +370,33 @@ Phase 2 satisfied this dependency with 6 PNG images and 8 MP4 videos. Thirteen c
 both representations and one is API-prompt-only. The private regression asserts raw
 evidence integrity, structural graph coverage, unknown-node survival, and initial
 checkpoint/LoRA observations without committing private prompt or model content.
+
+### Dynamic prompts and LoRA Manager stacks
+
+Extractor 2.3 reads enabled LoRA entries (including their recorded model and
+CLIP strengths) from API-prompt LoRA Manager loaders and connected stackers,
+following nested stack combiners. A disconnected visual stack, a pool filter,
+and a cycler's index/current-name widget are not executed model identities.
+Similarly a StringFunction result widget or wildcard template may describe a
+previous run. The workflow inspector reports recognized unresolved sources
+separately from prompt/model observations used for search, review and analysis.
+ConditioningZeroOut does not assign its negative role to upstream positive text.
+The upstream [StringFunction implementation](https://github.com/pythongosssss/ComfyUI-Custom-Scripts/blob/main/py/string_function.py)
+returns the computed text at execution; the [LoRA Manager cycler](https://github.com/willmiao/ComfyUI-Lora-Manager/blob/main/py/nodes/lora_cycler.py)
+selects from its runtime pool, which can differ from the saved UI state.
+
+The optional [ComfyUI recording node](../../integrations/comfyui/comfy_gallery_execution_capture/README.md)
+captures final values on the PNG save branch. Gallery validates the recorder's
+class, input connection and producer output slot against the embedded API graph.
+Recorded stacks take precedence over their upstream configuration, including an
+explicit empty stack. Registry mappings explicitly chosen by the user retain
+precedence. Missing, malformed or ambiguous supplemental data cannot establish
+an executed value. Original evidence is unchanged on reprocessing.
+
+For existing media, reprocess the individual workflow after upgrading the worker.
+This recovers connected static stack entries without re-uploading the original.
+If runtime values were not recorded, historical ComfyUI UI outputs are useful
+only when the execution can be tied to the original bytes (for example by
+SHA-256 verification of the saved output). Filename, timestamp, seed and current
+library contents alone are insufficient. Gallery does not query a live pool or
+rerun a generator to fill in missing historical values.

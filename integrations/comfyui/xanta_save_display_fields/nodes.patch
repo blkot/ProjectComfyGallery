@@ -1,0 +1,57 @@
+--- a/nodes.py
++++ b/nodes.py
+@@ -1886,7 +1886,15 @@
+                     "tooltip": "Upload saved files to the API endpoint configured in config/api_config.json. Disable to use this node as a plain SaveImage."
+                 }),
+             },
++            "optional": {
++                "cg_base_model": ("STRING", {"forceInput": True}),
++                "cg_lora_list": ("STRING,LORA_STACK", {"forceInput": True}),
++                "cg_character_lora": ("STRING", {"forceInput": True}),
++                "cg_prompt": ("STRING", {"forceInput": True}),
++                "cg_prompt_id": ("STRING", {"forceInput": True}),
++            },
+             "hidden": {
++                "unique_id": "UNIQUE_ID",
+                 "prompt": "PROMPT",
+                 "extra_pnginfo": "EXTRA_PNGINFO"
+             },
+@@ -1900,7 +1908,9 @@
+     DESCRIPTION = "Saves the input images to your ComfyUI output directory (like SaveImage) and uploads them to the API endpoint configured in config/api_config.json."
+     SEARCH_ALIASES = ["save", "save image", "export image", "output image", "write image", "download", "save and upload", "upload"]
+
+-    def save_images(self, images, filename_prefix="ComfyUI", enable_upload=True, prompt=None, extra_pnginfo=None):
++    def save_images(self, images, filename_prefix="ComfyUI", enable_upload=True, prompt=None, extra_pnginfo=None,
++                    unique_id=None, cg_base_model=None, cg_lora_list=None,
++                    cg_character_lora=None, cg_prompt=None, cg_prompt_id=None):
+         import folder_paths
+         import numpy as np
+         from PIL import Image
+@@ -1932,6 +1942,27 @@
+         full_output_folder, filename, counter, subfolder, _ = folder_paths.get_save_image_path(
+             filename_prefix, self.output_dir, images[0].shape[1], images[0].shape[0]
+         )
++
++        # This envelope belongs to this saver invocation, never to sibling outputs.
++        # Leave shared EXTRA_PNGINFO untouched and reserve this key even on a requeue.
++        key = "comfy_gallery_display_v1"
++        extra_pnginfo = dict(extra_pnginfo or {})
++        extra_pnginfo.pop(key, None)
++        fields = {name: value for name, value in (
++            ("base_model", cg_base_model), ("character_lora", cg_character_lora),
++            ("prompt", cg_prompt), ("prompt_id", cg_prompt_id),
++        ) if isinstance(value, str)}
++        if isinstance(cg_lora_list, str):
++            fields["lora_list"] = cg_lora_list
++        elif isinstance(cg_lora_list, (tuple, list)):
++            import math
++            if all(isinstance(row, (tuple, list)) and len(row) == 3
++                   and isinstance(row[0], str) and row[0].strip()
++                   and all(type(v) is int or (type(v) is float and math.isfinite(v))
++                           for v in row[1:]) for row in cg_lora_list):
++                fields["lora_list"] = [list(row) for row in cg_lora_list]
++        if fields and unique_id is not None:
++            extra_pnginfo[key] = {"version": 1, "save_node_id": str(unique_id), "fields": fields}
+
+         results = []
+         saved_paths = []

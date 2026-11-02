@@ -8017,6 +8017,20 @@
       },
       "WorkflowDetailResponse": {
         "properties": {
+          "display_candidates": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/WorkflowWidgetCandidateResponse"
+            },
+            "title": "Display Candidates",
+            "type": "object"
+          },
+          "display_fields": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/WorkflowDisplayFieldResponse"
+            },
+            "title": "Display Fields",
+            "type": "object"
+          },
           "edges": {
             "items": {
               "$ref": "#/components/schemas/WorkflowEdgeResponse"
@@ -8110,6 +8124,67 @@
           "raw_url"
         ],
         "title": "WorkflowDetailResponse",
+        "type": "object"
+      },
+      "WorkflowDisplayFieldResponse": {
+        "properties": {
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "node_id": {
+            "title": "Node Id",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "save_node",
+              "verified_history"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "maxItems": 3,
+                  "minItems": 3,
+                  "prefixItems": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "type": "array"
+                },
+                "type": "array"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "value",
+          "source",
+          "node_id"
+        ],
+        "title": "WorkflowDisplayFieldResponse",
         "type": "object"
       },
       "WorkflowEdgeResponse": {
@@ -9084,12 +9159,30 @@
         ],
         "title": "WorkflowValueResponse",
         "type": "object"
+      },
+      "WorkflowWidgetCandidateResponse": {
+        "properties": {
+          "node_id": {
+            "title": "Node Id",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "node_id"
+        ],
+        "title": "WorkflowWidgetCandidateResponse",
+        "type": "object"
       }
     }
   },
   "info": {
     "title": "Project Comfy Gallery API",
-    "version": "0.1.0-rc.27"
+    "version": "0.1.0-rc.28"
   },
   "openapi": "3.1.0",
   "paths": {

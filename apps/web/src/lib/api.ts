@@ -365,6 +365,8 @@ export type WorkflowSnapshot = {
 };
 
 export type WorkflowDetail = {
+  display_candidates?: Partial<Record<"base_model" | "lora_list" | "character_lora" | "prompt" | "prompt_id", { value: string; node_id: string }>>;
+  display_fields?: Partial<Record<"base_model" | "lora_list" | "character_lora" | "prompt" | "prompt_id", WorkflowDisplayField>>;
   media_id: string;
   status: string;
   snapshot: WorkflowSnapshot | null;
@@ -378,6 +380,13 @@ export type WorkflowDetail = {
   nodes_truncated: boolean;
   edges_truncated: boolean;
   raw_url: string | null;
+};
+
+export type WorkflowDisplayField = {
+  value: string | [string, number, number][];
+  source: "save_node" | "verified_history";
+  node_id: string;
+  job_id: string | null;
 };
 
 export type WorkflowInputAsset = {

@@ -107,6 +107,38 @@ describe("WorkflowInspector ComfyUI hand-off", () => {
 });
 
 describe("WorkflowInspector LoRA evidence", () => {
+  it("prioritizes declared fields without losing original evidence or leading zeros", async () => {
+    apiRequestMock.mockResolvedValue({
+      ...workflowWithLora,
+      display_fields: {
+        prompt: { value: "executed prompt", source: "save_node", node_id: "9" },
+        prompt_id: { value: "0007", source: "verified_history", node_id: "827", job_id: "job" },
+        lora_list: { value: [], source: "save_node", node_id: "9" },
+      },
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={client}><WorkflowInspector mediaId="media-1" /></QueryClientProvider>);
+    expect(await screen.findByText("executed prompt")).toBeVisible();
+    expect(screen.getByText("0007")).toBeVisible();
+    expect(screen.getByText("No LoRAs")).toBeVisible();
+    const original = screen.getByText("Original LoRA evidence").closest("details");
+    expect(original).not.toHaveAttribute("open");
+    expect(original).toHaveTextContent("style.safetensors");
+  });
+  it("distinguishes missing runtime values from prompt text and model uses", async () => {
+    const base = workflow.observations[0];
+    apiRequestMock.mockResolvedValue({
+      ...workflow, observations: [
+        { ...base, observation_type: "prompt_unresolved", value: "XantaPromptLibrary" },
+        { ...base, id: "cycler", observation_type: "lora_unresolved", value: "Lora Cycler" },
+      ],
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={client}><WorkflowInspector mediaId="media-1" /></QueryClientProvider>);
+    expect(await screen.findByText(/Positive prompt from XantaPromptLibrary/)).toBeVisible();
+    expect(screen.getByText(/Lora Cycler: the selected LoRA was not recorded/)).toBeVisible();
+    expect(screen.queryByRole("button", { name: /copy positive/i })).not.toBeInTheDocument();
+  });
   it("shows the LoRA strength from its matching workflow observation", async () => {
     apiRequestMock.mockResolvedValue(workflowWithLora);
     const queryClient = new QueryClient({
