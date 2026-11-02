@@ -184,12 +184,22 @@ async def import_prompt_registry_entries(
             entry.origin = item.origin
             updated_count += 1
         imported.append(entry)
+    imported_keys = [(entry.source_key, entry.entry_index) for entry in imported]
     await session.flush()
     await session.commit()
+    imported_predicates = [
+        (PromptRegistryEntry.source_key == source_key)
+        & (PromptRegistryEntry.entry_index == entry_index)
+        for source_key, entry_index in imported_keys
+    ]
+    persisted_entries = list(
+        await session.scalars(select(PromptRegistryEntry).where(or_(*imported_predicates)))
+    )
+    persisted_by_key = {(entry.source_key, entry.entry_index): entry for entry in persisted_entries}
     return PromptRegistryImportResponse(
         created_count=created_count,
         updated_count=updated_count,
-        entries=[_entry_response(entry) for entry in imported],
+        entries=[_entry_response(persisted_by_key[entry_key]) for entry_key in imported_keys],
     )
 
 

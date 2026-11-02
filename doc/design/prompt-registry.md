@@ -56,11 +56,62 @@ been registered yet.
 This makes stale or incomplete Xanta libraries discoverable without inventing a
 prompt definition.
 
+## Import contract
+
+Use `POST /api/v1/prompt-registry/import` for bulk imports. The request body is a
+JSON object with one `entries` array:
+
+```json
+{
+  "entries": [
+    {
+      "source": "sfw-zimage-por-v3",
+      "index": "03786",
+      "prompt": "...",
+      "negative_prompt": "...",
+      "metadata": {
+        "tags": ["portrait"]
+      },
+      "origin": "xanta-utils"
+    }
+  ]
+}
+```
+
+The importer MUST follow these rules:
+
+- `source` is required, trimmed, and limited to 256 characters. Matching is
+  case-insensitive, while the first stored display spelling is preserved.
+- `index` is required, digits only, and limited to 128 characters. Leading zeroes
+  are significant for display and MUST be preserved.
+- `prompt` and `negative_prompt` are plain text. Each is limited to 200,000
+  characters; `negative_prompt` may be `null`.
+- `metadata` is a JSON object and SHOULD contain source-specific provenance such as
+  tags or the original filename. Character LoRA and ordinary LoRA lists MUST NOT be
+  copied into the registry entry; they remain media/workflow evidence.
+- `origin` identifies the producer, defaults to `xanta-utils`, and is limited to 64
+  characters.
+- A batch contains 1–2,000 entries. Operators SHOULD use 100–500 entries per
+  request on the NAS so a failed request can be retried and verified quickly.
+- A batch MUST NOT contain duplicate `(source, index)` keys. Across requests the
+  operation is an idempotent upsert keyed by normalized source plus index.
+
+The response is returned only after the committed rows are read back from the
+database, so `created_count`, `updated_count`, and `entries` describe persisted
+records. A successful import is an HTTP 200 response. Validation errors are HTTP
+422 and do not partially apply the request.
+
+If a client receives a 5xx response, it SHOULD first query the registry by source
+and compare the expected indexes before retrying. Retrying the same batch is safe
+because the operation is an upsert; clients MUST NOT generate new indexes to work
+around a failed response. Prompt Registry import is independent of node/model
+registry synchronization and does not require a live ComfyUI connection.
+
 The frontend provides a Prompt Registry page under **System → Prompt Registry**.
 Prompt IDs in Media Detail are links to that page, where the definition and all
 matching media can be inspected.
 
-## Import shape for a future Xanta Utils adapter
+## Adapter mapping example
 
 The registry API intentionally accepts a neutral record shape so an adapter can
 translate whichever file format a local Xanta Utils installation uses:

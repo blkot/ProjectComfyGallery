@@ -4,6 +4,13 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.31 — 2026-11-02
+
+- Fix bulk Prompt Registry imports so responses are serialized from committed
+  database rows instead of expired ORM instances.
+- Document the Prompt Registry import contract, batching guidance, and safe retry
+  behavior.
+
 ## 0.1.0-rc.30 — 2026-11-02
 
 - Decouple reusable Prompt Registry definitions from media-specific Character

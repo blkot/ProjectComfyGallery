@@ -125,3 +125,33 @@ async def test_prompt_registry_lookup_prefers_visual_show_text_and_returns_all_m
             assert imported.entries[0].index == "0002"
     finally:
         await engine.dispose()
+
+
+async def test_prompt_registry_import_returns_rows_after_commit() -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    try:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        async with async_sessionmaker(engine, expire_on_commit=True)() as session:
+            result = await import_prompt_registry_entries(
+                PromptRegistryImportRequest(
+                    entries=[
+                        PromptRegistryEntryRequest(
+                            source="xanta-utils",
+                            index="0001",
+                            prompt="A test prompt",
+                        )
+                    ]
+                ),
+                None,  # type: ignore[arg-type]
+                session,
+            )
+
+            assert result.created_count == 1
+            assert result.updated_count == 0
+            assert result.entries[0].source == "xanta-utils"
+            assert result.entries[0].index == "0001"
+            assert result.entries[0].created_at is not None
+            assert result.entries[0].updated_at is not None
+    finally:
+        await engine.dispose()
