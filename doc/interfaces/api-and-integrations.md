@@ -236,6 +236,10 @@ Prompt registry endpoints:
 
 ```text
 GET    /api/v1/prompt-registry
+GET    /api/v1/prompt-registry/sources?q=<prefix>&limit=24
+GET    /api/v1/prompt-registry/random?source=<source>&materialization=<state>
+GET    /api/v1/prompt-registry/stats?source=<source>
+GET    /api/v1/prompt-registry/neighbor?source=<source>&index=<index>&direction=<previous|next>
 GET    /api/v1/prompt-registry/lookup?prompt_id=<source%20-%20index>
 GET    /api/v1/prompt-registry/:entryId
 POST   /api/v1/prompt-registry
@@ -248,6 +252,10 @@ The lookup endpoint parses the final numeric suffix, preserves leading zeroes,
 and returns both the optional registry definition and every media whose trusted
 workflow Prompt ID resolves to the same source/index. A registry definition is
 optional: unregistered but parseable IDs remain discoverable from media evidence.
+The `random` endpoint supports `materialization=unmaterialized` for entries that
+have no related media in the materialized Prompt ID index. Read routes accept the
+same authenticated browser session or Bearer API token as the existing registry
+routes; write routes keep the existing CSRF or API-token requirement.
 
 ### Workflow input capture
 

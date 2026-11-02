@@ -16,11 +16,15 @@ from comfy_gallery_api.routes.prompt_registry import (
     import_prompt_registry_entries,
     list_prompt_registry_sources,
     lookup_prompt_registry_entry,
+    prompt_registry_neighbor,
+    prompt_registry_stats,
+    random_prompt_registry_entry,
 )
 from comfy_gallery_core.db import Base
 from comfy_gallery_core.db.models import (
     Media,
     MediaAsset,
+    MediaPromptIndex,
     WorkflowDisplayProfile,
     WorkflowSnapshot,
 )
@@ -314,6 +318,136 @@ async def test_prompt_registry_sources_are_distinct_and_source_only() -> None:
                 )
                 == []
             )
+    finally:
+        await engine.dispose()
+
+
+async def test_prompt_registry_random_stats_and_neighbors_use_materialized_index() -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    try:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+            await import_prompt_registry_entries(
+                PromptRegistryImportRequest(
+                    entries=[
+                        PromptRegistryEntryRequest(
+                            source="xanta-utils",
+                            index="00001",
+                            prompt="Materialized",
+                        ),
+                        PromptRegistryEntryRequest(
+                            source="xanta-utils",
+                            index="00002",
+                            prompt="Unmaterialized two",
+                        ),
+                        PromptRegistryEntryRequest(
+                            source="xanta-utils",
+                            index="00010",
+                            prompt="Unmaterialized ten",
+                        ),
+                        PromptRegistryEntryRequest(
+                            source="other",
+                            index="00001",
+                            prompt="Other source",
+                        ),
+                    ]
+                ),
+                None,  # type: ignore[arg-type]
+                session,
+            )
+            media = Media(id=uuid4(), kind="image", status="ready")
+            session.add(media)
+            await session.flush()
+            session.add(
+                MediaPromptIndex(
+                    media_id=media.id,
+                    source_key="xanta-utils",
+                    entry_index="00001",
+                    index_key="1",
+                    prompt_id="xanta-utils - 00001",
+                    evidence_source="save_node",
+                )
+            )
+            await session.commit()
+
+            stats = await prompt_registry_stats(
+                None,  # type: ignore[arg-type]
+                session,
+                source="xanta-utils",
+            )
+            assert stats.source == "xanta-utils"
+            assert stats.source_count == 1
+            assert stats.registered_count == 3
+            assert stats.materialized_count == 1
+            assert stats.unmaterialized_count == 2
+
+            random_any = await random_prompt_registry_entry(
+                None,  # type: ignore[arg-type]
+                session,
+                source=None,
+                materialization="any",
+            )
+            assert random_any.index in {"00001", "00002", "00010"}
+
+            random_unmaterialized = await random_prompt_registry_entry(
+                None,  # type: ignore[arg-type]
+                session,
+                source="xanta-utils",
+                materialization="unmaterialized",
+            )
+            assert random_unmaterialized.index in {"00002", "00010"}
+            assert random_unmaterialized.media_count == 0
+            assert random_unmaterialized.materialization == "unmaterialized"
+
+            random_materialized = await random_prompt_registry_entry(
+                None,  # type: ignore[arg-type]
+                session,
+                source="xanta-utils",
+                materialization="materialized",
+            )
+            assert random_materialized.index == "00001"
+            assert random_materialized.media_count == 1
+            assert random_materialized.materialization == "materialized"
+
+            with pytest.raises(ApiError, match="No prompt matches") as random_raised:
+                await random_prompt_registry_entry(
+                    None,  # type: ignore[arg-type]
+                    session,
+                    source="missing",
+                    materialization="unmaterialized",
+                )
+            assert random_raised.value.status_code == 404
+            assert random_raised.value.code == "PROMPT_REGISTRY_RANDOM_NOT_FOUND"
+
+            next_entry = await prompt_registry_neighbor(
+                None,  # type: ignore[arg-type]
+                session,
+                source="xanta-utils",
+                index="00001",
+                direction="next",
+            )
+            assert next_entry.entry.index == "00002"
+
+            previous_entry = await prompt_registry_neighbor(
+                None,  # type: ignore[arg-type]
+                session,
+                source="xanta-utils",
+                index="00010",
+                direction="previous",
+            )
+            assert previous_entry.entry.index == "00002"
+
+            with pytest.raises(ApiError, match="No registered neighbor") as raised:
+                await prompt_registry_neighbor(
+                    None,  # type: ignore[arg-type]
+                    session,
+                    source="xanta-utils",
+                    index="00001",
+                    direction="previous",
+                )
+            assert raised.value.status_code == 404
+            assert raised.value.code == "PROMPT_REGISTRY_NEIGHBOR_NOT_FOUND"
     finally:
         await engine.dispose()
 

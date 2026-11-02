@@ -1,8 +1,10 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
+PromptRegistryMaterialization = Literal["any", "materialized", "unmaterialized"]
 
 
 class PromptRegistryEntryRequest(BaseModel):
@@ -66,3 +68,21 @@ class PromptRegistryLookupResponse(BaseModel):
     total_media: int
     limit: int
     offset: int
+
+
+class PromptRegistryRandomResponse(PromptRegistryEntryResponse):
+    prompt_id: str
+    materialization: Literal["materialized", "unmaterialized"]
+
+
+class PromptRegistryStatsResponse(BaseModel):
+    source: str | None
+    source_count: int
+    registered_count: int
+    materialized_count: int
+    unmaterialized_count: int
+
+
+class PromptRegistryNeighborResponse(BaseModel):
+    direction: Literal["previous", "next"]
+    entry: PromptRegistryEntryResponse

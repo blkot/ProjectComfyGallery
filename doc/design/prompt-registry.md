@@ -131,6 +131,34 @@ For source selection, use `GET /api/v1/prompt-registry/sources?q=<prefix>&limit=
 It returns distinct display source labels and intentionally does not search prompt
 text or calculate a full registry count.
 
+## Read API extensions
+
+All read endpoints require the existing authenticated session or Bearer API
+token. A prompt is **unmaterialized** when no row in `media_prompt_index` points
+to its normalized source and numeric index; trash does not erase that generation
+history.
+
+```text
+GET /api/v1/prompt-registry/random
+  ?source=<optional-source>
+  &materialization=any|materialized|unmaterialized
+
+GET /api/v1/prompt-registry/stats
+  ?source=<optional-source>
+
+GET /api/v1/prompt-registry/neighbor
+  ?source=<source>
+  &index=<numeric-index>
+  &direction=previous|next
+```
+
+`random` combines `source` and `materialization` with AND semantics and returns
+HTTP 404 with `PROMPT_REGISTRY_RANDOM_NOT_FOUND` when no entry matches. The
+random response includes the stable `prompt_id` and the computed `media_count`.
+`stats` reports registered, materialized, and unmaterialized entry counts.
+`neighbor` returns the nearest registered entry in numeric index order, skipping
+gaps instead of requiring the caller to probe every integer.
+
 The frontend provides a Prompt Registry page under **System → Prompt Registry**.
 Prompt IDs in Media Detail are links to that page, where the definition and all
 matching media can be inspected.

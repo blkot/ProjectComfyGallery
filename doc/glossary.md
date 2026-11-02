@@ -109,6 +109,18 @@ The structural model-use pattern of a workflow, such as single-model, dual-noise
 
 A derived browser-compatible video used for preview while the original remains authoritative.
 
+## Prompt registry
+
+The reusable prompt definitions indexed by a case-insensitive source and a
+zero-padded numeric index. A registry entry is separate from workflow evidence;
+media relationships are derived from trusted Prompt IDs.
+
+## Unmaterialized prompt
+
+A prompt registry entry with no media relationship in the materialized Prompt ID
+index. A trashed media record still counts as generated, so it does not make the
+associated prompt unmaterialized.
+
 ## Spatial available
 
 System-owned video state indicating that an active, ready, validated

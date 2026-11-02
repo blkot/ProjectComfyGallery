@@ -4,6 +4,26 @@ This file is the cross-agent handoff for backend contract changes. Consumers sho
 also use the committed [OpenAPI snapshot](openapi.json); prose here explains
 semantics and compatibility that a schema alone cannot express.
 
+## Unreleased: prompt registry read APIs
+
+**Database migration:** `0020_prompt_registry_index_key`
+
+Prompt registry entries now keep a canonical numeric index key so padded Prompt IDs
+resolve consistently for materialization checks. Authenticated clients can use:
+
+```http
+GET /api/v1/prompt-registry/sources?q=<prefix>&limit=24
+GET /api/v1/prompt-registry/random?source=<source>&materialization=<state>
+GET /api/v1/prompt-registry/stats?source=<source>
+GET /api/v1/prompt-registry/neighbor?source=<source>&index=<index>&direction=<previous|next>
+```
+
+`materialization=unmaterialized` selects registry entries with no associated media;
+trash does not make a previously generated prompt unmaterialized. Random selection
+returns `PROMPT_REGISTRY_RANDOM_NOT_FOUND` when the filters have no candidates.
+Read routes accept the existing web session or Bearer API token, while registry
+write routes keep their existing CSRF or API-token requirements.
+
 ## Unreleased: media content-safety ratings
 
 **Database migration:** `0015_media_content_rating`

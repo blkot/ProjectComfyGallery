@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 from typing import cast as typing_cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import func, or_, select, tuple_
+from sqlalchemy import and_, exists, func, or_, select, tuple_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
@@ -17,8 +17,12 @@ from comfy_gallery_api.prompt_registry_schemas import (
     PromptRegistryImportRequest,
     PromptRegistryImportResponse,
     PromptRegistryLookupResponse,
+    PromptRegistryMaterialization,
     PromptRegistryMediaResponse,
+    PromptRegistryNeighborResponse,
     PromptRegistryPageResponse,
+    PromptRegistryRandomResponse,
+    PromptRegistryStatsResponse,
 )
 from comfy_gallery_core.db.models import (
     Media,
@@ -138,6 +142,138 @@ async def list_prompt_registry_sources(
     return [str(row.source) for row in rows]
 
 
+@router.get("/random", response_model=PromptRegistryRandomResponse)
+async def random_prompt_registry_entry(
+    _principal: PrincipalDep,
+    session: DbSessionDep,
+    source: str | None = Query(default=None, max_length=256),
+    materialization: PromptRegistryMaterialization = "any",
+) -> PromptRegistryRandomResponse:
+    filters = _source_filters(source)
+    materialized_expression = _prompt_registry_media_exists_expression()
+    if materialization == "materialized":
+        filters.append(materialized_expression)
+    elif materialization == "unmaterialized":
+        filters.append(~materialized_expression)
+
+    entry = await session.scalar(
+        select(PromptRegistryEntry).where(*filters).order_by(func.random()).limit(1)
+    )
+    if entry is None:
+        raise ApiError(
+            status_code=404,
+            code="PROMPT_REGISTRY_RANDOM_NOT_FOUND",
+            message="No prompt matches the requested filters.",
+        )
+
+    media_count = await _prompt_registry_media_count(session, entry)
+    entry_response = _entry_response(entry, media_count=media_count)
+    return PromptRegistryRandomResponse(
+        **entry_response.model_dump(),
+        prompt_id=PromptIdentifier(source=entry.source, index=entry.entry_index).display,
+        materialization="materialized" if media_count else "unmaterialized",
+    )
+
+
+@router.get("/stats", response_model=PromptRegistryStatsResponse)
+async def prompt_registry_stats(
+    _principal: PrincipalDep,
+    session: DbSessionDep,
+    source: str | None = Query(default=None, max_length=256),
+) -> PromptRegistryStatsResponse:
+    filters = _source_filters(source)
+    registered_count = int(
+        await session.scalar(select(func.count()).select_from(PromptRegistryEntry).where(*filters))
+        or 0
+    )
+    materialized_count = int(
+        await session.scalar(
+            select(func.count())
+            .select_from(PromptRegistryEntry)
+            .where(*filters, _prompt_registry_media_exists_expression())
+        )
+        or 0
+    )
+    source_count = int(
+        await session.scalar(
+            select(func.count(func.distinct(PromptRegistryEntry.source_key)))
+            .select_from(PromptRegistryEntry)
+            .where(*filters)
+        )
+        or 0
+    )
+    return PromptRegistryStatsResponse(
+        source=_normalized_source(source) if source is not None else None,
+        source_count=source_count,
+        registered_count=registered_count,
+        materialized_count=materialized_count,
+        unmaterialized_count=registered_count - materialized_count,
+    )
+
+
+@router.get("/neighbor", response_model=PromptRegistryNeighborResponse)
+async def prompt_registry_neighbor(
+    _principal: PrincipalDep,
+    session: DbSessionDep,
+    source: str = Query(min_length=1, max_length=256),
+    index: str = Query(min_length=1, max_length=128, pattern=r"^\d+$"),
+    direction: Literal["previous", "next"] = Query(...),
+) -> PromptRegistryNeighborResponse:
+    identifier = PromptIdentifier(source=_normalized_source(source), index=index)
+    index_length = len(identifier.index_key)
+    indexed_length = func.length(PromptRegistryEntry.entry_index_key)
+    same_source = PromptRegistryEntry.source_key == identifier.source_key
+    if direction == "previous":
+        position_filter = or_(
+            indexed_length < index_length,
+            and_(
+                indexed_length == index_length,
+                PromptRegistryEntry.entry_index_key < identifier.index_key,
+            ),
+        )
+        ordering = (
+            indexed_length.desc(),
+            PromptRegistryEntry.entry_index_key.desc(),
+            PromptRegistryEntry.entry_index.desc(),
+        )
+    else:
+        position_filter = or_(
+            indexed_length > index_length,
+            and_(
+                indexed_length == index_length,
+                PromptRegistryEntry.entry_index_key > identifier.index_key,
+            ),
+        )
+        ordering = (
+            indexed_length.asc(),
+            PromptRegistryEntry.entry_index_key.asc(),
+            PromptRegistryEntry.entry_index.asc(),
+        )
+
+    entry = await session.scalar(
+        select(PromptRegistryEntry).where(same_source, position_filter).order_by(*ordering).limit(1)
+    )
+    if entry is None:
+        raise ApiError(
+            status_code=404,
+            code="PROMPT_REGISTRY_NEIGHBOR_NOT_FOUND",
+            message="No registered neighbor prompt was found.",
+            details={
+                "source": identifier.source,
+                "index": identifier.index,
+                "direction": direction,
+            },
+        )
+
+    return PromptRegistryNeighborResponse(
+        direction=direction,
+        entry=_entry_response(
+            entry,
+            media_count=await _prompt_registry_media_count(session, entry),
+        ),
+    )
+
+
 @router.get("/lookup", response_model=PromptRegistryLookupResponse)
 async def lookup_prompt_registry_entry(
     _principal: PrincipalDep,
@@ -235,6 +371,10 @@ async def import_prompt_registry_entries(
                 "source": source,
                 "source_key": source_key,
                 "entry_index": entry_index,
+                "entry_index_key": PromptIdentifier(
+                    source=source,
+                    index=entry_index,
+                ).index_key,
                 "prompt": item.prompt,
                 "negative_prompt": item.negative_prompt,
                 "metadata": item.metadata,
@@ -291,6 +431,7 @@ async def create_prompt_registry_entry(
         source=source,
         source_key=normalize_prompt_source(source),
         entry_index=entry_index,
+        entry_index_key=PromptIdentifier(source=source, index=entry_index).index_key,
         prompt=request.prompt,
         negative_prompt=request.negative_prompt,
         entry_metadata=request.metadata,
@@ -331,6 +472,7 @@ async def update_prompt_registry_entry(
     entry.source = source
     entry.source_key = normalize_prompt_source(source)
     entry.entry_index = entry_index
+    entry.entry_index_key = PromptIdentifier(source=source, index=entry_index).index_key
     entry.prompt = request.prompt
     entry.negative_prompt = request.negative_prompt
     entry.entry_metadata = request.metadata
@@ -351,6 +493,41 @@ def _normalized_source(source: str) -> str:
     return normalized
 
 
+def _source_filters(source: str | None) -> list[Any]:
+    if source is None:
+        return []
+    normalized = _normalized_source(source)
+    return [PromptRegistryEntry.source_key == normalize_prompt_source(normalized)]
+
+
+def _prompt_registry_media_exists_expression() -> Any:
+    return exists(
+        select(1)
+        .select_from(MediaPromptIndex)
+        .where(
+            MediaPromptIndex.source_key == PromptRegistryEntry.source_key,
+            MediaPromptIndex.index_key == PromptRegistryEntry.entry_index_key,
+        )
+    ).correlate(PromptRegistryEntry)
+
+
+async def _prompt_registry_media_count(
+    session: DbSessionDep,
+    entry: PromptRegistryEntry,
+) -> int:
+    return int(
+        await session.scalar(
+            select(func.count())
+            .select_from(MediaPromptIndex)
+            .where(
+                MediaPromptIndex.source_key == entry.source_key,
+                MediaPromptIndex.index_key == entry.entry_index_key,
+            )
+        )
+        or 0
+    )
+
+
 async def _find_entry(
     session: DbSessionDep,
     identifier: PromptIdentifier,
@@ -366,19 +543,19 @@ async def _find_entry(
     )
     if exact is not None:
         return exact
-    source_entries = await session.scalars(
-        select(PromptRegistryEntry).where(
+    canonical = await session.scalar(
+        select(PromptRegistryEntry)
+        .where(
             PromptRegistryEntry.source_key == identifier.source_key,
+            PromptRegistryEntry.entry_index_key == identifier.index_key,
         )
+        .order_by(
+            func.length(PromptRegistryEntry.entry_index),
+            PromptRegistryEntry.entry_index,
+        )
+        .limit(1)
     )
-    return next(
-        (
-            entry
-            for entry in source_entries
-            if (entry.entry_index.lstrip("0") or "0") == identifier.index_key
-        ),
-        None,
-    )
+    return canonical
 
 
 def _prompt_registry_upsert_statement(
@@ -401,6 +578,7 @@ def _prompt_registry_upsert_statement(
         ],
         set_={
             "prompt": statement.excluded.prompt,
+            "entry_index_key": statement.excluded.entry_index_key,
             "negative_prompt": statement.excluded.negative_prompt,
             "metadata": statement.excluded.metadata,
             "origin": statement.excluded.origin,

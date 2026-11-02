@@ -891,12 +891,18 @@ class PromptRegistryEntry(TimestampMixin, Base):
         ),
         Index("ix_prompt_registry_source", "source_key"),
         Index("ix_prompt_registry_index", "entry_index"),
+        Index(
+            "ix_prompt_registry_materialization",
+            "source_key",
+            "entry_index_key",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid7)
     source: Mapped[str] = mapped_column(String(256), nullable=False)
     source_key: Mapped[str] = mapped_column(String(256), nullable=False)
     entry_index: Mapped[str] = mapped_column(String(128), nullable=False)
+    entry_index_key: Mapped[str] = mapped_column(String(128), nullable=False)
     prompt: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
     negative_prompt: Mapped[str | None] = mapped_column(Text)
     entry_metadata: Mapped[dict[str, object]] = mapped_column(
