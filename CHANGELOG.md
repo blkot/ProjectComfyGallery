@@ -4,6 +4,15 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.32 — 2026-11-02
+
+- Optimize Prompt Registry bulk imports and source suggestions for large
+  libraries, with durable media lookup indexing and a rebuild command.
+- Preserve padded and 128-digit prompt indexes without integer overflow, and
+  enforce the encoded import request-size limit on received bytes.
+- Redesign Prompt Registry lookup around source/index selection and matching
+  media navigation.
+
 ## 0.1.0-rc.31 — 2026-11-02
 
 - Fix bulk Prompt Registry imports so responses are serialized from committed
