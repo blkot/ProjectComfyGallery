@@ -57,6 +57,19 @@ requested source/index, including IDs that have not been registered yet.
 This makes stale or incomplete Xanta libraries discoverable without inventing a
 prompt definition.
 
+Trusted media Prompt IDs are materialized in `media_prompt_index`, keyed by the
+media UUID and indexed by normalized source plus numeric index. New workflow
+extractions and verified display recovery update the row automatically. After
+the migration is deployed, backfill existing media with:
+
+```bash
+uv run --package comfy-gallery-core python -m comfy_gallery_core.cli rebuild-prompt-index
+```
+
+Until every media row has been backfilled, lookup keeps the previous workflow
+scan as a correctness-preserving fallback. Applying a new display profile also
+rebuilds the index so profile-backed candidates do not become stale.
+
 ## Import contract
 
 Use `POST /api/v1/prompt-registry/import` for bulk imports. The request body is a

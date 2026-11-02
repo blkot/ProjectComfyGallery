@@ -27,6 +27,7 @@ from comfy_gallery_core.workflow.display_fields import (
     widget_candidates,
     workflow_uuid,
 )
+from comfy_gallery_core.workflow.prompt_index import sync_media_prompt_index
 
 MAX_HISTORY = 16 * 1024 * 1024
 
@@ -316,6 +317,11 @@ async def recover(args: argparse.Namespace) -> None:
                         session.add(
                             WorkflowDisplayRecovery(media_id=args.media, field_name=name, **attrs)
                         )
+                await sync_media_prompt_index(
+                    session,
+                    media_id=args.media,
+                    asset_sha256=target.sha256,
+                )
                 await session.commit()
             print(
                 json.dumps(

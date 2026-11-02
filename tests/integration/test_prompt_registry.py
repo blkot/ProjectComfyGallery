@@ -23,6 +23,7 @@ from comfy_gallery_core.db.models import (
     WorkflowSnapshot,
 )
 from comfy_gallery_core.workflow.display_fields import topology
+from comfy_gallery_core.workflow.prompt_index import rebuild_prompt_index
 
 
 async def test_prompt_registry_lookup_prefers_visual_show_text_and_returns_all_media() -> None:
@@ -87,6 +88,8 @@ async def test_prompt_registry_lookup_prefers_visual_show_text_and_returns_all_m
                 )
             await session.commit()
 
+            assert await rebuild_prompt_index(session) == 2
+
             await create_prompt_registry_entry(
                 PromptRegistryEntryRequest(
                     source="portraits",
@@ -96,13 +99,28 @@ async def test_prompt_registry_lookup_prefers_visual_show_text_and_returns_all_m
                 None,  # type: ignore[arg-type]
                 session,
             )
-            result = await lookup_prompt_registry_entry(
-                None,  # type: ignore[arg-type]
-                session,
-                prompt_id="portraits - 1",
-                limit=48,
-                offset=0,
-            )
+            lookup_statements: list[str] = []
+
+            def record_lookup_statement(
+                _connection, _cursor, statement, _parameters, _context, _executemany
+            ):
+                lookup_statements.append(statement)
+
+            event.listen(engine.sync_engine, "before_cursor_execute", record_lookup_statement)
+            try:
+                result = await lookup_prompt_registry_entry(
+                    None,  # type: ignore[arg-type]
+                    session,
+                    prompt_id="portraits - 1",
+                    limit=48,
+                    offset=0,
+                )
+            finally:
+                event.remove(
+                    engine.sync_engine,
+                    "before_cursor_execute",
+                    record_lookup_statement,
+                )
 
             assert result.prompt_id == "portraits - 0001"
             assert result.entry is not None
@@ -112,6 +130,9 @@ async def test_prompt_registry_lookup_prefers_visual_show_text_and_returns_all_m
                 "prompt-0.png",
                 "prompt-1.png",
             }
+            assert not any(
+                "workflow_snapshot" in statement.lower() for statement in lookup_statements
+            )
             imported = await import_prompt_registry_entries(
                 PromptRegistryImportRequest(
                     entries=[

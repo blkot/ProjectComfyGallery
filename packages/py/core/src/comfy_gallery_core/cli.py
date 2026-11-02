@@ -10,6 +10,7 @@ from comfy_gallery_core.db import get_database
 from comfy_gallery_core.logging import configure_logging
 from comfy_gallery_core.workflow.display_recovery import recover, register_command
 from comfy_gallery_core.workflow.library_profiles import migrate_display
+from comfy_gallery_core.workflow.prompt_index import rebuild_prompt_index
 
 
 async def _create_admin(*, if_missing: bool) -> int:
@@ -44,6 +45,17 @@ async def _create_admin(*, if_missing: bool) -> int:
     return 0
 
 
+async def _rebuild_prompt_index(*, batch_size: int) -> int:
+    database = get_database()
+    try:
+        async with database.session() as session:
+            processed = await rebuild_prompt_index(session, batch_size=batch_size)
+    finally:
+        await database.dispose()
+    print(f"Rebuilt Prompt ID index for {processed} media records.")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="comfy-gallery")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -55,6 +67,10 @@ def main() -> int:
     )
     migrate.add_argument("--profile", type=Path, required=True)
     migrate.add_argument("--apply", action="store_true")
+    rebuild_index = subparsers.add_parser(
+        "rebuild-prompt-index", help="Backfill the materialized Prompt ID lookup index"
+    )
+    rebuild_index.add_argument("--batch-size", type=int, default=256)
     args = parser.parse_args()
 
     if args.command == "create-admin":
@@ -65,6 +81,10 @@ def main() -> int:
         except ValueError as exc:
             parser.error(str(exc))
         return 0
+    if args.command == "rebuild-prompt-index":
+        if args.batch_size < 1:
+            parser.error("--batch-size must be positive")
+        return asyncio.run(_rebuild_prompt_index(batch_size=args.batch_size))
     if args.command == "recover-display":
         try:
             asyncio.run(recover(args))

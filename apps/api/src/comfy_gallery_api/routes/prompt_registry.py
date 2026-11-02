@@ -23,8 +23,8 @@ from comfy_gallery_api.prompt_registry_schemas import (
 from comfy_gallery_core.db.models import (
     Media,
     MediaAsset,
+    MediaPromptIndex,
     PromptRegistryEntry,
-    WorkflowDisplayProfile,
     WorkflowDisplayRecovery,
     WorkflowSnapshot,
 )
@@ -35,9 +35,10 @@ from comfy_gallery_core.prompt_registry import (
 )
 from comfy_gallery_core.workflow.display_fields import (
     saved_fields,
-    topology,
-    widget_candidates,
-    workflow_uuid,
+)
+from comfy_gallery_core.workflow.prompt_index import (
+    load_profiles_by_scope,
+    prompt_id_candidate,
 )
 
 router = APIRouter(prefix="/api/v1/prompt-registry", tags=["prompt-registry"])
@@ -392,6 +393,33 @@ async def _matching_media(
     session: DbSessionDep,
     identifier: PromptIdentifier,
 ) -> list[tuple[Media, MediaAsset]]:
+    media_count = int(await session.scalar(select(func.count()).select_from(Media)) or 0)
+    indexed_count = int(
+        await session.scalar(select(func.count()).select_from(MediaPromptIndex)) or 0
+    )
+    if media_count == indexed_count:
+        rows = list(
+            (
+                await session.execute(
+                    select(Media, MediaAsset)
+                    .join(MediaAsset, MediaAsset.media_id == Media.id)
+                    .join(MediaPromptIndex, MediaPromptIndex.media_id == Media.id)
+                    .where(
+                        MediaPromptIndex.source_key == identifier.source_key,
+                        MediaPromptIndex.index_value == identifier.index_value,
+                    )
+                    .order_by(Media.created_at.desc(), Media.id.desc())
+                )
+            ).all()
+        )
+        return [(media, asset) for media, asset in rows]
+    return await _matching_media_fallback(session, identifier)
+
+
+async def _matching_media_fallback(
+    session: DbSessionDep,
+    identifier: PromptIdentifier,
+) -> list[tuple[Media, MediaAsset]]:
     rows = list(
         (
             await session.execute(
@@ -414,10 +442,7 @@ async def _matching_media(
     recovery_by_media = {
         media_id: (value, original_sha256) for media_id, value, original_sha256 in recovery_rows
     }
-    profiles = list(await session.scalars(select(WorkflowDisplayProfile)))
-    profiles_by_scope: dict[str, list[WorkflowDisplayProfile]] = {}
-    for profile in profiles:
-        profiles_by_scope.setdefault(profile.scope, []).append(profile)
+    profiles_by_scope = await load_profiles_by_scope(session)
     matches: list[tuple[Media, MediaAsset]] = []
     for media, asset, snapshot in rows:
         value: str | None = None
@@ -431,38 +456,11 @@ async def _matching_media(
                 if recovered is not None and recovered[1] == asset.sha256:
                     value = recovered[0]
                 elif snapshot.api_prompt:
-                    value = _prompt_id_candidate(snapshot, profiles_by_scope)
+                    value = prompt_id_candidate(snapshot, profiles_by_scope)
         parsed = parse_prompt_id(value)
         if parsed is not None and _same_identifier(parsed, identifier):
             matches.append((media, asset))
     return matches
-
-
-def _prompt_id_candidate(
-    snapshot: WorkflowSnapshot,
-    profiles_by_scope: dict[str, list[WorkflowDisplayProfile]],
-) -> str | None:
-    """Resolve a profile-backed candidate without a per-media async query."""
-
-    workflow_id = workflow_uuid(snapshot.visual_workflow)
-    scope = f"workflow:{workflow_id}" if workflow_id else f"media:{snapshot.media_id}"
-    profiles = profiles_by_scope.get(scope)
-    if not profiles or not snapshot.api_prompt:
-        return None
-    try:
-        signature = topology(snapshot.api_prompt)
-        profile = next((item for item in profiles if item.topology_sha256 == signature), None)
-        if profile is None:
-            return None
-        candidates = widget_candidates(
-            snapshot.api_prompt,
-            profile.bindings,
-            snapshot.visual_workflow,
-        )
-    except ValueError:
-        return None
-    candidate = candidates.get("prompt_id")
-    return candidate[0] if candidate is not None else None
 
 
 def _same_identifier(left: PromptIdentifier, right: PromptIdentifier) -> bool:

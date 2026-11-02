@@ -47,6 +47,7 @@ from comfy_gallery_core.workflow.graph import (
     normalize_workflow_graph,
 )
 from comfy_gallery_core.workflow.input_media import discover_workflow_inputs
+from comfy_gallery_core.workflow.prompt_index import sync_media_prompt_index
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +95,12 @@ async def extract_workflow_for_media(
             original=original,
             settings=settings,
         )
+    await sync_media_prompt_index(
+        session,
+        media_id=media_id,
+        snapshot=snapshot,
+        asset_sha256=asset.sha256,
+    )
 
     run = ExtractionRun(
         snapshot_id=snapshot.id,

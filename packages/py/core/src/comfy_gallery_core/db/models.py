@@ -781,6 +781,25 @@ class WorkflowDisplayRecovery(Base):
     job_id: Mapped[UUID] = mapped_column()
 
 
+class MediaPromptIndex(TimestampMixin, Base):
+    """Materialized trusted Prompt ID resolution for fast registry lookups."""
+
+    __tablename__ = "media_prompt_index"
+    __table_args__ = (Index("ix_media_prompt_index_lookup", "source_key", "index_value"),)
+
+    media_id: Mapped[UUID] = mapped_column(
+        ForeignKey("media.id", ondelete="CASCADE"), primary_key=True
+    )
+    source_key: Mapped[str | None] = mapped_column(String(256))
+    entry_index: Mapped[str | None] = mapped_column(String(128))
+    index_value: Mapped[int | None] = mapped_column(Integer)
+    prompt_id: Mapped[str | None] = mapped_column(String(512))
+    evidence_source: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="none", server_default="none"
+    )
+    original_sha256: Mapped[str | None] = mapped_column(String(64))
+
+
 class WorkflowSnapshot(Base):
     __tablename__ = "workflow_snapshot"
 

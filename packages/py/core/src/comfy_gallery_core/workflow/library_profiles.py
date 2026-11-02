@@ -20,6 +20,7 @@ from comfy_gallery_core.workflow.display_fields import (
     widget_candidates,
     workflow_uuid,
 )
+from comfy_gallery_core.workflow.prompt_index import rebuild_prompt_index
 
 
 def _scope(media_id: UUID, visual: dict[str, object] | None) -> str:
@@ -126,22 +127,26 @@ async def install_profile(
             continue
         matched += 1
         counts.update(k for k, (value, _source) in values.items() if value is not None)
-    if apply and existing is None:
-        session.add(
-            WorkflowDisplayProfile(
-                scope=scope,
-                topology_sha256=signature,
-                reference_media_id=reference_id,
-                bindings=bindings,
+    indexed = 0
+    if apply:
+        if existing is None:
+            session.add(
+                WorkflowDisplayProfile(
+                    scope=scope,
+                    topology_sha256=signature,
+                    reference_media_id=reference_id,
+                    bindings=bindings,
+                )
             )
-        )
-        await session.commit()
+            await session.commit()
+        indexed = await rebuild_prompt_index(session)
     return {
         "workflow_uuid": uid,
         "examined": examined,
         "matched": matched,
         "candidate_counts": dict(counts),
         "applied": apply,
+        "prompt_indexed": indexed,
     }
 
 
