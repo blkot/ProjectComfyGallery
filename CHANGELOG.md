@@ -4,6 +4,16 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+- Fix Prompt ID extraction for visual workflows whose ShowText widgets nest the
+  promoted text in a list, so the visual snapshot wins over the stale API cache.
+- Rebuild the materialized Prompt ID index after deploying the extraction fix.
+- Remove workflow-parse and warning badges from Library cards; show a single-letter
+  content-rating corner badge and a solid, high-contrast favorite star.
+- Label the Media Detail favorite toggle and use solid fills for the active
+  Favorite and SFW/NSFW controls.
+- Keep the Prompt heatmap tooltip inside its panel and hide the panel scrollbars so
+  hovering near an edge cannot reflow the matrix.
+
 ## 0.1.0-rc.35 — 2026-11-04
 
 - Materialize Prompt Registry prompts from favorites instead of raw generation

@@ -291,6 +291,7 @@ export function MediaDetailPage() {
               mediaId={item.id}
               favorite={item.favorite}
               className="media-record-favorite"
+              showLabel
             />
             <MediaSpatialPreferenceButton
               mediaId={item.id}

@@ -529,6 +529,34 @@ describe("LibraryPage controls sidebar", () => {
     expect(bulkPayload?.media_ids).toEqual([item.id]);
   });
 
+  it("renders a letter rating chip without workflow or warning badges", async () => {
+    const item = mediaFixture({
+      id: "media-card-badges",
+      content_rating: "nsfw",
+      warning_count: 2,
+      workflow_status: "parsed",
+      favorite: true,
+    });
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path.startsWith("/api/v1/media?")) {
+        return Promise.resolve({ items: [item], total: 1, limit: 48, offset: 0 });
+      }
+      return Promise.resolve([]);
+    });
+
+    renderLibrary();
+
+    const card = await screen.findByRole("link", { name: "Open media record" });
+    expect(
+      within(card).getByRole("img", { name: "Content rating: NSFW" }),
+    ).toHaveTextContent("R");
+    expect(within(card).queryByText(/WF/)).not.toBeInTheDocument();
+    expect(within(card).queryByText("Warning")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Remove from favorites" }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("keeps filter selection exceptions in the bulk payload", async () => {
     const item = mediaFixture({ id: "media-3", favorite: false });
     let bulkPayload: Record<string, unknown> | undefined;

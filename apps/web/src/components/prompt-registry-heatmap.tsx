@@ -349,9 +349,15 @@ export function PromptRegistryHeatmap({
             if (nextIndex === null) {
               setTooltipPosition(null);
             } else {
+              // Keep the tooltip inside the canvas wrapper: an absolutely
+              // positioned tooltip that crosses the padded edge would create
+              // scrollbars and shift the matrix while hovering.
+              const wrap = containerRef.current;
+              const maxX = (wrap?.clientWidth ?? 0) - 272;
+              const maxY = (wrap?.clientHeight ?? 0) - 56;
               setTooltipPosition({
-                x: event.nativeEvent.offsetX + 12,
-                y: event.nativeEvent.offsetY + 12,
+                x: Math.max(8, Math.min(event.nativeEvent.offsetX + 12, maxX)),
+                y: Math.max(8, Math.min(event.nativeEvent.offsetY + 12, maxY)),
               });
             }
           }}
