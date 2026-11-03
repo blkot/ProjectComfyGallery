@@ -2901,14 +2901,6 @@ textarea {
   background: rgba(255, 255, 255, 0.02);
 }
 
-.media-content-rating-label {
-  padding: 0 4px;
-  color: var(--muted);
-  font-size: 9px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
 .media-content-rating-option,
 .media-content-rating-clear {
   min-height: 24px;
