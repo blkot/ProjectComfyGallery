@@ -4,6 +4,8 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.40 — 2026-11-04
+
 - Fix the character-LoRA filter on random and stats: it now scopes the favorite
   signal instead of the candidate universe, so prompts never generated with the
   character remain eligible for `unmaterialized`.
