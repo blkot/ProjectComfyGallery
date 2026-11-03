@@ -4,6 +4,8 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.36 — 2026-11-04
+
 - Fix Prompt ID extraction for visual workflows whose ShowText widgets nest the
   promoted text in a list, so the visual snapshot wins over the stale API cache.
 - Rebuild the materialized Prompt ID index after deploying the extraction fix.
