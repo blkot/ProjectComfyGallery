@@ -4,6 +4,8 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.38 — 2026-11-04
+
 - Add a character-LoRA filter to the Prompt Registry heatmap, backed by a
   materialized `character_lora` value and a selector endpoint that lists the
   character LoRAs which currently have media.
