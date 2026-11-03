@@ -192,12 +192,14 @@ GET /api/v1/prompt-registry/character-loras
 
 `random` combines `source`, `character_lora`, and `materialization` with AND
 semantics and returns HTTP 404 with `PROMPT_REGISTRY_RANDOM_NOT_FOUND` when no
-entry matches. Materialization is evaluated inside the character scope, so
-`materialized` means a favorited, non-trashed media record with that character.
-The random response includes the stable `prompt_id` and the scoped `media_count`.
+entry matches. `character_lora` scopes the **favorite signal**, not the candidate
+universe: `materialized` means a favorited, non-trashed media record with that
+character, while `unmaterialized` means no such record. A prompt that was never
+generated with the character therefore remains an unmaterialized candidate. The
+random response includes the stable `prompt_id` and the scoped `media_count`.
 `stats` reports registered, materialized, and unmaterialized entry counts using
-the same favorite-based definition; with `character_lora` all three counts are
-restricted to entries that have media with that character.
+the same definition; `registered_count` stays the full source universe, while the
+materialized split uses character-scoped favorites.
 `lookup` also accepts `character_lora` and returns only matching media, adjusting
 `total_media` and the entry's `media_count`.
 `neighbor` returns the nearest registered entry in numeric index order, skipping

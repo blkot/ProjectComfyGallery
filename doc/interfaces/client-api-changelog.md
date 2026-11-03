@@ -23,11 +23,13 @@ GET /api/v1/prompt-registry/lookup?prompt_id=<id>&character_lora=<name>
 currently have media, ordered by media count. Every filter combines `source` and
 `character_lora` with AND semantics and matches the character name
 case-insensitively; entries without a character value never match the filter.
-For `random` and `stats`, materialization is evaluated inside the character scope
-(a favorited, non-trashed media record with that character). `lookup` returns only
-matching media and adjusts `total_media`. Existing rows are backfilled by
-`rebuild-prompt-index`; workflows that do not declare a character LoRA remain
-unrepresented in filtered results.
+For `random` and `stats`, `character_lora` scopes the favorite signal rather than
+the candidate universe: `unmaterialized` means no favorited, non-trashed media
+with that character, so a prompt never generated with the character remains a
+candidate. `registered_count` in `stats` stays the full source universe. `lookup`
+returns only matching media and adjusts `total_media`. Existing rows are backfilled
+by `rebuild-prompt-index`; workflows that do not declare a character LoRA remain
+unrepresented in character-scoped counts.
 
 ## Unreleased: favorite-scoped prompt materialization
 

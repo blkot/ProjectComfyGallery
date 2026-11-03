@@ -267,11 +267,12 @@ Counts are intended for a client-rendered contribution matrix; clients can use
 the response `max_media_count` to normalize the cell intensity and resolve a
 clicked cell through the existing `lookup?prompt_id=...` route. The lookup
 response marks each media record with `is_trash`.
-`character_lora` narrows heatmap counts, random selection, stats, and lookup media
-to the materialized character-LoRA display value (case-insensitive). For random and
-stats, materialization is evaluated inside that character scope; lookup adjusts
-`total_media`. `character-loras` lists the distinct values that currently have
-media, with counts, for selector options.
+`character_lora` scopes heatmap counts and lookup media to the materialized
+character-LoRA display value (case-insensitive). For random and stats it scopes the
+favorite signal instead of the candidate universe: `unmaterialized` means no
+favorited, non-trashed media with that character, and `registered_count` stays the
+full source universe. Lookup adjusts `total_media`. `character-loras` lists the
+distinct values that currently have media, with counts, for selector options.
 
 ### Workflow input capture
 

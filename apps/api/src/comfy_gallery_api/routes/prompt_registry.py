@@ -284,8 +284,6 @@ async def random_prompt_registry_entry(
 ) -> PromptRegistryRandomResponse:
     character = _normalized_character_lora(character_lora)
     filters = _source_filters(source)
-    if character is not None:
-        filters.append(_character_media_exists_expression(character))
     materialized_expression = _favorite_media_exists_expression(character)
     if materialization == "materialized":
         filters.append(materialized_expression)
@@ -320,8 +318,6 @@ async def prompt_registry_stats(
 ) -> PromptRegistryStatsResponse:
     character = _normalized_character_lora(character_lora)
     filters = _source_filters(source)
-    if character is not None:
-        filters.append(_character_media_exists_expression(character))
     registered_count = int(
         await session.scalar(select(func.count()).select_from(PromptRegistryEntry).where(*filters))
         or 0
@@ -671,20 +667,6 @@ def _normalized_character_lora(value: str | None) -> str | None:
         return None
     normalized = value.strip().casefold()
     return normalized or None
-
-
-def _character_media_exists_expression(character_lora: str) -> Any:
-    """Report whether an entry has any media with the requested character LoRA."""
-
-    return exists(
-        select(1)
-        .select_from(MediaPromptIndex)
-        .where(
-            MediaPromptIndex.source_key == PromptRegistryEntry.source_key,
-            MediaPromptIndex.index_key == PromptRegistryEntry.entry_index_key,
-            func.lower(MediaPromptIndex.character_lora) == character_lora,
-        )
-    ).correlate(PromptRegistryEntry)
 
 
 def _favorite_media_exists_expression(character_lora: str | None = None) -> Any:

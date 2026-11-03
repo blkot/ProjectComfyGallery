@@ -684,6 +684,11 @@ async def test_prompt_registry_character_lora_filter_and_options() -> None:
                             index="00002",
                             prompt="Second",
                         ),
+                        PromptRegistryEntryRequest(
+                            source="character-src",
+                            index="00003",
+                            prompt="Never generated with a character",
+                        ),
                     ]
                 ),
                 None,  # type: ignore[arg-type]
@@ -728,6 +733,7 @@ async def test_prompt_registry_character_lora_filter_and_options() -> None:
             assert [(item.index, item.media_count) for item in heatmap.items] == [
                 ("00001", 1),
                 ("00002", 0),
+                ("00003", 0),
             ]
 
             options = await list_prompt_registry_character_loras(
@@ -747,11 +753,22 @@ async def test_prompt_registry_character_lora_filter_and_options() -> None:
                 source="character-src",
                 character_lora="Character_A_v1",
             )
+            # Character LoRA scopes the favorite signal, not the prompt universe:
+            # a prompt never generated with the character stays unmaterialized.
             assert (
                 stats.registered_count,
                 stats.materialized_count,
                 stats.unmaterialized_count,
-            ) == (1, 1, 0)
+            ) == (3, 1, 2)
+
+            unpicked = await random_prompt_registry_entry(
+                None,  # type: ignore[arg-type]
+                session,
+                source="character-src",
+                character_lora="Character_A_v1",
+                materialization="unmaterialized",
+            )
+            assert unpicked.index in {"00002", "00003"}
 
             picked = await random_prompt_registry_entry(
                 None,  # type: ignore[arg-type]
