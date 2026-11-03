@@ -5,7 +5,7 @@ import {
   useQueryClient,
   type UseQueryResult,
 } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router";
 
 import {
@@ -28,8 +28,12 @@ const PROMPT_ID_PATTERN = /^\s*(.+?)\s*-\s*(\d+)\s*$/;
 const heatmapIncludeNotFavedKey =
   "comfy-gallery.prompt-heatmap.include-not-faved";
 const heatmapIncludeTrashKey = "comfy-gallery.prompt-heatmap.include-trash";
+const heatmapCharacterLoraKey =
+  "comfy-gallery.prompt-heatmap.character-lora";
 const isBooleanPreference = (value: unknown): value is boolean =>
   typeof value === "boolean";
+const isStringPreference = (value: unknown): value is string =>
+  typeof value === "string";
 
 function parsePromptId(value: string): PromptIdParts | null {
   const match = PROMPT_ID_PATTERN.exec(value);
@@ -58,7 +62,11 @@ export function PromptRegistryPage() {
   const [negativePrompt, setNegativePrompt] = useState("");
   const [showRegister, setShowRegister] = useState(false);
   const [heatmapSource, setHeatmapSource] = useState("");
-  const [heatmapCharacterLora, setHeatmapCharacterLora] = useState("");
+  const [heatmapCharacterLora, setHeatmapCharacterLora] = usePersistedState(
+    heatmapCharacterLoraKey,
+    "",
+    isStringPreference,
+  );
   const [heatmapIncludeNotFaved, setHeatmapIncludeNotFaved] = usePersistedState(
     heatmapIncludeNotFavedKey,
     false,
@@ -112,6 +120,29 @@ export function PromptRegistryPage() {
     placeholderData: keepPreviousData,
     staleTime: 60_000,
   });
+
+  useEffect(() => {
+    if (
+      !heatmapCharacterLora ||
+      characterLoraOptions.isPending ||
+      !characterLoraOptions.data
+    ) {
+      return;
+    }
+    if (
+      !characterLoraOptions.data.some(
+        (option) => option.name === heatmapCharacterLora,
+      )
+    ) {
+      setHeatmapCharacterLora("");
+    }
+  }, [
+    characterLoraOptions.data,
+    characterLoraOptions.isPending,
+    heatmapCharacterLora,
+    setHeatmapCharacterLora,
+  ]);
+
   const create = useMutation({
     mutationFn: () =>
       apiRequest<PromptRegistryEntry>("/api/v1/prompt-registry", {

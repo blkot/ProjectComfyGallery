@@ -13,6 +13,7 @@ from comfy_gallery_api.prompt_registry_schemas import (
 )
 from comfy_gallery_api.routes.prompt_registry import (
     _enforce_import_body_size,
+    _filter_media_by_character,
     create_prompt_registry_entry,
     import_prompt_registry_entries,
     list_prompt_registry_character_loras,
@@ -739,6 +740,34 @@ async def test_prompt_registry_character_lora_filter_and_options() -> None:
                 ("Character_A_v1", 1),
                 ("Character_B_v1", 1),
             }
+
+            stats = await prompt_registry_stats(
+                None,  # type: ignore[arg-type]
+                session,
+                source="character-src",
+                character_lora="Character_A_v1",
+            )
+            assert (
+                stats.registered_count,
+                stats.materialized_count,
+                stats.unmaterialized_count,
+            ) == (1, 1, 0)
+
+            picked = await random_prompt_registry_entry(
+                None,  # type: ignore[arg-type]
+                session,
+                source="character-src",
+                character_lora="Character_B_v1",
+                materialization="materialized",
+            )
+            assert picked.index == "00002"
+
+            filtered = await _filter_media_by_character(
+                session,
+                [(first, None), (second, None)],  # type: ignore[list-item]
+                "character_a_v1",
+            )
+            assert [media.id for media, _asset in filtered] == [first.id]
     finally:
         await engine.dispose()
 

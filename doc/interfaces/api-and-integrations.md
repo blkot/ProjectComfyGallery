@@ -239,10 +239,10 @@ GET    /api/v1/prompt-registry
 GET    /api/v1/prompt-registry/sources?q=<prefix>&limit=24
 GET    /api/v1/prompt-registry/character-loras?q=<substring>&limit=50
 GET    /api/v1/prompt-registry/heatmap?source=<source>&character_lora=<name>&include_not_faved=false&include_trash=false&limit=20000&offset=0
-GET    /api/v1/prompt-registry/random?source=<source>&materialization=<state>
-GET    /api/v1/prompt-registry/stats?source=<source>
+GET    /api/v1/prompt-registry/random?source=<source>&character_lora=<name>&materialization=<state>
+GET    /api/v1/prompt-registry/stats?source=<source>&character_lora=<name>
 GET    /api/v1/prompt-registry/neighbor?source=<source>&index=<index>&direction=<previous|next>
-GET    /api/v1/prompt-registry/lookup?prompt_id=<source%20-%20index>
+GET    /api/v1/prompt-registry/lookup?prompt_id=<source%20-%20index>&character_lora=<name>
 GET    /api/v1/prompt-registry/:entryId
 POST   /api/v1/prompt-registry
 POST   /api/v1/prompt-registry/import
@@ -267,9 +267,11 @@ Counts are intended for a client-rendered contribution matrix; clients can use
 the response `max_media_count` to normalize the cell intensity and resolve a
 clicked cell through the existing `lookup?prompt_id=...` route. The lookup
 response marks each media record with `is_trash`.
-`character_lora` narrows heatmap counts to media whose materialized character-LoRA
-display value matches case-insensitively; `character-loras` lists the distinct
-values that currently have media, with counts, for selector options.
+`character_lora` narrows heatmap counts, random selection, stats, and lookup media
+to the materialized character-LoRA display value (case-insensitive). For random and
+stats, materialization is evaluated inside that character scope; lookup adjusts
+`total_media`. `character-loras` lists the distinct values that currently have
+media, with counts, for selector options.
 
 ### Workflow input capture
 

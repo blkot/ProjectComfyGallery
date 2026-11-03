@@ -4,6 +4,11 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+- Extend the character-LoRA filter to random selection, stats, and lookup, with
+  materialization evaluated inside the selected character scope.
+- Remember the heatmap character-LoRA filter in browser storage and clear a stored
+  value that no longer exists.
+
 ## 0.1.0-rc.38 — 2026-11-04
 
 - Add a character-LoRA filter to the Prompt Registry heatmap, backed by a

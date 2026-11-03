@@ -9,19 +9,25 @@ semantics and compatibility that a schema alone cannot express.
 **Database migration:** `0021_prompt_index_character_lora`
 
 `media_prompt_index` now materializes the declared `character_lora` display value
-(from the saver packet or a verified historical recovery row). Two read additions:
+(from the saver packet or a verified historical recovery row). Read additions:
 
 ```http
 GET /api/v1/prompt-registry/character-loras?q=<substring>&limit=50
 GET /api/v1/prompt-registry/heatmap?character_lora=<name>
+GET /api/v1/prompt-registry/random?character_lora=<name>
+GET /api/v1/prompt-registry/stats?character_lora=<name>
+GET /api/v1/prompt-registry/lookup?prompt_id=<id>&character_lora=<name>
 ```
 
 `character-loras` returns `{name, media_count}` entries for distinct values that
-currently have media, ordered by media count. `heatmap` combines `source` and
+currently have media, ordered by media count. Every filter combines `source` and
 `character_lora` with AND semantics and matches the character name
 case-insensitively; entries without a character value never match the filter.
-Existing rows are backfilled by `rebuild-prompt-index`; workflows that do not
-declare a character LoRA remain unrepresented in filtered counts.
+For `random` and `stats`, materialization is evaluated inside the character scope
+(a favorited, non-trashed media record with that character). `lookup` returns only
+matching media and adjusts `total_media`. Existing rows are backfilled by
+`rebuild-prompt-index`; workflows that do not declare a character LoRA remain
+unrepresented in filtered results.
 
 ## Unreleased: favorite-scoped prompt materialization
 

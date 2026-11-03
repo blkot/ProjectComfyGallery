@@ -15314,6 +15314,22 @@
           },
           {
             "in": "query",
+            "name": "character_lora",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Character Lora"
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
@@ -15456,6 +15472,22 @@
           },
           {
             "in": "query",
+            "name": "character_lora",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Character Lora"
+            }
+          },
+          {
+            "in": "query",
             "name": "materialization",
             "required": false,
             "schema": {
@@ -15585,6 +15617,22 @@
               ],
               "title": "Source"
             }
+          },
+          {
+            "in": "query",
+            "name": "character_lora",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Character Lora"
+            }
           }
         ],
         "responses": {
@@ -15627,6 +15675,22 @@
               "format": "uuid",
               "title": "Entry Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "character_lora",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Character Lora"
             }
           },
           {

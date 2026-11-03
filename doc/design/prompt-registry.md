@@ -161,10 +161,16 @@ records generation history, and Trash never erases it.
 ```text
 GET /api/v1/prompt-registry/random
   ?source=<optional-source>
+  &character_lora=<optional-character-lora>
   &materialization=any|materialized|unmaterialized
 
 GET /api/v1/prompt-registry/stats
   ?source=<optional-source>
+  &character_lora=<optional-character-lora>
+
+GET /api/v1/prompt-registry/lookup
+  ?prompt_id=<source - index>
+  &character_lora=<optional-character-lora>
 
 GET /api/v1/prompt-registry/neighbor
   ?source=<source>
@@ -184,12 +190,16 @@ GET /api/v1/prompt-registry/character-loras
   &limit=50
 ```
 
-`random` combines `source` and `materialization` with AND semantics and returns
-HTTP 404 with `PROMPT_REGISTRY_RANDOM_NOT_FOUND` when no entry matches. The
-random response includes the stable `prompt_id` and the favorited, non-trashed
-`media_count` for that entry.
+`random` combines `source`, `character_lora`, and `materialization` with AND
+semantics and returns HTTP 404 with `PROMPT_REGISTRY_RANDOM_NOT_FOUND` when no
+entry matches. Materialization is evaluated inside the character scope, so
+`materialized` means a favorited, non-trashed media record with that character.
+The random response includes the stable `prompt_id` and the scoped `media_count`.
 `stats` reports registered, materialized, and unmaterialized entry counts using
-the same favorite-based definition.
+the same favorite-based definition; with `character_lora` all three counts are
+restricted to entries that have media with that character.
+`lookup` also accepts `character_lora` and returns only matching media, adjusting
+`total_media` and the entry's `media_count`.
 `neighbor` returns the nearest registered entry in numeric index order, skipping
 gaps instead of requiring the caller to probe every integer.
 `heatmap` returns compact contribution-matrix cells for every registered prompt.
