@@ -108,9 +108,16 @@ deploy. Production tracks an explicit tag such as `v0.1.0-rc.8`.
 
 Before creating a tag:
 
-1. Update every locked project/package version.
-2. Change the Changelog's `Unreleased` section to a dated version heading.
-3. Confirm `main` is clean and synchronized with `origin/main`.
+1. Land the release notes in the Changelog's `Unreleased` section.
+2. Run `make release-prepare` to lock the next release candidate, or pass an
+   explicit version with `make release-prepare RELEASE_VERSION=x.y.z`. This
+   rewrites `VERSION`, every `pyproject.toml`, package manifest, `__init__.py`,
+   Compose image default, and Dockerfile `ARG`; promotes the Changelog heading;
+   regenerates the OpenAPI snapshot; verifies that only release files changed; and
+   runs the complete check suite. `RELEASE_PREPARE_ARGS=--dry-run` previews the
+   plan without writing.
+3. Review the diff, commit it, and push `main`.
+4. Confirm `main` is clean and synchronized with `origin/main`.
 
 Then run:
 

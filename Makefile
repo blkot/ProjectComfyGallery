@@ -1,9 +1,17 @@
 .PHONY: audit backup bootstrap check dev dev-admin dev-bootstrap dev-check \
 	dev-infra dev-infra-down dev-logs dev-migrate dev-ready dev-status down \
-	image-audit logs migrate milestone nas-deploy nas-registry-login nas-ship production test
+	image-audit logs migrate milestone nas-deploy nas-registry-login nas-ship production \
+	release-prepare test
 
 DEV_ENV ?= .env.development
 DEV_COMPOSE = docker compose --env-file $(DEV_ENV) -f compose.development.yaml
+RELEASE_BUMP ?= rc
+RELEASE_PREPARE_ARGS ?=
+
+release-prepare:
+	uv run python scripts/prepare_release.py \
+		$(if $(RELEASE_VERSION),--version $(RELEASE_VERSION),--bump $(RELEASE_BUMP)) \
+		$(RELEASE_PREPARE_ARGS)
 
 audit:
 	uvx pip-audit --local

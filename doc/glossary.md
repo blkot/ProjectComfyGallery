@@ -117,9 +117,10 @@ media relationships are derived from trusted Prompt IDs.
 
 ## Unmaterialized prompt
 
-A prompt registry entry with no media relationship in the materialized Prompt ID
-index. A trashed media record still counts as generated, so it does not make the
-associated prompt unmaterialized.
+A prompt registry entry that has not produced a favorited, non-trashed media
+record. Trash outranks Favorite: a trashed favorite does not materialize the
+prompt, and neither does ordinary media that was never favorited. Generation
+history in the materialized Prompt ID index remains intact either way.
 
 ## Spatial available
 

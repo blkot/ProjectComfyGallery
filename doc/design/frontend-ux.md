@@ -81,7 +81,9 @@ visualizations, and media drill-down.
   source occurrence modification time; browser uploads fall back to the media import
   time.
 - Thumbnail/poster and media-type indicator.
-- Evaluation state and warning badges.
+- Evaluation state and a compact single-letter content-rating corner badge. The
+  gallery card does not repeat workflow parse state or warning counts; both remain
+  available on the media record and in filters.
 - Selection with keyboard modifiers.
 - Multi-select actions for collection/tag/review.
 - Progressive image loading, fixed aspect-ratio placeholders, and off-screen
@@ -199,10 +201,12 @@ The media record exposes:
 Media Detail is a fixed-height workstation on desktop. The original image/video stage
 occupies the complete left side below a persistent Media Action Bar. The bar contains
 library return, deterministic Previous/Next traversal and position, Download,
-low-saturation Favorite (yellow), spatial playback preference (neutral slate for
-standard playback and light blue for spatial playback), and reversible Trash/Restore
-(red). Permanent deletion is not exposed. On narrow media stages, the action group
-wraps within the same banner. Controls never overlay the media. The stage uses the
+a labeled Favorite toggle (solid amber with dark text when active), spatial playback
+preference (neutral slate for standard playback and light blue for spatial playback),
+and reversible Trash/Restore (red). The SFW/NSFW rating control uses solid green and
+solid coral fills for the active choice. Permanent deletion is not exposed. On narrow
+media stages, the action group wraps within the same banner. Controls never overlay
+the media. The stage uses the
 dynamic browser viewport and a definite containment box so every edge of an image or
 video remains visible across browser sizes, zoom levels, and source aspect ratios.
 The right inspector scrolls independently, so the media never moves out of view

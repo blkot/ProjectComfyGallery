@@ -13,11 +13,13 @@ export function MediaFavoriteButton({
   favorite,
   className = "",
   buttonRef,
+  showLabel = false,
 }: {
   mediaId: string;
   favorite: boolean;
   className?: string;
   buttonRef?: RefObject<HTMLButtonElement | null>;
+  showLabel?: boolean;
 }) {
   const queryClient = useQueryClient();
   const mutation = useMutation({
@@ -67,12 +69,20 @@ export function MediaFavoriteButton({
       type="button"
       aria-label={label}
       aria-pressed={favorite}
+      data-labeled={showLabel || undefined}
       disabled={mutation.isPending}
       data-error={mutation.isError || undefined}
       title={mutation.isError ? `${label} — update failed` : label}
       onClick={() => mutation.mutate(!favorite)}
     >
-      <span aria-hidden="true">{favorite ? "★" : "☆"}</span>
+      <span className="media-favorite-glyph" aria-hidden="true">
+        {favorite ? "★" : "☆"}
+      </span>
+      {showLabel ? (
+        <span className="media-favorite-text" aria-hidden="true">
+          {favorite ? "Favorited" : "Favorite"}
+        </span>
+      ) : null}
     </button>
   );
 }

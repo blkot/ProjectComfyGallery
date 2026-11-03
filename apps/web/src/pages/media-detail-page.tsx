@@ -291,17 +291,18 @@ export function MediaDetailPage() {
               mediaId={item.id}
               favorite={item.favorite}
               className="media-record-favorite"
-            />
-            <MediaSpatialPreferenceButton
-              mediaId={item.id}
-              preferred={item.prefer_spatial_playback}
-              className="media-record-spatial"
+              showLabel
             />
             <MediaContentRatingControl
               mediaId={item.id}
               rating={item.content_rating}
               className="media-record-content-rating"
               shortcutButtonRef={contentRatingShortcutRef}
+            />
+            <MediaSpatialPreferenceButton
+              mediaId={item.id}
+              preferred={item.prefer_spatial_playback}
+              className="media-record-spatial"
             />
             <a
               className="media-record-download"
