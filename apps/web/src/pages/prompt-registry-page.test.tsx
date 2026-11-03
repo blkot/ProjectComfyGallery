@@ -42,6 +42,7 @@ function renderPromptRegistry(initialEntry = "/system/prompt-registry") {
 }
 
 beforeEach(() => {
+  window.localStorage.clear();
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
   apiRequestMock.mockImplementation((path: string) => {
     if (path.startsWith("/api/v1/prompt-registry/sources")) {
@@ -203,6 +204,38 @@ describe("PromptRegistryPage structured lookup", () => {
             typeof path === "string" &&
             path.includes("include_not_faved=true") &&
             path.includes("include_trash=true"),
+        ),
+      ).toBe(true);
+    });
+  });
+
+  it("restores persisted heatmap filters and remembers changes", async () => {
+    window.localStorage.setItem(
+      "comfy-gallery.prompt-heatmap.include-trash",
+      "true",
+    );
+    renderPromptRegistry();
+
+    await screen.findByTestId("prompt-registry-heatmap-canvas");
+    expect(
+      screen.getByRole("checkbox", { name: "Include trash" }),
+    ).toBeChecked();
+    expect(
+      apiRequestMock.mock.calls.some(
+        ([path]) =>
+          typeof path === "string" && path.includes("include_trash=true"),
+      ),
+    ).toBe(true);
+
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "Include not-faved" }),
+    );
+    await waitFor(() => {
+      expect(
+        JSON.parse(
+          window.localStorage.getItem(
+            "comfy-gallery.prompt-heatmap.include-not-faved",
+          ) ?? "null",
         ),
       ).toBe(true);
     });

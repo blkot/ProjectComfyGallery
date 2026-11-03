@@ -15,6 +15,7 @@ import {
   type PromptRegistryLookup,
 } from "../lib/api";
 import { PromptRegistryHeatmap as PromptRegistryHeatmapView } from "../components/prompt-registry-heatmap";
+import { usePersistedState } from "../lib/use-persisted-state";
 
 type PromptIdParts = {
   source: string;
@@ -22,6 +23,12 @@ type PromptIdParts = {
 };
 
 const PROMPT_ID_PATTERN = /^\s*(.+?)\s*-\s*(\d+)\s*$/;
+
+const heatmapIncludeNotFavedKey =
+  "comfy-gallery.prompt-heatmap.include-not-faved";
+const heatmapIncludeTrashKey = "comfy-gallery.prompt-heatmap.include-trash";
+const isBooleanPreference = (value: unknown): value is boolean =>
+  typeof value === "boolean";
 
 function parsePromptId(value: string): PromptIdParts | null {
   const match = PROMPT_ID_PATTERN.exec(value);
@@ -50,8 +57,16 @@ export function PromptRegistryPage() {
   const [negativePrompt, setNegativePrompt] = useState("");
   const [showRegister, setShowRegister] = useState(false);
   const [heatmapSource, setHeatmapSource] = useState("");
-  const [heatmapIncludeNotFaved, setHeatmapIncludeNotFaved] = useState(false);
-  const [heatmapIncludeTrash, setHeatmapIncludeTrash] = useState(false);
+  const [heatmapIncludeNotFaved, setHeatmapIncludeNotFaved] = usePersistedState(
+    heatmapIncludeNotFavedKey,
+    false,
+    isBooleanPreference,
+  );
+  const [heatmapIncludeTrash, setHeatmapIncludeTrash] = usePersistedState(
+    heatmapIncludeTrashKey,
+    false,
+    isBooleanPreference,
+  );
 
   const sourceOptions = useQuery({
     queryKey: ["prompt-registry-source-options"],

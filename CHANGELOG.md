@@ -13,6 +13,8 @@ All notable changes to Project Comfy Gallery are recorded here.
 - Fix the Prompt Registry heatmap pointer offset caused by sizing the canvas from
   the padded wrapper instead of the canvas content box.
 - Show trashed media greyed out in the Prompt Registry detail grid.
+- Remember the Prompt Registry heatmap scope filters in browser storage, with a
+  reusable persisted-state hook that ignores malformed or invalid preferences.
 
 ## 0.1.0-rc.34 — 2026-11-03
 
