@@ -187,6 +187,18 @@ def _visual_nodes(visual: Mapping[str, object] | None) -> dict[str, Mapping[str,
     }
 
 
+def _first_widget_string(values: list[object]) -> str | None:
+    for value in values:
+        if isinstance(value, str):
+            return value
+        # Xanta's ShowText widget can wrap the promoted text in a nested list,
+        # for example [["sfw-zimage-por-v3-03786"]]. Walk nested lists before
+        # giving up so the visual snapshot still wins over the stale API cache.
+        if isinstance(value, list) and (nested := _first_widget_string(value)) is not None:
+            return nested
+    return None
+
+
 def _visual_widget_text(node: Mapping[str, object] | None) -> str | None:
     if node is None:
         return None
@@ -195,7 +207,7 @@ def _visual_widget_text(node: Mapping[str, object] | None) -> str | None:
         return None
     # ShowText has one visible text widget in the supported Xanta workflow.
     # Keep this conservative: only a string can be promoted to a candidate.
-    return next((value for value in widgets if isinstance(value, str)), None)
+    return _first_widget_string(widgets)
 
 
 def read_shows(

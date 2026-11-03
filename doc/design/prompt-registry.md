@@ -30,12 +30,19 @@ For Prompt ID and related workflow display fields:
 
 1. Explicit `comfy_gallery_display_v1` values written by the saver.
 2. Verified execution output stored by historical recovery.
-3. The visual workflow's `widgets_values` for the bound ShowText node.
+3. The visual workflow's `widgets_values` for the bound ShowText node. The
+   promoted text may be nested in one or more lists (for example
+   `[["sfw-zimage-por-v3-03786"]]`); extraction walks nested lists in order
+   before treating the snapshot as empty.
 4. The API graph's `text_0` widget cache as a last-resort candidate.
 
 The API graph remains authoritative for node classes, links, and execution
 topology. Its cached `text_0` is not authoritative for dynamic prompt-library
-text because it can predate the execution that produced the image.
+text because it can predate the execution that produced the image. After
+changing extraction precedence or nesting support, rebuild the materialized
+index with `python -m comfy_gallery_core.cli rebuild-prompt-index` so existing
+media rows reflect the corrected interpretation. The rebuild is idempotent and
+does not rewrite embedded evidence.
 
 ## Registry record
 
