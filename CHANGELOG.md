@@ -4,6 +4,8 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.37 — 2026-11-04
+
 - Index Prompt IDs for workflows that have no registered display profile by
   discovering `ShowText → XantaPromptLibrary` wiring in the API graph; the visual
   widget value is used only when exactly one distinct Prompt ID parses.
