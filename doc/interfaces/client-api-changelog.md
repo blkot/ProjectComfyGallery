@@ -4,6 +4,25 @@ This file is the cross-agent handoff for backend contract changes. Consumers sho
 also use the committed [OpenAPI snapshot](openapi.json); prose here explains
 semantics and compatibility that a schema alone cannot express.
 
+## Unreleased: Prompt Registry character-LoRA filter
+
+**Database migration:** `0021_prompt_index_character_lora`
+
+`media_prompt_index` now materializes the declared `character_lora` display value
+(from the saver packet or a verified historical recovery row). Two read additions:
+
+```http
+GET /api/v1/prompt-registry/character-loras?q=<substring>&limit=50
+GET /api/v1/prompt-registry/heatmap?character_lora=<name>
+```
+
+`character-loras` returns `{name, media_count}` entries for distinct values that
+currently have media, ordered by media count. `heatmap` combines `source` and
+`character_lora` with AND semantics and matches the character name
+case-insensitively; entries without a character value never match the filter.
+Existing rows are backfilled by `rebuild-prompt-index`; workflows that do not
+declare a character LoRA remain unrepresented in filtered counts.
+
 ## Unreleased: favorite-scoped prompt materialization
 
 Prompt materialization now follows the Favorite signal instead of raw generation

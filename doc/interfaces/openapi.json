@@ -5721,6 +5721,24 @@
         "title": "OperationalStatusResponse",
         "type": "object"
       },
+      "PromptRegistryCharacterLoraResponse": {
+        "properties": {
+          "media_count": {
+            "title": "Media Count",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "media_count"
+        ],
+        "title": "PromptRegistryCharacterLoraResponse",
+        "type": "object"
+      },
       "PromptRegistryEntryRequest": {
         "properties": {
           "index": {
@@ -15065,6 +15083,70 @@
         ]
       }
     },
+    "/api/v1/prompt-registry/character-loras": {
+      "get": {
+        "description": "Return character LoRA display values that have indexed media.",
+        "operationId": "list_prompt_registry_character_loras_api_v1_prompt_registry_character_loras_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PromptRegistryCharacterLoraResponse"
+                  },
+                  "title": "Response List Prompt Registry Character Loras Api V1 Prompt Registry Character Loras Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Prompt Registry Character Loras",
+        "tags": [
+          "prompt-registry"
+        ]
+      }
+    },
     "/api/v1/prompt-registry/heatmap": {
       "get": {
         "operationId": "prompt_registry_heatmap_api_v1_prompt_registry_heatmap_get",
@@ -15084,6 +15166,22 @@
                 }
               ],
               "title": "Source"
+            }
+          },
+          {
+            "in": "query",
+            "name": "character_lora",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Character Lora"
             }
           },
           {

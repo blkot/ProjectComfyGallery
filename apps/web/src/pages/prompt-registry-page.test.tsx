@@ -48,6 +48,9 @@ beforeEach(() => {
     if (path.startsWith("/api/v1/prompt-registry/sources")) {
       return Promise.resolve(["sfw-zimage-por-v3", "xanta-utils"]);
     }
+    if (path.startsWith("/api/v1/prompt-registry/character-loras")) {
+      return Promise.resolve([]);
+    }
     if (path.startsWith("/api/v1/prompt-registry/heatmap")) {
       return Promise.resolve({
         items: [
@@ -241,9 +244,54 @@ describe("PromptRegistryPage structured lookup", () => {
     });
   });
 
+  it("filters the heatmap by character LoRA", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path.startsWith("/api/v1/prompt-registry/character-loras")) {
+        return Promise.resolve([
+          { name: "Character_A_v1", media_count: 4 },
+          { name: "Character_B_v1", media_count: 1 },
+        ]);
+      }
+      if (path.startsWith("/api/v1/prompt-registry/sources")) {
+        return Promise.resolve([]);
+      }
+      if (path.startsWith("/api/v1/prompt-registry/heatmap")) {
+        return Promise.resolve({
+          items: [],
+          total: 0,
+          limit: 20_000,
+          offset: 0,
+          max_media_count: 0,
+        });
+      }
+      return Promise.resolve({});
+    });
+
+    renderPromptRegistry();
+
+    const character = await screen.findByRole("combobox", {
+      name: "Heatmap character LoRA",
+    });
+    await screen.findByRole("option", { name: /Character_A_v1/ });
+    fireEvent.change(character, { target: { value: "Character_A_v1" } });
+
+    await waitFor(() => {
+      expect(
+        apiRequestMock.mock.calls.some(
+          ([path]) =>
+            typeof path === "string" &&
+            path.includes("character_lora=Character_A_v1"),
+        ),
+      ).toBe(true);
+    });
+  });
+
   it("marks trashed media and lets trash outrank favorite", async () => {
     apiRequestMock.mockImplementation((path: string) => {
       if (path.startsWith("/api/v1/prompt-registry/sources")) {
+        return Promise.resolve([]);
+      }
+      if (path.startsWith("/api/v1/prompt-registry/character-loras")) {
         return Promise.resolve([]);
       }
       if (path.startsWith("/api/v1/prompt-registry/heatmap")) {

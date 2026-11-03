@@ -237,7 +237,8 @@ Prompt registry endpoints:
 ```text
 GET    /api/v1/prompt-registry
 GET    /api/v1/prompt-registry/sources?q=<prefix>&limit=24
-GET    /api/v1/prompt-registry/heatmap?source=<source>&include_not_faved=false&include_trash=false&limit=20000&offset=0
+GET    /api/v1/prompt-registry/character-loras?q=<substring>&limit=50
+GET    /api/v1/prompt-registry/heatmap?source=<source>&character_lora=<name>&include_not_faved=false&include_trash=false&limit=20000&offset=0
 GET    /api/v1/prompt-registry/random?source=<source>&materialization=<state>
 GET    /api/v1/prompt-registry/stats?source=<source>
 GET    /api/v1/prompt-registry/neighbor?source=<source>&index=<index>&direction=<previous|next>
@@ -266,6 +267,9 @@ Counts are intended for a client-rendered contribution matrix; clients can use
 the response `max_media_count` to normalize the cell intensity and resolve a
 clicked cell through the existing `lookup?prompt_id=...` route. The lookup
 response marks each media record with `is_trash`.
+`character_lora` narrows heatmap counts to media whose materialized character-LoRA
+display value matches case-insensitively; `character-loras` lists the distinct
+values that currently have media, with counts, for selector options.
 
 ### Workflow input capture
 

@@ -173,10 +173,15 @@ GET /api/v1/prompt-registry/neighbor
 
 GET /api/v1/prompt-registry/heatmap
   ?source=<optional-source>
+  &character_lora=<optional-character-lora>
   &include_not_faved=false
   &include_trash=false
   &limit=20000
   &offset=0
+
+GET /api/v1/prompt-registry/character-loras
+  ?q=<optional-substring>
+  &limit=50
 ```
 
 `random` combines `source` and `materialization` with AND semantics and returns
@@ -194,6 +199,13 @@ Trash; `include_not_faved=true` adds ordinary media and `include_trash=true` add
 Trash. Results are ordered by source and numeric index, support an optional
 source filter, and expose `total` and `max_media_count` so clients can build a
 relative color scale without loading media records.
+
+`character_lora` narrows the matrix to media whose materialized character-LoRA
+display value matches case-insensitively. The value comes from the saver's
+`character_lora` field or a verified historical recovery row and is materialized
+on `media_prompt_index`; workflows that declare no character LoRA simply do not
+contribute to the filtered counts. `character-loras` returns the distinct values
+that have media, ordered by media count, so the client can offer a selector.
 
 The frontend provides a Prompt Registry page under **System → Prompt Registry**.
 Prompt IDs in Media Detail are links to that page, where the definition and all

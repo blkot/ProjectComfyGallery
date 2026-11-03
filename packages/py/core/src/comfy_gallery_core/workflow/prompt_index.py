@@ -54,22 +54,34 @@ async def sync_media_prompt_index(
         session.add(record)
 
     prompt_id: str | None = None
+    character_lora: str | None = None
     evidence_source = "none"
     original_sha256: str | None = None
     if snapshot is not None:
         fields = saved_fields(snapshot.raw_metadata or {}, snapshot.api_prompt or {})
         saved = fields.get("prompt_id")
+        saved_character = fields.get("character_lora")
+        if saved_character is not None and isinstance(saved_character.value, str):
+            character_lora = saved_character.value.strip() or None
         if saved is not None and isinstance(saved.value, str):
             prompt_id = saved.value
             evidence_source = "save_node"
         else:
-            recovered = await session.scalar(
-                select(WorkflowDisplayRecovery).where(
-                    WorkflowDisplayRecovery.media_id == media_id,
-                    WorkflowDisplayRecovery.field_name == "prompt_id",
+            recoveries = {
+                record.field_name: record
+                for record in await session.scalars(
+                    select(WorkflowDisplayRecovery).where(
+                        WorkflowDisplayRecovery.media_id == media_id,
+                        WorkflowDisplayRecovery.original_sha256 == asset_sha256,
+                    )
                 )
-            )
-            if recovered is not None and recovered.original_sha256 == asset_sha256:
+            }
+            if character_lora is None:
+                recovered_character = recoveries.get("character_lora")
+                if recovered_character is not None:
+                    character_lora = recovered_character.value.strip() or None
+            recovered = recoveries.get("prompt_id")
+            if recovered is not None:
                 prompt_id = recovered.value
                 evidence_source = "verified_history"
                 original_sha256 = recovered.original_sha256
@@ -87,6 +99,7 @@ async def sync_media_prompt_index(
     record.entry_index = parsed.index if parsed is not None else None
     record.index_key = parsed.index_key if parsed is not None else None
     record.prompt_id = parsed.display if parsed is not None else None
+    record.character_lora = character_lora
     record.evidence_source = evidence_source
     record.original_sha256 = original_sha256
     return record

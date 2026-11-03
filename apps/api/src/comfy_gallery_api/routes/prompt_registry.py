@@ -12,6 +12,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from comfy_gallery_api.dependencies import CsrfPrincipalDep, DbSessionDep, PrincipalDep
 from comfy_gallery_api.errors import ApiError
 from comfy_gallery_api.prompt_registry_schemas import (
+    PromptRegistryCharacterLoraResponse,
     PromptRegistryEntryRequest,
     PromptRegistryEntryResponse,
     PromptRegistryHeatmapItemResponse,
@@ -146,17 +147,55 @@ async def list_prompt_registry_sources(
     return [str(row.source) for row in rows]
 
 
+@router.get("/character-loras", response_model=list[PromptRegistryCharacterLoraResponse])
+async def list_prompt_registry_character_loras(
+    _principal: PrincipalDep,
+    session: DbSessionDep,
+    q: str | None = None,
+    limit: int = 50,
+) -> list[PromptRegistryCharacterLoraResponse]:
+    """Return character LoRA display values that have indexed media."""
+
+    limit = max(1, min(limit, 200))
+    filters = [
+        MediaPromptIndex.character_lora.is_not(None),
+        MediaPromptIndex.character_lora != "",
+    ]
+    if q and q.strip():
+        filters.append(MediaPromptIndex.character_lora.ilike(f"%{q.strip()}%"))
+    name = func.min(MediaPromptIndex.character_lora).label("name")
+    media_count = func.count().label("media_count")
+    rows = await session.execute(
+        select(name, media_count)
+        .select_from(MediaPromptIndex)
+        .where(*filters)
+        .group_by(func.lower(MediaPromptIndex.character_lora))
+        .order_by(media_count.desc(), name.asc())
+        .limit(limit)
+    )
+    return [
+        PromptRegistryCharacterLoraResponse(name=str(row.name), media_count=int(row.media_count))
+        for row in rows
+    ]
+
+
 @router.get("/heatmap", response_model=PromptRegistryHeatmapResponse)
 async def prompt_registry_heatmap(
     _principal: PrincipalDep,
     session: DbSessionDep,
     source: str | None = Query(default=None, max_length=256),
+    character_lora: str | None = None,
     include_not_faved: bool = False,
     include_trash: bool = False,
     limit: int = Query(default=20_000, ge=1, le=20_000),
     offset: int = Query(default=0, ge=0),
 ) -> PromptRegistryHeatmapResponse:
     filters = _source_filters(source)
+    character_filter = (
+        [func.lower(MediaPromptIndex.character_lora) == character_lora.strip().casefold()]
+        if character_lora and character_lora.strip()
+        else []
+    )
     media_counts = (
         select(
             MediaPromptIndex.source_key.label("source_key"),
@@ -171,6 +210,7 @@ async def prompt_registry_heatmap(
                 include_not_faved=include_not_faved,
                 include_trash=include_trash,
             ),
+            *character_filter,
         )
         .group_by(MediaPromptIndex.source_key, MediaPromptIndex.index_key)
         .subquery("prompt_registry_media_counts")

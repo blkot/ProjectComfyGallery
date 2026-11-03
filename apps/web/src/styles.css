@@ -5099,6 +5099,12 @@ textarea {
   accent-color: var(--accent);
 }
 
+.prompt-registry-heatmap-filters {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
 .prompt-registry-heatmap-source,
 .prompt-registry-heatmap-zoom {
   display: grid;
@@ -5810,6 +5816,12 @@ textarea {
   .prompt-registry-heatmap-footer {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .prompt-registry-heatmap-filters {
+    align-items: flex-start;
+    flex-direction: column;
+    width: 100%;
   }
 
   .prompt-registry-heatmap-zoom {

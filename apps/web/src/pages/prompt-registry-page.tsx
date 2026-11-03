@@ -10,6 +10,7 @@ import { Link, useSearchParams } from "react-router";
 
 import {
   apiRequest,
+  type PromptRegistryCharacterLora,
   type PromptRegistryHeatmap,
   type PromptRegistryEntry,
   type PromptRegistryLookup,
@@ -57,6 +58,7 @@ export function PromptRegistryPage() {
   const [negativePrompt, setNegativePrompt] = useState("");
   const [showRegister, setShowRegister] = useState(false);
   const [heatmapSource, setHeatmapSource] = useState("");
+  const [heatmapCharacterLora, setHeatmapCharacterLora] = useState("");
   const [heatmapIncludeNotFaved, setHeatmapIncludeNotFaved] = usePersistedState(
     heatmapIncludeNotFavedKey,
     false,
@@ -73,6 +75,14 @@ export function PromptRegistryPage() {
     queryFn: () => apiRequest<string[]>("/api/v1/prompt-registry/sources?limit=50"),
     staleTime: 30_000,
   });
+  const characterLoraOptions = useQuery({
+    queryKey: ["prompt-registry-character-loras"],
+    queryFn: () =>
+      apiRequest<PromptRegistryCharacterLora[]>(
+        "/api/v1/prompt-registry/character-loras?limit=100",
+      ),
+    staleTime: 60_000,
+  });
   const lookup = useQuery({
     queryKey: ["prompt-registry-lookup", promptId],
     queryFn: () =>
@@ -85,12 +95,14 @@ export function PromptRegistryPage() {
     queryKey: [
       "prompt-registry-heatmap",
       heatmapSource,
+      heatmapCharacterLora,
       heatmapIncludeNotFaved,
       heatmapIncludeTrash,
     ],
     queryFn: () => {
       const params = new URLSearchParams({ limit: "20000" });
       if (heatmapSource) params.set("source", heatmapSource);
+      if (heatmapCharacterLora) params.set("character_lora", heatmapCharacterLora);
       if (heatmapIncludeNotFaved) params.set("include_not_faved", "true");
       if (heatmapIncludeTrash) params.set("include_trash", "true");
       return apiRequest<PromptRegistryHeatmap>(
@@ -192,22 +204,49 @@ export function PromptRegistryPage() {
             <p className="kicker">Usage at a glance</p>
             <h2>Prompt heatmap</h2>
           </div>
-          <label className="prompt-registry-heatmap-source">
-            Source
-            <select
-              value={heatmapSource}
-              aria-label="Heatmap source"
-              onChange={(event) => setHeatmapSource(event.target.value)}
-              disabled={sourceOptions.isPending || !sourceOptions.data?.length}
-            >
-              <option value="">All sources</option>
-              {sourceOptions.data?.map((option) => (
-                <option key={option} value={option}>
-                  {option}
+          <div className="prompt-registry-heatmap-filters">
+            <label className="prompt-registry-heatmap-source">
+              Source
+              <select
+                value={heatmapSource}
+                aria-label="Heatmap source"
+                onChange={(event) => setHeatmapSource(event.target.value)}
+                disabled={sourceOptions.isPending || !sourceOptions.data?.length}
+              >
+                <option value="">All sources</option>
+                {sourceOptions.data?.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="prompt-registry-heatmap-source">
+              Character LoRA
+              <select
+                value={heatmapCharacterLora}
+                aria-label="Heatmap character LoRA"
+                onChange={(event) => setHeatmapCharacterLora(event.target.value)}
+                disabled={
+                  characterLoraOptions.isPending ||
+                  !characterLoraOptions.data?.length
+                }
+              >
+                <option value="">
+                  {characterLoraOptions.isPending
+                    ? "Loading characters…"
+                    : characterLoraOptions.data?.length
+                      ? "All characters"
+                      : "No character LoRAs"}
                 </option>
-              ))}
-            </select>
-          </label>
+                {characterLoraOptions.data?.map((option) => (
+                  <option key={option.name} value={option.name}>
+                    {option.name} ({option.media_count})
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
         </div>
         {heatmap.error ? (
           <p className="notice error-notice">Could not load the prompt heatmap.</p>

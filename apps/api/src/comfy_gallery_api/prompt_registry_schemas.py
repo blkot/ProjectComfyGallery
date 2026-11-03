@@ -84,6 +84,11 @@ class PromptRegistryStatsResponse(BaseModel):
     unmaterialized_count: int
 
 
+class PromptRegistryCharacterLoraResponse(BaseModel):
+    name: str
+    media_count: int
+
+
 class PromptRegistryNeighborResponse(BaseModel):
     direction: Literal["previous", "next"]
     entry: PromptRegistryEntryResponse

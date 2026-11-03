@@ -649,6 +649,11 @@ export type PromptRegistryHeatmap = {
   max_media_count: number;
 };
 
+export type PromptRegistryCharacterLora = {
+  name: string;
+  media_count: number;
+};
+
 export type NodeMapping = {
   id: string;
   node_definition_id: string;

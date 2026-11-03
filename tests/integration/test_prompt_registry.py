@@ -1,3 +1,4 @@
+import json
 from uuid import uuid4
 
 import pytest
@@ -14,6 +15,7 @@ from comfy_gallery_api.routes.prompt_registry import (
     _enforce_import_body_size,
     create_prompt_registry_entry,
     import_prompt_registry_entries,
+    list_prompt_registry_character_loras,
     list_prompt_registry_sources,
     lookup_prompt_registry_entry,
     prompt_registry_heatmap,
@@ -32,8 +34,11 @@ from comfy_gallery_core.db.models import (
 )
 from comfy_gallery_core.evaluation.catalog import ensure_evaluation_catalog
 from comfy_gallery_core.evaluation.service import ensure_media_evaluations
-from comfy_gallery_core.workflow.display_fields import topology
-from comfy_gallery_core.workflow.prompt_index import rebuild_prompt_index
+from comfy_gallery_core.workflow.display_fields import DISPLAY_KEY, topology
+from comfy_gallery_core.workflow.prompt_index import (
+    rebuild_prompt_index,
+    sync_media_prompt_index,
+)
 
 
 async def test_prompt_registry_lookup_prefers_visual_show_text_and_returns_all_media() -> None:
@@ -657,3 +662,142 @@ async def test_prompt_registry_import_size_check_uses_received_body_bytes() -> N
 
     assert raised.value.status_code == 413
     assert raised.value.code == "PROMPT_REGISTRY_IMPORT_TOO_LARGE"
+
+
+async def test_prompt_registry_character_lora_filter_and_options() -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    try:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+            await import_prompt_registry_entries(
+                PromptRegistryImportRequest(
+                    entries=[
+                        PromptRegistryEntryRequest(
+                            source="character-src",
+                            index="00001",
+                            prompt="First",
+                        ),
+                        PromptRegistryEntryRequest(
+                            source="character-src",
+                            index="00002",
+                            prompt="Second",
+                        ),
+                    ]
+                ),
+                None,  # type: ignore[arg-type]
+                session,
+            )
+            first = Media(id=uuid4(), kind="image", status="ready", favorite=True)
+            second = Media(id=uuid4(), kind="image", status="ready", favorite=True)
+            session.add_all([first, second])
+            await session.flush()
+            session.add_all(
+                [
+                    MediaPromptIndex(
+                        media_id=first.id,
+                        source_key="character-src",
+                        entry_index="00001",
+                        index_key="1",
+                        prompt_id="character-src - 00001",
+                        evidence_source="save_node",
+                        character_lora="Character_A_v1",
+                    ),
+                    MediaPromptIndex(
+                        media_id=second.id,
+                        source_key="character-src",
+                        entry_index="00002",
+                        index_key="2",
+                        prompt_id="character-src - 00002",
+                        evidence_source="save_node",
+                        character_lora="Character_B_v1",
+                    ),
+                ]
+            )
+            await session.commit()
+
+            heatmap = await prompt_registry_heatmap(
+                None,  # type: ignore[arg-type]
+                session,
+                source="character-src",
+                character_lora="character_a_v1",
+                limit=20_000,
+                offset=0,
+            )
+            assert [(item.index, item.media_count) for item in heatmap.items] == [
+                ("00001", 1),
+                ("00002", 0),
+            ]
+
+            options = await list_prompt_registry_character_loras(
+                None,  # type: ignore[arg-type]
+                session,
+                q=None,
+                limit=50,
+            )
+            assert {(option.name, option.media_count) for option in options} == {
+                ("Character_A_v1", 1),
+                ("Character_B_v1", 1),
+            }
+    finally:
+        await engine.dispose()
+
+
+async def test_sync_materializes_character_lora_from_the_save_packet() -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    try:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+            media = Media(id=uuid4(), kind="image", status="ready")
+            session.add(media)
+            await session.flush()
+            session.add(
+                MediaAsset(
+                    media_id=media.id,
+                    sha256="a" * 64,
+                    byte_size=1,
+                    original_filename="character.png",
+                    managed_path="managed/character.png",
+                )
+            )
+            api = {
+                "2": {"class_type": "Source", "inputs": {}},
+                "3": {
+                    "class_type": "XantaSaveAndUpload",
+                    "inputs": {
+                        "cg_prompt_id": ["2", 1],
+                        "cg_character_lora": ["2", 0],
+                    },
+                },
+            }
+            packet = {
+                "version": 1,
+                "save_node_id": "3",
+                "fields": {
+                    "prompt_id": "character-src - 00001",
+                    "character_lora": " Character_A_v1 ",
+                },
+            }
+            session.add(
+                WorkflowSnapshot(
+                    media_id=media.id,
+                    reader_name="test",
+                    reader_version="1",
+                    source_carrier="png",
+                    evidence_sha256="b" * 64,
+                    api_prompt_status="parsed",
+                    visual_workflow_status="parsed",
+                    parse_status="parsed",
+                    api_prompt=api,
+                    raw_metadata={"text_chunks": {DISPLAY_KEY: json.dumps(packet)}},
+                )
+            )
+            await session.commit()
+
+            record = await sync_media_prompt_index(session, media_id=media.id)
+
+            assert record.prompt_id == "character-src - 00001"
+            assert record.character_lora == "Character_A_v1"
+    finally:
+        await engine.dispose()
