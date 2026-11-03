@@ -1,5 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, useLocation } from "react-router";
 
@@ -156,7 +163,9 @@ describe("PromptRegistryPage structured lookup", () => {
   });
 
   it("disables previous navigation at zero and invalid prompt IDs", async () => {
-    const zeroView = renderPromptRegistry("/system/prompt-registry?prompt_id=xanta-utils%20-%200000");
+    const zeroView = renderPromptRegistry(
+      "/system/prompt-registry?prompt_id=xanta-utils%20-%200000",
+    );
     expect(screen.getByRole("button", { name: "← Previous index" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Next index →" })).toBeEnabled();
     zeroView.unmount();
@@ -164,5 +173,97 @@ describe("PromptRegistryPage structured lookup", () => {
     renderPromptRegistry("/system/prompt-registry?prompt_id=unstructured-id");
     expect(screen.getByRole("button", { name: "← Previous index" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Next index →" })).toBeDisabled();
+  });
+
+  it("scopes the heatmap to favorites by default and widens on request", async () => {
+    renderPromptRegistry();
+
+    await screen.findByTestId("prompt-registry-heatmap-canvas");
+    expect(
+      apiRequestMock.mock.calls.some(
+        ([path]) => path === "/api/v1/prompt-registry/heatmap?limit=20000",
+      ),
+    ).toBe(true);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Include not-faved" }));
+    await waitFor(() => {
+      expect(
+        apiRequestMock.mock.calls.some(
+          ([path]) =>
+            typeof path === "string" && path.includes("include_not_faved=true"),
+        ),
+      ).toBe(true);
+    });
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Include trash" }));
+    await waitFor(() => {
+      expect(
+        apiRequestMock.mock.calls.some(
+          ([path]) =>
+            typeof path === "string" &&
+            path.includes("include_not_faved=true") &&
+            path.includes("include_trash=true"),
+        ),
+      ).toBe(true);
+    });
+  });
+
+  it("marks trashed media and lets trash outrank favorite", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path.startsWith("/api/v1/prompt-registry/sources")) {
+        return Promise.resolve([]);
+      }
+      if (path.startsWith("/api/v1/prompt-registry/heatmap")) {
+        return Promise.resolve({
+          items: [],
+          total: 0,
+          limit: 20_000,
+          offset: 0,
+          max_media_count: 0,
+        });
+      }
+      return Promise.resolve({
+        prompt_id: "xanta-utils - 0007",
+        source: "xanta-utils",
+        index: "0007",
+        entry: {
+          id: "7f4b0b1e-1f7a-4c4b-8a0e-2b6f8f0a4d10",
+          source: "xanta-utils",
+          index: "0007",
+          prompt: "A prompt",
+          negative_prompt: null,
+          metadata: {},
+          origin: "manual",
+          media_count: 1,
+          created_at: "2026-01-01T00:00:00Z",
+          updated_at: "2026-01-01T00:00:00Z",
+        },
+        media: [
+          {
+            id: "m-1",
+            kind: "image",
+            original_filename: "trashed.png",
+            width: 512,
+            height: 768,
+            duration_seconds: null,
+            favorite: true,
+            is_trash: true,
+            content_rating: null,
+            preview_url: "/api/v1/media/m-1/preview",
+            created_at: "2026-01-01T00:00:00Z",
+          },
+        ],
+        total_media: 1,
+        limit: 48,
+        offset: 0,
+      });
+    });
+
+    renderPromptRegistry("/system/prompt-registry?prompt_id=xanta-utils%20-%200007");
+
+    const card = await screen.findByRole("link", { name: /trashed\.png/ });
+    expect(card.className).toContain("is-trash");
+    expect(within(card).getByText("Trash")).toBeInTheDocument();
+    expect(within(card).queryByText(/favorite/)).not.toBeInTheDocument();
   });
 });

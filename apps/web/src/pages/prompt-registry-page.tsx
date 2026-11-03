@@ -1,4 +1,5 @@
 import {
+  keepPreviousData,
   useMutation,
   useQuery,
   useQueryClient,
@@ -49,6 +50,8 @@ export function PromptRegistryPage() {
   const [negativePrompt, setNegativePrompt] = useState("");
   const [showRegister, setShowRegister] = useState(false);
   const [heatmapSource, setHeatmapSource] = useState("");
+  const [heatmapIncludeNotFaved, setHeatmapIncludeNotFaved] = useState(false);
+  const [heatmapIncludeTrash, setHeatmapIncludeTrash] = useState(false);
 
   const sourceOptions = useQuery({
     queryKey: ["prompt-registry-source-options"],
@@ -64,15 +67,22 @@ export function PromptRegistryPage() {
     enabled: Boolean(promptId.trim()),
   });
   const heatmap = useQuery({
-    queryKey: ["prompt-registry-heatmap", heatmapSource],
+    queryKey: [
+      "prompt-registry-heatmap",
+      heatmapSource,
+      heatmapIncludeNotFaved,
+      heatmapIncludeTrash,
+    ],
     queryFn: () => {
-      const sourceQuery = heatmapSource
-        ? `&source=${encodeURIComponent(heatmapSource)}`
-        : "";
+      const params = new URLSearchParams({ limit: "20000" });
+      if (heatmapSource) params.set("source", heatmapSource);
+      if (heatmapIncludeNotFaved) params.set("include_not_faved", "true");
+      if (heatmapIncludeTrash) params.set("include_trash", "true");
       return apiRequest<PromptRegistryHeatmap>(
-        `/api/v1/prompt-registry/heatmap?limit=20000${sourceQuery}`,
+        `/api/v1/prompt-registry/heatmap?${params.toString()}`,
       );
     },
+    placeholderData: keepPreviousData,
     staleTime: 60_000,
   });
   const create = useMutation({
@@ -192,6 +202,10 @@ export function PromptRegistryPage() {
           <PromptRegistryHeatmapView
             data={heatmap.data}
             promptId={promptId}
+            includeNotFaved={heatmapIncludeNotFaved}
+            includeTrash={heatmapIncludeTrash}
+            onIncludeNotFavedChange={setHeatmapIncludeNotFaved}
+            onIncludeTrashChange={setHeatmapIncludeTrash}
             onSelectPrompt={selectPrompt}
           />
         ) : null}
@@ -441,11 +455,23 @@ function PromptRegistryDetail({
       {data.media.length ? (
         <div className="prompt-registry-media-grid">
           {data.media.map((media) => (
-            <Link className="prompt-registry-media-card" to={`/library/${media.id}`} key={media.id}>
+            <Link
+              className={
+                media.is_trash
+                  ? "prompt-registry-media-card is-trash"
+                  : "prompt-registry-media-card"
+              }
+              to={`/library/${media.id}`}
+              key={media.id}
+            >
               <img src={media.preview_url} alt="" loading="lazy" />
               <span>
                 <strong>{media.original_filename}</strong>
-                <small>{media.kind}{media.favorite ? " · favorite" : ""}</small>
+                <small>
+                  {media.is_trash
+                    ? "Trash"
+                    : `${media.kind}${media.favorite ? " · favorite" : ""}`}
+                </small>
               </span>
             </Link>
           ))}

@@ -237,7 +237,7 @@ Prompt registry endpoints:
 ```text
 GET    /api/v1/prompt-registry
 GET    /api/v1/prompt-registry/sources?q=<prefix>&limit=24
-GET    /api/v1/prompt-registry/heatmap?source=<source>&limit=20000&offset=0
+GET    /api/v1/prompt-registry/heatmap?source=<source>&include_not_faved=false&include_trash=false&limit=20000&offset=0
 GET    /api/v1/prompt-registry/random?source=<source>&materialization=<state>
 GET    /api/v1/prompt-registry/stats?source=<source>
 GET    /api/v1/prompt-registry/neighbor?source=<source>&index=<index>&direction=<previous|next>
@@ -253,15 +253,19 @@ The lookup endpoint parses the final numeric suffix, preserves leading zeroes,
 and returns both the optional registry definition and every media whose trusted
 workflow Prompt ID resolves to the same source/index. A registry definition is
 optional: unregistered but parseable IDs remain discoverable from media evidence.
-The `random` endpoint supports `materialization=unmaterialized` for entries that
-have no related media in the materialized Prompt ID index. Read routes accept the
-same authenticated browser session or Bearer API token as the existing registry
-routes; write routes keep the existing CSRF or API-token requirement.
+The `random` endpoint supports `materialization=materialized|unmaterialized`. An
+entry is materialized when at least one linked media record is favorited and not
+in Trash; Trash outranks Favorite, so a trashed favorite does not materialize the
+prompt. Read routes accept the same authenticated browser session or Bearer API
+token as the existing registry routes; write routes keep the existing CSRF or
+API-token requirement.
 The `heatmap` endpoint returns one compact cell per registered entry with its
-materialized media count. Counts include trashed media and are intended for a
-client-rendered contribution matrix; clients can use the response `max_media_count`
-to normalize the green intensity and resolve a clicked cell through the existing
-`lookup?prompt_id=...` route.
+in-scope media count. The default scope is favorites outside Trash;
+`include_not_faved=true` adds ordinary media and `include_trash=true` adds Trash.
+Counts are intended for a client-rendered contribution matrix; clients can use
+the response `max_media_count` to normalize the cell intensity and resolve a
+clicked cell through the existing `lookup?prompt_id=...` route. The lookup
+response marks each media record with `is_trash`.
 
 ### Workflow input capture
 

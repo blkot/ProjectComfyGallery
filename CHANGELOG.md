@@ -4,6 +4,16 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+- Materialize Prompt Registry prompts from favorites instead of raw generation
+  history: Trash outranks Favorite, so only a favorited, non-trashed media record
+  materializes a prompt.
+- Add `include_not_faved` and `include_trash` scopes to the Prompt Registry
+  heatmap, defaulting to favorites outside Trash, and mark trashed media in
+  lookup results with `is_trash`.
+- Fix the Prompt Registry heatmap pointer offset caused by sizing the canvas from
+  the padded wrapper instead of the canvas content box.
+- Show trashed media greyed out in the Prompt Registry detail grid.
+
 ## 0.1.0-rc.34 — 2026-11-03
 
 - Add a compact Prompt Registry contribution heatmap with source filtering,

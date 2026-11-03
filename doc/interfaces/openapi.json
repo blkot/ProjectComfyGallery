@@ -6057,6 +6057,10 @@
             "title": "Id",
             "type": "string"
           },
+          "is_trash": {
+            "title": "Is Trash",
+            "type": "boolean"
+          },
           "kind": {
             "title": "Kind",
             "type": "string"
@@ -6089,6 +6093,7 @@
           "height",
           "duration_seconds",
           "favorite",
+          "is_trash",
           "content_rating",
           "preview_url",
           "created_at"
@@ -15079,6 +15084,26 @@
                 }
               ],
               "title": "Source"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_not_faved",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Not Faved",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_trash",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Trash",
+              "type": "boolean"
             }
           },
           {

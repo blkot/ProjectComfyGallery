@@ -54,6 +54,7 @@ class PromptRegistryMediaResponse(BaseModel):
     height: int | None
     duration_seconds: float | None
     favorite: bool
+    is_trash: bool
     content_rating: str | None
     preview_url: str
     created_at: datetime

@@ -4,6 +4,29 @@ This file is the cross-agent handoff for backend contract changes. Consumers sho
 also use the committed [OpenAPI snapshot](openapi.json); prose here explains
 semantics and compatibility that a schema alone cannot express.
 
+## Unreleased: favorite-scoped prompt materialization
+
+Prompt materialization now follows the Favorite signal instead of raw generation
+history. An entry is **materialized** when at least one linked media record is
+favorited and not in Trash. Trash outranks Favorite: a trashed favorite does not
+materialize its prompt, and neither does media that was never favorited.
+
+- `GET /api/v1/prompt-registry/random?materialization=unmaterialized` now returns
+  entries that have no favorited, non-trashed media. Its `media_count` counts the
+  same favorite scope.
+- `GET /api/v1/prompt-registry/stats` uses the same definition for
+  `materialized_count` and `unmaterialized_count`.
+- `GET /api/v1/prompt-registry/neighbor` reports the favorite-scoped
+  `media_count`.
+- `GET /api/v1/prompt-registry/heatmap` defaults to favorites outside Trash and
+  accepts `include_not_faved=true` and `include_trash=true`. `max_media_count`
+  follows the requested scope.
+- `GET /api/v1/prompt-registry/lookup` keeps complete generation history and now
+  marks each media record with `is_trash`; `total_media` is unchanged.
+
+Clients that relied on "trash still counts as generated" must switch to the
+explicit heatmap flags to see that history.
+
 ## Unreleased: prompt registry read APIs
 
 **Database migration:** `0020_prompt_registry_index_key`
@@ -13,22 +36,19 @@ resolve consistently for materialization checks. Authenticated clients can use:
 
 ```http
 GET /api/v1/prompt-registry/sources?q=<prefix>&limit=24
-GET /api/v1/prompt-registry/heatmap?source=<source>&limit=20000&offset=0
+GET /api/v1/prompt-registry/heatmap?source=<source>&include_not_faved=false&include_trash=false&limit=20000&offset=0
 GET /api/v1/prompt-registry/random?source=<source>&materialization=<state>
 GET /api/v1/prompt-registry/stats?source=<source>
 GET /api/v1/prompt-registry/neighbor?source=<source>&index=<index>&direction=<previous|next>
 ```
 
-`materialization=unmaterialized` selects registry entries with no associated media;
-trash does not make a previously generated prompt unmaterialized. Random selection
-returns `PROMPT_REGISTRY_RANDOM_NOT_FOUND` when the filters have no candidates.
-Read routes accept the existing web session or Bearer API token, while registry
-write routes keep their existing CSRF or API-token requirements.
+Random selection returns `PROMPT_REGISTRY_RANDOM_NOT_FOUND` when the filters have
+no candidates. Read routes accept the existing web session or Bearer API token,
+while registry write routes keep their existing CSRF or API-token requirements.
 
 The heatmap response is optimized for a compact client-rendered contribution
 matrix. It returns `items[]` with `prompt_id`, `source`, `index`, and
-`media_count`, plus `total`, `limit`, `offset`, and `max_media_count`. Counts are
-based on the trusted materialized Prompt ID index and include trashed media.
+`media_count`, plus `total`, `limit`, `offset`, and `max_media_count`.
 
 ## Unreleased: media content-safety ratings
 

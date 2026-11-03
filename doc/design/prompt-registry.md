@@ -134,9 +134,11 @@ text or calculate a full registry count.
 ## Read API extensions
 
 All read endpoints require the existing authenticated session or Bearer API
-token. A prompt is **unmaterialized** when no row in `media_prompt_index` points
-to its normalized source and numeric index; trash does not erase that generation
-history.
+token. A prompt is **materialized** when at least one linked media record is
+favorited and not in Trash. Trash outranks Favorite, so a trashed favorite does
+not materialize its prompt; media that is neither favorited nor trashed is
+ordinary media and does not materialize either. `media_prompt_index` still
+records generation history, and Trash never erases it.
 
 ```text
 GET /api/v1/prompt-registry/random
@@ -153,27 +155,33 @@ GET /api/v1/prompt-registry/neighbor
 
 GET /api/v1/prompt-registry/heatmap
   ?source=<optional-source>
+  &include_not_faved=false
+  &include_trash=false
   &limit=20000
   &offset=0
 ```
 
 `random` combines `source` and `materialization` with AND semantics and returns
 HTTP 404 with `PROMPT_REGISTRY_RANDOM_NOT_FOUND` when no entry matches. The
-random response includes the stable `prompt_id` and the computed `media_count`.
-`stats` reports registered, materialized, and unmaterialized entry counts.
+random response includes the stable `prompt_id` and the favorited, non-trashed
+`media_count` for that entry.
+`stats` reports registered, materialized, and unmaterialized entry counts using
+the same favorite-based definition.
 `neighbor` returns the nearest registered entry in numeric index order, skipping
 gaps instead of requiring the caller to probe every integer.
 `heatmap` returns compact contribution-matrix cells for every registered prompt.
 Each cell includes the stable `prompt_id`, its source/index, and the number of
-rows in `media_prompt_index` that point to it. The count includes trashed media,
-so it represents generated history rather than the current visible gallery.
-Results are ordered by source and numeric index, support an optional source
-filter, and expose `total` and `max_media_count` so clients can build a relative
-color scale without loading media records.
+linked media in the requested scope. The default scope is favorites outside
+Trash; `include_not_faved=true` adds ordinary media and `include_trash=true` adds
+Trash. Results are ordered by source and numeric index, support an optional
+source filter, and expose `total` and `max_media_count` so clients can build a
+relative color scale without loading media records.
 
 The frontend provides a Prompt Registry page under **System → Prompt Registry**.
 Prompt IDs in Media Detail are links to that page, where the definition and all
-matching media can be inspected.
+matching media can be inspected. The lookup response marks each media record with
+`is_trash` so the client can present Trash distinctly; Trash outranks Favorite in
+that presentation as well.
 
 ## Adapter mapping example
 

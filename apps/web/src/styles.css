@@ -5008,6 +5008,35 @@ textarea {
   margin-bottom: 0;
 }
 
+.prompt-registry-heatmap-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 20px;
+}
+
+.prompt-registry-heatmap-scope {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding-bottom: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.prompt-registry-heatmap-scope label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.prompt-registry-heatmap-scope input {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
 .prompt-registry-heatmap-source,
 .prompt-registry-heatmap-zoom {
   display: grid;
@@ -5318,6 +5347,26 @@ textarea {
 .prompt-registry-media-card small {
   color: var(--muted);
   font-size: 8px;
+}
+
+.prompt-registry-media-card.is-trash {
+  background: #0b0b09;
+  opacity: 0.62;
+}
+
+.prompt-registry-media-card.is-trash img {
+  filter: grayscale(1) brightness(0.8);
+}
+
+.prompt-registry-media-card.is-trash small {
+  color: var(--trash-action);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.prompt-registry-media-card.is-trash:hover,
+.prompt-registry-media-card.is-trash:focus-visible {
+  opacity: 1;
 }
 
 .breakable {
@@ -5690,6 +5739,12 @@ textarea {
 
   .prompt-registry-heatmap-zoom {
     justify-items: start;
+  }
+
+  .prompt-registry-heatmap-controls {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
   }
 
   .prompt-registry-heatmap-footer p {

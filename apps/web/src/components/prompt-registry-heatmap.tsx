@@ -76,10 +76,18 @@ function moveSelection(
 export function PromptRegistryHeatmap({
   data,
   promptId,
+  includeNotFaved,
+  includeTrash,
+  onIncludeNotFavedChange,
+  onIncludeTrashChange,
   onSelectPrompt,
 }: {
   data: PromptRegistryHeatmap;
   promptId: string;
+  includeNotFaved: boolean;
+  includeTrash: boolean;
+  onIncludeNotFavedChange: (value: boolean) => void;
+  onIncludeTrashChange: (value: boolean) => void;
   onSelectPrompt: (promptId: string) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -101,7 +109,13 @@ export function PromptRegistryHeatmap({
   useEffect(() => {
     const element = containerRef.current;
     if (!element) return;
-    const updateWidth = () => setContainerWidth(Math.max(element.clientWidth, 320));
+    const updateWidth = () => {
+      // Measure the canvas content box, not the padded wrapper: the canvas is
+      // laid out at 100% of that box, so using the wrapper width would draw
+      // cells for a wider coordinate space than the browser actually shows.
+      const width = canvasRef.current?.clientWidth ?? 0;
+      setContainerWidth(Math.max(width || element.clientWidth, 320));
+    };
     updateWidth();
     if (typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(updateWidth);
@@ -264,6 +278,13 @@ export function PromptRegistryHeatmap({
   const activeIndex = hoveredIndex ?? selectedIndex;
   const activeItem = activeIndex === null ? null : data.items[activeIndex] ?? null;
   const maxLabel = data.max_media_count > 0 ? `${data.max_media_count} max` : "no linked media";
+  const scopeLabel = [
+    "favorites",
+    includeNotFaved ? "not-faved" : null,
+    includeTrash ? "trash" : null,
+  ]
+    .filter(Boolean)
+    .join(" + ");
 
   return (
     <section className="prompt-registry-heatmap" aria-label="Prompt contribution matrix">
@@ -274,18 +295,42 @@ export function PromptRegistryHeatmap({
             {data.total.toLocaleString()} prompts <span className="muted">· {maxLabel}</span>
           </h3>
         </div>
-        <label className="prompt-registry-heatmap-zoom">
-          Zoom
-          <input
-            type="range"
-            min="0.75"
-            max="2"
-            step="0.25"
-            value={zoom}
-            onChange={(event) => setZoom(Number(event.target.value))}
-            aria-label="Prompt heatmap zoom"
-          />
-        </label>
+        <div className="prompt-registry-heatmap-controls">
+          <div
+            className="prompt-registry-heatmap-scope"
+            role="group"
+            aria-label="Heatmap media scope"
+          >
+            <label>
+              <input
+                type="checkbox"
+                checked={includeNotFaved}
+                onChange={(event) => onIncludeNotFavedChange(event.target.checked)}
+              />
+              Include not-faved
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={includeTrash}
+                onChange={(event) => onIncludeTrashChange(event.target.checked)}
+              />
+              Include trash
+            </label>
+          </div>
+          <label className="prompt-registry-heatmap-zoom">
+            Zoom
+            <input
+              type="range"
+              min="0.75"
+              max="2"
+              step="0.25"
+              value={zoom}
+              onChange={(event) => setZoom(Number(event.target.value))}
+              aria-label="Prompt heatmap zoom"
+            />
+          </label>
+        </div>
       </div>
       <div ref={containerRef} className="prompt-registry-heatmap-canvas-wrap">
         <canvas
@@ -304,7 +349,10 @@ export function PromptRegistryHeatmap({
             if (nextIndex === null) {
               setTooltipPosition(null);
             } else {
-              setTooltipPosition({ x: event.nativeEvent.offsetX + 12, y: event.nativeEvent.offsetY + 12 });
+              setTooltipPosition({
+                x: event.nativeEvent.offsetX + 12,
+                y: event.nativeEvent.offsetY + 12,
+              });
             }
           }}
           onMouseLeave={() => {
@@ -332,7 +380,9 @@ export function PromptRegistryHeatmap({
           ))}
         </div>
         <p className="muted" aria-live="polite">
-          {activeItem ? `${activeItem.prompt_id} · ${activeItem.media_count} media` : "Click a square to open its prompt"}
+          {activeItem
+            ? `${activeItem.prompt_id} · ${activeItem.media_count} media`
+            : `Showing ${scopeLabel}. Click a square to open its prompt`}
         </p>
       </div>
     </section>

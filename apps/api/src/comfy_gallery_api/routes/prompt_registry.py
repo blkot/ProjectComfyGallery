@@ -27,6 +27,7 @@ from comfy_gallery_api.prompt_registry_schemas import (
     PromptRegistryStatsResponse,
 )
 from comfy_gallery_core.db.models import (
+    Evaluation,
     Media,
     MediaAsset,
     MediaPromptIndex,
@@ -149,6 +150,8 @@ async def prompt_registry_heatmap(
     _principal: PrincipalDep,
     session: DbSessionDep,
     source: str | None = Query(default=None, max_length=256),
+    include_not_faved: bool = False,
+    include_trash: bool = False,
     limit: int = Query(default=20_000, ge=1, le=20_000),
     offset: int = Query(default=0, ge=0),
 ) -> PromptRegistryHeatmapResponse:
@@ -159,9 +162,14 @@ async def prompt_registry_heatmap(
             MediaPromptIndex.index_key.label("index_key"),
             func.count(MediaPromptIndex.media_id).label("media_count"),
         )
+        .join(Media, Media.id == MediaPromptIndex.media_id)
         .where(
             MediaPromptIndex.source_key.is_not(None),
             MediaPromptIndex.index_key.is_not(None),
+            _heatmap_media_scope(
+                include_not_faved=include_not_faved,
+                include_trash=include_trash,
+            ),
         )
         .group_by(MediaPromptIndex.source_key, MediaPromptIndex.index_key)
         .subquery("prompt_registry_media_counts")
@@ -233,7 +241,7 @@ async def random_prompt_registry_entry(
     materialization: PromptRegistryMaterialization = "any",
 ) -> PromptRegistryRandomResponse:
     filters = _source_filters(source)
-    materialized_expression = _prompt_registry_media_exists_expression()
+    materialized_expression = _favorite_media_exists_expression()
     if materialization == "materialized":
         filters.append(materialized_expression)
     elif materialization == "unmaterialized":
@@ -249,7 +257,7 @@ async def random_prompt_registry_entry(
             message="No prompt matches the requested filters.",
         )
 
-    media_count = await _prompt_registry_media_count(session, entry)
+    media_count = await _favorite_media_count(session, entry)
     entry_response = _entry_response(entry, media_count=media_count)
     return PromptRegistryRandomResponse(
         **entry_response.model_dump(),
@@ -273,7 +281,7 @@ async def prompt_registry_stats(
         await session.scalar(
             select(func.count())
             .select_from(PromptRegistryEntry)
-            .where(*filters, _prompt_registry_media_exists_expression())
+            .where(*filters, _favorite_media_exists_expression())
         )
         or 0
     )
@@ -352,7 +360,7 @@ async def prompt_registry_neighbor(
         direction=direction,
         entry=_entry_response(
             entry,
-            media_count=await _prompt_registry_media_count(session, entry),
+            media_count=await _favorite_media_count(session, entry),
         ),
     )
 
@@ -380,12 +388,13 @@ async def lookup_prompt_registry_entry(
         if entry is not None
         else identifier
     )
+    trashed_ids = await _trashed_media_ids(session, [media.id for media, _asset in media])
     return PromptRegistryLookupResponse(
         prompt_id=display_identifier.display,
         source=display_identifier.source,
         index=display_identifier.index,
         entry=_entry_response(entry, media_count=len(matching_media)) if entry else None,
-        media=[_media_response(row) for row in media],
+        media=[_media_response(row, is_trash=row[0].id in trashed_ids) for row in media],
         total_media=len(matching_media),
         limit=limit,
         offset=offset,
@@ -410,12 +419,13 @@ async def get_prompt_registry_entry(
     identifier = PromptIdentifier(source=entry.source, index=entry.entry_index)
     matching_media = await _matching_media(session, identifier)
     media = matching_media[offset : offset + limit]
+    trashed_ids = await _trashed_media_ids(session, [media.id for media, _asset in media])
     return PromptRegistryLookupResponse(
         prompt_id=identifier.display,
         source=identifier.source,
         index=identifier.index,
         entry=_entry_response(entry, media_count=len(matching_media)),
-        media=[_media_response(row) for row in media],
+        media=[_media_response(row, is_trash=row[0].id in trashed_ids) for row in media],
         total_media=len(matching_media),
         limit=limit,
         offset=offset,
@@ -583,18 +593,37 @@ def _source_filters(source: str | None) -> list[Any]:
     return [PromptRegistryEntry.source_key == normalize_prompt_source(normalized)]
 
 
-def _prompt_registry_media_exists_expression() -> Any:
+def _media_trash_expression() -> Any:
+    """Trash lives on the base Evaluation of a media record, not on Media."""
+
+    return exists(
+        select(1)
+        .select_from(Evaluation)
+        .where(
+            Evaluation.media_id == Media.id,
+            Evaluation.evaluation_kind == "base",
+            Evaluation.is_trash.is_(True),
+        )
+    )
+
+
+def _favorite_media_exists_expression() -> Any:
+    """Report whether an entry produced at least one non-trashed favorite."""
+
     return exists(
         select(1)
         .select_from(MediaPromptIndex)
+        .join(Media, Media.id == MediaPromptIndex.media_id)
         .where(
             MediaPromptIndex.source_key == PromptRegistryEntry.source_key,
             MediaPromptIndex.index_key == PromptRegistryEntry.entry_index_key,
+            Media.favorite.is_(True),
+            ~_media_trash_expression(),
         )
     ).correlate(PromptRegistryEntry)
 
 
-async def _prompt_registry_media_count(
+async def _favorite_media_count(
     session: DbSessionDep,
     entry: PromptRegistryEntry,
 ) -> int:
@@ -602,13 +631,48 @@ async def _prompt_registry_media_count(
         await session.scalar(
             select(func.count())
             .select_from(MediaPromptIndex)
+            .join(Media, Media.id == MediaPromptIndex.media_id)
             .where(
                 MediaPromptIndex.source_key == entry.source_key,
                 MediaPromptIndex.index_key == entry.entry_index_key,
+                Media.favorite.is_(True),
+                ~_media_trash_expression(),
             )
         )
         or 0
     )
+
+
+async def _trashed_media_ids(
+    session: DbSessionDep,
+    media_ids: list[UUID],
+) -> set[UUID]:
+    if not media_ids:
+        return set()
+    rows = await session.scalars(
+        select(Media.id).where(
+            Media.id.in_(media_ids),
+            _media_trash_expression(),
+        )
+    )
+    return set(rows)
+
+
+def _heatmap_media_scope(*, include_not_faved: bool, include_trash: bool) -> Any:
+    """Classify linked media into favorites, ordinary media, and Trash.
+
+    Trash outranks Favorite: a trashed favorite is counted only when trash is
+    requested, and a favorite counts only outside Trash. Ordinary media is
+    excluded unless the caller asks for it.
+    """
+
+    trash_expression = _media_trash_expression()
+    categories = [and_(~trash_expression, Media.favorite.is_(True))]
+    if include_not_faved:
+        categories.append(and_(~trash_expression, Media.favorite.is_(False)))
+    if include_trash:
+        categories.append(trash_expression)
+    return or_(*categories)
 
 
 async def _find_entry(
@@ -774,7 +838,11 @@ def _entry_response(
     )
 
 
-def _media_response(row: tuple[Media, MediaAsset]) -> PromptRegistryMediaResponse:
+def _media_response(
+    row: tuple[Media, MediaAsset],
+    *,
+    is_trash: bool,
+) -> PromptRegistryMediaResponse:
     media, asset = row
     return PromptRegistryMediaResponse(
         id=media.id,
@@ -784,6 +852,7 @@ def _media_response(row: tuple[Media, MediaAsset]) -> PromptRegistryMediaRespons
         height=media.height,
         duration_seconds=media.duration_seconds,
         favorite=media.favorite,
+        is_trash=is_trash,
         content_rating=media.content_rating,
         preview_url=f"/api/v1/media/{media.id}/preview",
         created_at=media.created_at,

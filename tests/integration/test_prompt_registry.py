@@ -1,7 +1,7 @@
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import event
+from sqlalchemy import event, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from starlette.requests import Request
 
@@ -26,9 +26,12 @@ from comfy_gallery_core.db.models import (
     Media,
     MediaAsset,
     MediaPromptIndex,
+    User,
     WorkflowDisplayProfile,
     WorkflowSnapshot,
 )
+from comfy_gallery_core.evaluation.catalog import ensure_evaluation_catalog
+from comfy_gallery_core.evaluation.service import ensure_media_evaluations
 from comfy_gallery_core.workflow.display_fields import topology
 from comfy_gallery_core.workflow.prompt_index import rebuild_prompt_index
 
@@ -141,6 +144,36 @@ async def test_prompt_registry_lookup_prefers_visual_show_text_and_returns_all_m
                 "left outer join workflow_snapshot" in statement.lower()
                 for statement in lookup_statements
             )
+
+            stored_media = list(await session.scalars(select(Media).order_by(Media.id)))
+            reviewer = User(
+                username="prompt-lookup-reviewer",
+                username_normalized="prompt-lookup-reviewer",
+                password_hash="test",
+            )
+            session.add(reviewer)
+            await ensure_evaluation_catalog(session)
+            evaluations = await ensure_media_evaluations(
+                session,
+                media=stored_media[0],
+                reviewer_user_id=reviewer.id,
+                optional_modules=set(),
+            )
+            next(
+                evaluation for evaluation in evaluations if evaluation.evaluation_kind == "base"
+            ).is_trash = True
+            await session.commit()
+
+            trashed_lookup = await lookup_prompt_registry_entry(
+                None,  # type: ignore[arg-type]
+                session,
+                prompt_id="portraits - 1",
+                limit=48,
+                offset=0,
+            )
+            assert trashed_lookup.total_media == 2
+            assert sum(item.is_trash for item in trashed_lookup.media) == 1
+            assert all(item.favorite is False for item in trashed_lookup.media)
             imported = await import_prompt_registry_entries(
                 PromptRegistryImportRequest(
                     entries=[
@@ -357,18 +390,60 @@ async def test_prompt_registry_random_stats_and_neighbors_use_materialized_index
                 None,  # type: ignore[arg-type]
                 session,
             )
-            media = Media(id=uuid4(), kind="image", status="ready")
-            session.add(media)
+            media = Media(id=uuid4(), kind="image", status="ready", favorite=True)
+            ordinary_media = Media(id=uuid4(), kind="image", status="ready")
+            trashed_media = Media(
+                id=uuid4(),
+                kind="image",
+                status="ready",
+                favorite=True,
+            )
+            session.add_all([media, ordinary_media, trashed_media])
             await session.flush()
-            session.add(
-                MediaPromptIndex(
-                    media_id=media.id,
-                    source_key="xanta-utils",
-                    entry_index="00001",
-                    index_key="1",
-                    prompt_id="xanta-utils - 00001",
-                    evidence_source="save_node",
-                )
+            reviewer = User(
+                username="prompt-registry-reviewer",
+                username_normalized="prompt-registry-reviewer",
+                password_hash="test",
+            )
+            session.add(reviewer)
+            await ensure_evaluation_catalog(session)
+            evaluations = await ensure_media_evaluations(
+                session,
+                media=trashed_media,
+                reviewer_user_id=reviewer.id,
+                optional_modules=set(),
+            )
+            base_evaluation = next(
+                evaluation for evaluation in evaluations if evaluation.evaluation_kind == "base"
+            )
+            base_evaluation.is_trash = True
+            session.add_all(
+                [
+                    MediaPromptIndex(
+                        media_id=media.id,
+                        source_key="xanta-utils",
+                        entry_index="00001",
+                        index_key="1",
+                        prompt_id="xanta-utils - 00001",
+                        evidence_source="save_node",
+                    ),
+                    MediaPromptIndex(
+                        media_id=ordinary_media.id,
+                        source_key="xanta-utils",
+                        entry_index="00002",
+                        index_key="2",
+                        prompt_id="xanta-utils - 00002",
+                        evidence_source="save_node",
+                    ),
+                    MediaPromptIndex(
+                        media_id=trashed_media.id,
+                        source_key="xanta-utils",
+                        entry_index="00010",
+                        index_key="10",
+                        prompt_id="xanta-utils - 00010",
+                        evidence_source="save_node",
+                    ),
+                ]
             )
             await session.commit()
 
@@ -397,6 +472,62 @@ async def test_prompt_registry_random_stats_and_neighbors_use_materialized_index
             assert [(item.index, item.media_count) for item in heatmap.items] == [
                 ("00002", 0),
                 ("00010", 0),
+            ]
+
+            favorites_only = await prompt_registry_heatmap(
+                None,  # type: ignore[arg-type]
+                session,
+                source="xanta-utils",
+                limit=20_000,
+                offset=0,
+            )
+            assert [(item.index, item.media_count) for item in favorites_only.items] == [
+                ("00001", 1),
+                ("00002", 0),
+                ("00010", 0),
+            ]
+
+            with_not_faved = await prompt_registry_heatmap(
+                None,  # type: ignore[arg-type]
+                session,
+                source="xanta-utils",
+                include_not_faved=True,
+                limit=20_000,
+                offset=0,
+            )
+            assert [(item.index, item.media_count) for item in with_not_faved.items] == [
+                ("00001", 1),
+                ("00002", 1),
+                ("00010", 0),
+            ]
+
+            with_trash = await prompt_registry_heatmap(
+                None,  # type: ignore[arg-type]
+                session,
+                source="xanta-utils",
+                include_trash=True,
+                limit=20_000,
+                offset=0,
+            )
+            assert [(item.index, item.media_count) for item in with_trash.items] == [
+                ("00001", 1),
+                ("00002", 0),
+                ("00010", 1),
+            ]
+
+            full_scope = await prompt_registry_heatmap(
+                None,  # type: ignore[arg-type]
+                session,
+                source="xanta-utils",
+                include_not_faved=True,
+                include_trash=True,
+                limit=20_000,
+                offset=0,
+            )
+            assert [(item.index, item.media_count) for item in full_scope.items] == [
+                ("00001", 1),
+                ("00002", 1),
+                ("00010", 1),
             ]
 
             random_any = await random_prompt_registry_entry(
