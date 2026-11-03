@@ -4,6 +4,8 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.35 — 2026-11-04
+
 - Materialize Prompt Registry prompts from favorites instead of raw generation
   history: Trash outranks Favorite, so only a favorited, non-trashed media record
   materializes a prompt.

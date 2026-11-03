@@ -192,7 +192,7 @@ and pull-only NAS deployments.
 
 ## Current release
 
-The locked release candidate is `0.1.0-rc.34`. Runtime images use the same tag
+The locked release candidate is `0.1.0-rc.35`. Runtime images use the same tag
 and OCI version label, and upstream base images are pinned by digest. This
 release has been deployed and verified on the x86 J4125 NAS.
 
