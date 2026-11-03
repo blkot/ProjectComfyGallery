@@ -4,6 +4,12 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+- Add `make release-prepare` to lock one version across every manifest, promote
+  the Changelog, regenerate the OpenAPI snapshot, and reject unexpected file
+  changes, with a dry-run mode.
+- Derive release-version and health-check test fixtures from `VERSION` instead of
+  hardcoding the current release.
+
 ## 0.1.0-rc.34 — 2026-11-03
 
 - Add a compact Prompt Registry contribution heatmap with source filtering,

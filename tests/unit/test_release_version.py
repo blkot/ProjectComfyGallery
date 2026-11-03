@@ -36,7 +36,9 @@ WEB_OVERLAY_DOCKERFILE = ROOT / "deploy/docker/web-overlay.Dockerfile"
 def test_release_version_is_consistent() -> None:
     release_version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
 
-    assert release_version == "0.1.0-rc.34"
+    assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?", release_version), (
+        f"VERSION is not a release version: {release_version}"
+    )
     assert {api_version, core_version, worker_version} == {release_version}
     for path in PYPROJECTS:
         with path.open("rb") as handle:
