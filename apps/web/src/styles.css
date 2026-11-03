@@ -1527,10 +1527,16 @@ textarea {
     box-shadow 140ms ease;
 }
 
-.media-card:hover .media-card-favorite,
-.media-card:focus-within .media-card-favorite {
+.media-card:hover .media-card-favorite:not([aria-pressed="true"]),
+.media-card:focus-within .media-card-favorite:not([aria-pressed="true"]) {
   opacity: 1;
   background: rgba(20, 20, 16, 0.92);
+}
+
+.media-card:hover .media-card-favorite[aria-pressed="true"],
+.media-card:focus-within .media-card-favorite[aria-pressed="true"] {
+  opacity: 1;
+  background: color-mix(in srgb, var(--favorite-solid) 88%, white);
 }
 
 .media-card-favorite[aria-pressed="true"] {
@@ -5204,9 +5210,14 @@ textarea {
 }
 
 .prompt-registry-heatmap-footer p {
+  flex: 1 1 auto;
+  min-width: 0;
   max-width: 340px;
   margin: 0;
+  overflow: hidden;
   text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .prompt-registry-search-intro {

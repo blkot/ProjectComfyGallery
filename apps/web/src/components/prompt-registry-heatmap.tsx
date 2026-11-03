@@ -285,6 +285,9 @@ export function PromptRegistryHeatmap({
   ]
     .filter(Boolean)
     .join(" + ");
+  const footerText = activeItem
+    ? `${activeItem.prompt_id} · ${activeItem.media_count} media`
+    : `Showing ${scopeLabel}. Click a square to open its prompt`;
 
   return (
     <section className="prompt-registry-heatmap" aria-label="Prompt contribution matrix">
@@ -385,10 +388,8 @@ export function PromptRegistryHeatmap({
             </span>
           ))}
         </div>
-        <p className="muted" aria-live="polite">
-          {activeItem
-            ? `${activeItem.prompt_id} · ${activeItem.media_count} media`
-            : `Showing ${scopeLabel}. Click a square to open its prompt`}
+        <p className="muted" aria-live="polite" title={footerText}>
+          {footerText}
         </p>
       </div>
     </section>

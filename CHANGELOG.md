@@ -4,6 +4,14 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+- Index Prompt IDs for workflows that have no registered display profile by
+  discovering `ShowText → XantaPromptLibrary` wiring in the API graph; the visual
+  widget value is used only when exactly one distinct Prompt ID parses.
+- Stop the active favorite star from disappearing when its card is hovered, move
+  the Safety control next to Favorite in Media Detail, and keep the Prompt heatmap
+  footer on a single line so hovering cannot change the panel height.
+
+
 ## 0.1.0-rc.36 — 2026-11-04
 
 - Fix Prompt ID extraction for visual workflows whose ShowText widgets nest the
