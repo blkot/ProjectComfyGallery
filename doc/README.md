@@ -41,6 +41,8 @@ This structure borrows the audience separation of the Diátaxis documentation mo
 - [Manual evaluation](design/evaluation.md)
 - [Analytics](design/analytics.md)
 - [Frontend UX](design/frontend-ux.md)
+- [Frontend redesign and UI foundation](design/frontend-redesign.md)
+- [GLORIA Prompt Archive design analysis](design/gloria-prompt-archive-analysis.md)
 
 ### Interfaces and integrations
 
