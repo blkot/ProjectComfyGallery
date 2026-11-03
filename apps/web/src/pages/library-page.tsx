@@ -5,6 +5,7 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { MediaFavoriteButton } from "../components/media-favorite-button";
 import {
   apiRequest,
+  type ContentRating,
   type ContentRatingFilter,
   type Collection,
   type MediaArchive,
@@ -105,6 +106,15 @@ type LibraryFilterIconName =
   | "two-d"
   | "unmarked"
   | "video";
+
+const contentRatingLetters: Record<string, string> = {
+  sfw: "S",
+  nsfw: "R",
+};
+
+function contentRatingLetter(rating: ContentRating): string {
+  return contentRatingLetters[rating] ?? rating.slice(0, 1).toUpperCase();
+}
 
 type LibrarySegmentedFilterProps = {
   label: string;
@@ -1457,9 +1467,6 @@ export function LibraryPage() {
                         {formatDuration(item.duration_seconds)}
                       </span>
                     ) : null}
-                    {item.warning_count > 0 ? (
-                      <span className="warning-badge">Warning</span>
-                    ) : null}
                     {item.spatial_available || item.prefer_spatial_playback ? (
                       <span
                         className="spatial-badge"
@@ -1476,16 +1483,17 @@ export function LibraryPage() {
                       <span
                         className="content-rating-badge"
                         data-rating={item.content_rating}
+                        role="img"
+                        title={
+                          item.content_rating === "sfw"
+                            ? "Content rating: SFW"
+                            : "Content rating: NSFW"
+                        }
+                        aria-label={`Content rating: ${item.content_rating.toUpperCase()}`}
                       >
-                        {item.content_rating.toUpperCase()}
+                        {contentRatingLetter(item.content_rating)}
                       </span>
                     ) : null}
-                    <span
-                      className="workflow-badge"
-                      data-status={item.workflow_status}
-                    >
-                      WF · {titleCase(item.workflow_status)}
-                    </span>
                     <span
                       className="evaluation-badge"
                       data-status={item.evaluation_state}

@@ -1,5 +1,6 @@
 from httpx import ASGITransport, AsyncClient
 
+from comfy_gallery_api import __version__
 from comfy_gallery_api.main import app
 
 
@@ -12,7 +13,7 @@ async def test_liveness_does_not_require_external_services() -> None:
     assert response.json() == {
         "status": "ok",
         "service": "comfy-gallery-api",
-        "version": "0.1.0-rc.34",
+        "version": __version__,
         "checks": {},
     }
     assert response.headers["X-Request-ID"]

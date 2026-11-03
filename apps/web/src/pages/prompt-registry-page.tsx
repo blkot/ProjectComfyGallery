@@ -1,19 +1,22 @@
 import {
+  keepPreviousData,
   useMutation,
   useQuery,
   useQueryClient,
   type UseQueryResult,
 } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router";
 
 import {
   apiRequest,
+  type PromptRegistryCharacterLora,
   type PromptRegistryHeatmap,
   type PromptRegistryEntry,
   type PromptRegistryLookup,
 } from "../lib/api";
 import { PromptRegistryHeatmap as PromptRegistryHeatmapView } from "../components/prompt-registry-heatmap";
+import { usePersistedState } from "../lib/use-persisted-state";
 
 type PromptIdParts = {
   source: string;
@@ -21,6 +24,16 @@ type PromptIdParts = {
 };
 
 const PROMPT_ID_PATTERN = /^\s*(.+?)\s*-\s*(\d+)\s*$/;
+
+const heatmapIncludeNotFavedKey =
+  "comfy-gallery.prompt-heatmap.include-not-faved";
+const heatmapIncludeTrashKey = "comfy-gallery.prompt-heatmap.include-trash";
+const heatmapCharacterLoraKey =
+  "comfy-gallery.prompt-heatmap.character-lora";
+const isBooleanPreference = (value: unknown): value is boolean =>
+  typeof value === "boolean";
+const isStringPreference = (value: unknown): value is string =>
+  typeof value === "string";
 
 function parsePromptId(value: string): PromptIdParts | null {
   const match = PROMPT_ID_PATTERN.exec(value);
@@ -49,11 +62,34 @@ export function PromptRegistryPage() {
   const [negativePrompt, setNegativePrompt] = useState("");
   const [showRegister, setShowRegister] = useState(false);
   const [heatmapSource, setHeatmapSource] = useState("");
+  const [heatmapCharacterLora, setHeatmapCharacterLora] = usePersistedState(
+    heatmapCharacterLoraKey,
+    "",
+    isStringPreference,
+  );
+  const [heatmapIncludeNotFaved, setHeatmapIncludeNotFaved] = usePersistedState(
+    heatmapIncludeNotFavedKey,
+    false,
+    isBooleanPreference,
+  );
+  const [heatmapIncludeTrash, setHeatmapIncludeTrash] = usePersistedState(
+    heatmapIncludeTrashKey,
+    false,
+    isBooleanPreference,
+  );
 
   const sourceOptions = useQuery({
     queryKey: ["prompt-registry-source-options"],
     queryFn: () => apiRequest<string[]>("/api/v1/prompt-registry/sources?limit=50"),
     staleTime: 30_000,
+  });
+  const characterLoraOptions = useQuery({
+    queryKey: ["prompt-registry-character-loras"],
+    queryFn: () =>
+      apiRequest<PromptRegistryCharacterLora[]>(
+        "/api/v1/prompt-registry/character-loras?limit=100",
+      ),
+    staleTime: 60_000,
   });
   const lookup = useQuery({
     queryKey: ["prompt-registry-lookup", promptId],
@@ -64,17 +100,49 @@ export function PromptRegistryPage() {
     enabled: Boolean(promptId.trim()),
   });
   const heatmap = useQuery({
-    queryKey: ["prompt-registry-heatmap", heatmapSource],
+    queryKey: [
+      "prompt-registry-heatmap",
+      heatmapSource,
+      heatmapCharacterLora,
+      heatmapIncludeNotFaved,
+      heatmapIncludeTrash,
+    ],
     queryFn: () => {
-      const sourceQuery = heatmapSource
-        ? `&source=${encodeURIComponent(heatmapSource)}`
-        : "";
+      const params = new URLSearchParams({ limit: "20000" });
+      if (heatmapSource) params.set("source", heatmapSource);
+      if (heatmapCharacterLora) params.set("character_lora", heatmapCharacterLora);
+      if (heatmapIncludeNotFaved) params.set("include_not_faved", "true");
+      if (heatmapIncludeTrash) params.set("include_trash", "true");
       return apiRequest<PromptRegistryHeatmap>(
-        `/api/v1/prompt-registry/heatmap?limit=20000${sourceQuery}`,
+        `/api/v1/prompt-registry/heatmap?${params.toString()}`,
       );
     },
+    placeholderData: keepPreviousData,
     staleTime: 60_000,
   });
+
+  useEffect(() => {
+    if (
+      !heatmapCharacterLora ||
+      characterLoraOptions.isPending ||
+      !characterLoraOptions.data
+    ) {
+      return;
+    }
+    if (
+      !characterLoraOptions.data.some(
+        (option) => option.name === heatmapCharacterLora,
+      )
+    ) {
+      setHeatmapCharacterLora("");
+    }
+  }, [
+    characterLoraOptions.data,
+    characterLoraOptions.isPending,
+    heatmapCharacterLora,
+    setHeatmapCharacterLora,
+  ]);
+
   const create = useMutation({
     mutationFn: () =>
       apiRequest<PromptRegistryEntry>("/api/v1/prompt-registry", {
@@ -167,22 +235,49 @@ export function PromptRegistryPage() {
             <p className="kicker">Usage at a glance</p>
             <h2>Prompt heatmap</h2>
           </div>
-          <label className="prompt-registry-heatmap-source">
-            Source
-            <select
-              value={heatmapSource}
-              aria-label="Heatmap source"
-              onChange={(event) => setHeatmapSource(event.target.value)}
-              disabled={sourceOptions.isPending || !sourceOptions.data?.length}
-            >
-              <option value="">All sources</option>
-              {sourceOptions.data?.map((option) => (
-                <option key={option} value={option}>
-                  {option}
+          <div className="prompt-registry-heatmap-filters">
+            <label className="prompt-registry-heatmap-source">
+              Source
+              <select
+                value={heatmapSource}
+                aria-label="Heatmap source"
+                onChange={(event) => setHeatmapSource(event.target.value)}
+                disabled={sourceOptions.isPending || !sourceOptions.data?.length}
+              >
+                <option value="">All sources</option>
+                {sourceOptions.data?.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="prompt-registry-heatmap-source">
+              Character LoRA
+              <select
+                value={heatmapCharacterLora}
+                aria-label="Heatmap character LoRA"
+                onChange={(event) => setHeatmapCharacterLora(event.target.value)}
+                disabled={
+                  characterLoraOptions.isPending ||
+                  !characterLoraOptions.data?.length
+                }
+              >
+                <option value="">
+                  {characterLoraOptions.isPending
+                    ? "Loading characters…"
+                    : characterLoraOptions.data?.length
+                      ? "All characters"
+                      : "No character LoRAs"}
                 </option>
-              ))}
-            </select>
-          </label>
+                {characterLoraOptions.data?.map((option) => (
+                  <option key={option.name} value={option.name}>
+                    {option.name} ({option.media_count})
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
         </div>
         {heatmap.error ? (
           <p className="notice error-notice">Could not load the prompt heatmap.</p>
@@ -192,6 +287,10 @@ export function PromptRegistryPage() {
           <PromptRegistryHeatmapView
             data={heatmap.data}
             promptId={promptId}
+            includeNotFaved={heatmapIncludeNotFaved}
+            includeTrash={heatmapIncludeTrash}
+            onIncludeNotFavedChange={setHeatmapIncludeNotFaved}
+            onIncludeTrashChange={setHeatmapIncludeTrash}
             onSelectPrompt={selectPrompt}
           />
         ) : null}
@@ -441,11 +540,23 @@ function PromptRegistryDetail({
       {data.media.length ? (
         <div className="prompt-registry-media-grid">
           {data.media.map((media) => (
-            <Link className="prompt-registry-media-card" to={`/library/${media.id}`} key={media.id}>
+            <Link
+              className={
+                media.is_trash
+                  ? "prompt-registry-media-card is-trash"
+                  : "prompt-registry-media-card"
+              }
+              to={`/library/${media.id}`}
+              key={media.id}
+            >
               <img src={media.preview_url} alt="" loading="lazy" />
               <span>
                 <strong>{media.original_filename}</strong>
-                <small>{media.kind}{media.favorite ? " · favorite" : ""}</small>
+                <small>
+                  {media.is_trash
+                    ? "Trash"
+                    : `${media.kind}${media.favorite ? " · favorite" : ""}`}
+                </small>
               </span>
             </Link>
           ))}

@@ -79,7 +79,6 @@ export function MediaContentRatingControl({
       aria-label="Content safety rating"
       data-rating={rating ?? "unknown"}
     >
-      <span className="media-content-rating-label">Safety</span>
       {ratingOptions.map((option) => (
         <button
           ref={
