@@ -4,6 +4,8 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+- Make the NAS deploy wrapper fail fast with an actionable error when the host is
+  unreachable, and refuse to run when sourced into an interactive shell.
 - Add `make release-prepare` to lock one version across every manifest, promote
   the Changelog, regenerate the OpenAPI snapshot, and reject unexpected file
   changes, with a dry-run mode.
