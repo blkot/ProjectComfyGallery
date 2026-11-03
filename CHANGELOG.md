@@ -4,6 +4,9 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+- Make the NAS deploy wrapper fail fast with an actionable error when the host is
+  unreachable, and refuse to run when sourced into an interactive shell.
+
 ## 0.1.0-rc.34 — 2026-11-03
 
 - Add a compact Prompt Registry contribution heatmap with source filtering,

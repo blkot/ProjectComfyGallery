@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import time
 from pathlib import Path
 
 import yaml
@@ -39,6 +40,42 @@ def test_development_and_release_shell_scripts_parse_and_are_executable() -> Non
     for script in scripts:
         assert os.access(script, os.X_OK), f"{script} must be executable"
         subprocess.run(["bash", "-n", str(script)], check=True)
+
+
+def test_deploy_wrapper_refuses_to_be_sourced() -> None:
+    script = ROOT / "deploy/operations/deploy-xanta-auto.sh"
+
+    result = subprocess.run(
+        ["bash", "-c", f'source "{script}" status || true; echo "shell-alive"'],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert "shell-alive" in result.stdout
+    assert "do not source it" in result.stderr
+
+
+def test_deploy_wrapper_fails_fast_when_the_nas_is_unreachable() -> None:
+    environment = os.environ.copy()
+    environment["XANTA_NAS_HELPER"] = "/usr/bin/true"
+    environment["XANTA_NAS_SSH_HOST"] = "192.0.2.1"  # TEST-NET-1, not routable
+    environment["XANTA_NAS_CONNECT_TIMEOUT_SECONDS"] = "1"
+
+    started = time.monotonic()
+    result = subprocess.run(
+        ["bash", str(ROOT / "deploy/operations/deploy-xanta-auto.sh"), "status"],
+        text=True,
+        capture_output=True,
+        env=environment,
+        check=False,
+        timeout=30,
+    )
+
+    assert time.monotonic() - started < 20
+    assert result.returncode == 1
+    assert "cannot reach the NAS over SSH" in result.stderr
 
 
 def test_release_workflow_publishes_locked_amd64_images() -> None:
