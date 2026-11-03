@@ -794,6 +794,7 @@ class MediaPromptIndex(TimestampMixin, Base):
     entry_index: Mapped[str | None] = mapped_column(String(128))
     index_key: Mapped[str | None] = mapped_column(String(128))
     prompt_id: Mapped[str | None] = mapped_column(String(512))
+    character_lora: Mapped[str | None] = mapped_column(String(1024))
     evidence_source: Mapped[str] = mapped_column(
         String(32), nullable=False, default="none", server_default="none"
     )

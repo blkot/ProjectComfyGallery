@@ -30,12 +30,30 @@ For Prompt ID and related workflow display fields:
 
 1. Explicit `comfy_gallery_display_v1` values written by the saver.
 2. Verified execution output stored by historical recovery.
-3. The visual workflow's `widgets_values` for the bound ShowText node.
+3. The visual workflow's `widgets_values` for the bound ShowText node. The
+   promoted text may be nested in one or more lists (for example
+   `[["sfw-zimage-por-v3-03786"]]`); extraction walks nested lists in order
+   before treating the snapshot as empty.
 4. The API graph's `text_0` widget cache as a last-resort candidate.
 
 The API graph remains authoritative for node classes, links, and execution
 topology. Its cached `text_0` is not authoritative for dynamic prompt-library
-text because it can predate the execution that produced the image.
+text because it can predate the execution that produced the image. After
+changing extraction precedence or nesting support, rebuild the materialized
+index with `python -m comfy_gallery_core.cli rebuild-prompt-index` so existing
+media rows reflect the corrected interpretation. The rebuild is idempotent and
+does not rewrite embedded evidence.
+
+### Workflows without a display profile
+
+A registered `WorkflowDisplayProfile` is not required. When no profile matches,
+the materializer discovers structural bindings directly from the API graph:
+every `ShowText|pysssss` node whose `text` input is wired to a
+`XantaPromptLibrary` node is inspected, and its visual `widgets_values` value is
+parsed as a Prompt ID. The result is accepted only when exactly one distinct
+parseable Prompt ID appears; two different values fail closed and leave the
+media unindexed. Accepted rows record `evidence_source = visual_binding`, which
+is distinguishable from `display_profile`, `save_node`, and `verified_history`.
 
 ## Registry record
 
@@ -134,17 +152,25 @@ text or calculate a full registry count.
 ## Read API extensions
 
 All read endpoints require the existing authenticated session or Bearer API
-token. A prompt is **unmaterialized** when no row in `media_prompt_index` points
-to its normalized source and numeric index; trash does not erase that generation
-history.
+token. A prompt is **materialized** when at least one linked media record is
+favorited and not in Trash. Trash outranks Favorite, so a trashed favorite does
+not materialize its prompt; media that is neither favorited nor trashed is
+ordinary media and does not materialize either. `media_prompt_index` still
+records generation history, and Trash never erases it.
 
 ```text
 GET /api/v1/prompt-registry/random
   ?source=<optional-source>
+  &character_lora=<optional-character-lora>
   &materialization=any|materialized|unmaterialized
 
 GET /api/v1/prompt-registry/stats
   ?source=<optional-source>
+  &character_lora=<optional-character-lora>
+
+GET /api/v1/prompt-registry/lookup
+  ?prompt_id=<source - index>
+  &character_lora=<optional-character-lora>
 
 GET /api/v1/prompt-registry/neighbor
   ?source=<source>
@@ -153,27 +179,51 @@ GET /api/v1/prompt-registry/neighbor
 
 GET /api/v1/prompt-registry/heatmap
   ?source=<optional-source>
+  &character_lora=<optional-character-lora>
+  &include_not_faved=false
+  &include_trash=false
   &limit=20000
   &offset=0
+
+GET /api/v1/prompt-registry/character-loras
+  ?q=<optional-substring>
+  &limit=50
 ```
 
-`random` combines `source` and `materialization` with AND semantics and returns
-HTTP 404 with `PROMPT_REGISTRY_RANDOM_NOT_FOUND` when no entry matches. The
-random response includes the stable `prompt_id` and the computed `media_count`.
-`stats` reports registered, materialized, and unmaterialized entry counts.
+`random` combines `source`, `character_lora`, and `materialization` with AND
+semantics and returns HTTP 404 with `PROMPT_REGISTRY_RANDOM_NOT_FOUND` when no
+entry matches. `character_lora` scopes the **favorite signal**, not the candidate
+universe: `materialized` means a favorited, non-trashed media record with that
+character, while `unmaterialized` means no such record. A prompt that was never
+generated with the character therefore remains an unmaterialized candidate. The
+random response includes the stable `prompt_id` and the scoped `media_count`.
+`stats` reports registered, materialized, and unmaterialized entry counts using
+the same definition; `registered_count` stays the full source universe, while the
+materialized split uses character-scoped favorites.
+`lookup` also accepts `character_lora` and returns only matching media, adjusting
+`total_media` and the entry's `media_count`.
 `neighbor` returns the nearest registered entry in numeric index order, skipping
 gaps instead of requiring the caller to probe every integer.
 `heatmap` returns compact contribution-matrix cells for every registered prompt.
 Each cell includes the stable `prompt_id`, its source/index, and the number of
-rows in `media_prompt_index` that point to it. The count includes trashed media,
-so it represents generated history rather than the current visible gallery.
-Results are ordered by source and numeric index, support an optional source
-filter, and expose `total` and `max_media_count` so clients can build a relative
-color scale without loading media records.
+linked media in the requested scope. The default scope is favorites outside
+Trash; `include_not_faved=true` adds ordinary media and `include_trash=true` adds
+Trash. Results are ordered by source and numeric index, support an optional
+source filter, and expose `total` and `max_media_count` so clients can build a
+relative color scale without loading media records.
+
+`character_lora` narrows the matrix to media whose materialized character-LoRA
+display value matches case-insensitively. The value comes from the saver's
+`character_lora` field or a verified historical recovery row and is materialized
+on `media_prompt_index`; workflows that declare no character LoRA simply do not
+contribute to the filtered counts. `character-loras` returns the distinct values
+that have media, ordered by media count, so the client can offer a selector.
 
 The frontend provides a Prompt Registry page under **System → Prompt Registry**.
 Prompt IDs in Media Detail are links to that page, where the definition and all
-matching media can be inspected.
+matching media can be inspected. The lookup response marks each media record with
+`is_trash` so the client can present Trash distinctly; Trash outranks Favorite in
+that presentation as well.
 
 ## Adapter mapping example
 

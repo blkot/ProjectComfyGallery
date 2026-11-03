@@ -1,7 +1,8 @@
+import json
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import event
+from sqlalchemy import event, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from starlette.requests import Request
 
@@ -12,8 +13,10 @@ from comfy_gallery_api.prompt_registry_schemas import (
 )
 from comfy_gallery_api.routes.prompt_registry import (
     _enforce_import_body_size,
+    _filter_media_by_character,
     create_prompt_registry_entry,
     import_prompt_registry_entries,
+    list_prompt_registry_character_loras,
     list_prompt_registry_sources,
     lookup_prompt_registry_entry,
     prompt_registry_heatmap,
@@ -26,11 +29,17 @@ from comfy_gallery_core.db.models import (
     Media,
     MediaAsset,
     MediaPromptIndex,
+    User,
     WorkflowDisplayProfile,
     WorkflowSnapshot,
 )
-from comfy_gallery_core.workflow.display_fields import topology
-from comfy_gallery_core.workflow.prompt_index import rebuild_prompt_index
+from comfy_gallery_core.evaluation.catalog import ensure_evaluation_catalog
+from comfy_gallery_core.evaluation.service import ensure_media_evaluations
+from comfy_gallery_core.workflow.display_fields import DISPLAY_KEY, topology
+from comfy_gallery_core.workflow.prompt_index import (
+    rebuild_prompt_index,
+    sync_media_prompt_index,
+)
 
 
 async def test_prompt_registry_lookup_prefers_visual_show_text_and_returns_all_media() -> None:
@@ -141,6 +150,36 @@ async def test_prompt_registry_lookup_prefers_visual_show_text_and_returns_all_m
                 "left outer join workflow_snapshot" in statement.lower()
                 for statement in lookup_statements
             )
+
+            stored_media = list(await session.scalars(select(Media).order_by(Media.id)))
+            reviewer = User(
+                username="prompt-lookup-reviewer",
+                username_normalized="prompt-lookup-reviewer",
+                password_hash="test",
+            )
+            session.add(reviewer)
+            await ensure_evaluation_catalog(session)
+            evaluations = await ensure_media_evaluations(
+                session,
+                media=stored_media[0],
+                reviewer_user_id=reviewer.id,
+                optional_modules=set(),
+            )
+            next(
+                evaluation for evaluation in evaluations if evaluation.evaluation_kind == "base"
+            ).is_trash = True
+            await session.commit()
+
+            trashed_lookup = await lookup_prompt_registry_entry(
+                None,  # type: ignore[arg-type]
+                session,
+                prompt_id="portraits - 1",
+                limit=48,
+                offset=0,
+            )
+            assert trashed_lookup.total_media == 2
+            assert sum(item.is_trash for item in trashed_lookup.media) == 1
+            assert all(item.favorite is False for item in trashed_lookup.media)
             imported = await import_prompt_registry_entries(
                 PromptRegistryImportRequest(
                     entries=[
@@ -357,18 +396,60 @@ async def test_prompt_registry_random_stats_and_neighbors_use_materialized_index
                 None,  # type: ignore[arg-type]
                 session,
             )
-            media = Media(id=uuid4(), kind="image", status="ready")
-            session.add(media)
+            media = Media(id=uuid4(), kind="image", status="ready", favorite=True)
+            ordinary_media = Media(id=uuid4(), kind="image", status="ready")
+            trashed_media = Media(
+                id=uuid4(),
+                kind="image",
+                status="ready",
+                favorite=True,
+            )
+            session.add_all([media, ordinary_media, trashed_media])
             await session.flush()
-            session.add(
-                MediaPromptIndex(
-                    media_id=media.id,
-                    source_key="xanta-utils",
-                    entry_index="00001",
-                    index_key="1",
-                    prompt_id="xanta-utils - 00001",
-                    evidence_source="save_node",
-                )
+            reviewer = User(
+                username="prompt-registry-reviewer",
+                username_normalized="prompt-registry-reviewer",
+                password_hash="test",
+            )
+            session.add(reviewer)
+            await ensure_evaluation_catalog(session)
+            evaluations = await ensure_media_evaluations(
+                session,
+                media=trashed_media,
+                reviewer_user_id=reviewer.id,
+                optional_modules=set(),
+            )
+            base_evaluation = next(
+                evaluation for evaluation in evaluations if evaluation.evaluation_kind == "base"
+            )
+            base_evaluation.is_trash = True
+            session.add_all(
+                [
+                    MediaPromptIndex(
+                        media_id=media.id,
+                        source_key="xanta-utils",
+                        entry_index="00001",
+                        index_key="1",
+                        prompt_id="xanta-utils - 00001",
+                        evidence_source="save_node",
+                    ),
+                    MediaPromptIndex(
+                        media_id=ordinary_media.id,
+                        source_key="xanta-utils",
+                        entry_index="00002",
+                        index_key="2",
+                        prompt_id="xanta-utils - 00002",
+                        evidence_source="save_node",
+                    ),
+                    MediaPromptIndex(
+                        media_id=trashed_media.id,
+                        source_key="xanta-utils",
+                        entry_index="00010",
+                        index_key="10",
+                        prompt_id="xanta-utils - 00010",
+                        evidence_source="save_node",
+                    ),
+                ]
             )
             await session.commit()
 
@@ -397,6 +478,62 @@ async def test_prompt_registry_random_stats_and_neighbors_use_materialized_index
             assert [(item.index, item.media_count) for item in heatmap.items] == [
                 ("00002", 0),
                 ("00010", 0),
+            ]
+
+            favorites_only = await prompt_registry_heatmap(
+                None,  # type: ignore[arg-type]
+                session,
+                source="xanta-utils",
+                limit=20_000,
+                offset=0,
+            )
+            assert [(item.index, item.media_count) for item in favorites_only.items] == [
+                ("00001", 1),
+                ("00002", 0),
+                ("00010", 0),
+            ]
+
+            with_not_faved = await prompt_registry_heatmap(
+                None,  # type: ignore[arg-type]
+                session,
+                source="xanta-utils",
+                include_not_faved=True,
+                limit=20_000,
+                offset=0,
+            )
+            assert [(item.index, item.media_count) for item in with_not_faved.items] == [
+                ("00001", 1),
+                ("00002", 1),
+                ("00010", 0),
+            ]
+
+            with_trash = await prompt_registry_heatmap(
+                None,  # type: ignore[arg-type]
+                session,
+                source="xanta-utils",
+                include_trash=True,
+                limit=20_000,
+                offset=0,
+            )
+            assert [(item.index, item.media_count) for item in with_trash.items] == [
+                ("00001", 1),
+                ("00002", 0),
+                ("00010", 1),
+            ]
+
+            full_scope = await prompt_registry_heatmap(
+                None,  # type: ignore[arg-type]
+                session,
+                source="xanta-utils",
+                include_not_faved=True,
+                include_trash=True,
+                limit=20_000,
+                offset=0,
+            )
+            assert [(item.index, item.media_count) for item in full_scope.items] == [
+                ("00001", 1),
+                ("00002", 1),
+                ("00010", 1),
             ]
 
             random_any = await random_prompt_registry_entry(
@@ -526,3 +663,187 @@ async def test_prompt_registry_import_size_check_uses_received_body_bytes() -> N
 
     assert raised.value.status_code == 413
     assert raised.value.code == "PROMPT_REGISTRY_IMPORT_TOO_LARGE"
+
+
+async def test_prompt_registry_character_lora_filter_and_options() -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    try:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+            await import_prompt_registry_entries(
+                PromptRegistryImportRequest(
+                    entries=[
+                        PromptRegistryEntryRequest(
+                            source="character-src",
+                            index="00001",
+                            prompt="First",
+                        ),
+                        PromptRegistryEntryRequest(
+                            source="character-src",
+                            index="00002",
+                            prompt="Second",
+                        ),
+                        PromptRegistryEntryRequest(
+                            source="character-src",
+                            index="00003",
+                            prompt="Never generated with a character",
+                        ),
+                    ]
+                ),
+                None,  # type: ignore[arg-type]
+                session,
+            )
+            first = Media(id=uuid4(), kind="image", status="ready", favorite=True)
+            second = Media(id=uuid4(), kind="image", status="ready", favorite=True)
+            session.add_all([first, second])
+            await session.flush()
+            session.add_all(
+                [
+                    MediaPromptIndex(
+                        media_id=first.id,
+                        source_key="character-src",
+                        entry_index="00001",
+                        index_key="1",
+                        prompt_id="character-src - 00001",
+                        evidence_source="save_node",
+                        character_lora="Character_A_v1",
+                    ),
+                    MediaPromptIndex(
+                        media_id=second.id,
+                        source_key="character-src",
+                        entry_index="00002",
+                        index_key="2",
+                        prompt_id="character-src - 00002",
+                        evidence_source="save_node",
+                        character_lora="Character_B_v1",
+                    ),
+                ]
+            )
+            await session.commit()
+
+            heatmap = await prompt_registry_heatmap(
+                None,  # type: ignore[arg-type]
+                session,
+                source="character-src",
+                character_lora="character_a_v1",
+                limit=20_000,
+                offset=0,
+            )
+            assert [(item.index, item.media_count) for item in heatmap.items] == [
+                ("00001", 1),
+                ("00002", 0),
+                ("00003", 0),
+            ]
+
+            options = await list_prompt_registry_character_loras(
+                None,  # type: ignore[arg-type]
+                session,
+                q=None,
+                limit=50,
+            )
+            assert {(option.name, option.media_count) for option in options} == {
+                ("Character_A_v1", 1),
+                ("Character_B_v1", 1),
+            }
+
+            stats = await prompt_registry_stats(
+                None,  # type: ignore[arg-type]
+                session,
+                source="character-src",
+                character_lora="Character_A_v1",
+            )
+            # Character LoRA scopes the favorite signal, not the prompt universe:
+            # a prompt never generated with the character stays unmaterialized.
+            assert (
+                stats.registered_count,
+                stats.materialized_count,
+                stats.unmaterialized_count,
+            ) == (3, 1, 2)
+
+            unpicked = await random_prompt_registry_entry(
+                None,  # type: ignore[arg-type]
+                session,
+                source="character-src",
+                character_lora="Character_A_v1",
+                materialization="unmaterialized",
+            )
+            assert unpicked.index in {"00002", "00003"}
+
+            picked = await random_prompt_registry_entry(
+                None,  # type: ignore[arg-type]
+                session,
+                source="character-src",
+                character_lora="Character_B_v1",
+                materialization="materialized",
+            )
+            assert picked.index == "00002"
+
+            filtered = await _filter_media_by_character(
+                session,
+                [(first, None), (second, None)],  # type: ignore[list-item]
+                "character_a_v1",
+            )
+            assert [media.id for media, _asset in filtered] == [first.id]
+    finally:
+        await engine.dispose()
+
+
+async def test_sync_materializes_character_lora_from_the_save_packet() -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    try:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+            media = Media(id=uuid4(), kind="image", status="ready")
+            session.add(media)
+            await session.flush()
+            session.add(
+                MediaAsset(
+                    media_id=media.id,
+                    sha256="a" * 64,
+                    byte_size=1,
+                    original_filename="character.png",
+                    managed_path="managed/character.png",
+                )
+            )
+            api = {
+                "2": {"class_type": "Source", "inputs": {}},
+                "3": {
+                    "class_type": "XantaSaveAndUpload",
+                    "inputs": {
+                        "cg_prompt_id": ["2", 1],
+                        "cg_character_lora": ["2", 0],
+                    },
+                },
+            }
+            packet = {
+                "version": 1,
+                "save_node_id": "3",
+                "fields": {
+                    "prompt_id": "character-src - 00001",
+                    "character_lora": " Character_A_v1 ",
+                },
+            }
+            session.add(
+                WorkflowSnapshot(
+                    media_id=media.id,
+                    reader_name="test",
+                    reader_version="1",
+                    source_carrier="png",
+                    evidence_sha256="b" * 64,
+                    api_prompt_status="parsed",
+                    visual_workflow_status="parsed",
+                    parse_status="parsed",
+                    api_prompt=api,
+                    raw_metadata={"text_chunks": {DISPLAY_KEY: json.dumps(packet)}},
+                )
+            )
+            await session.commit()
+
+            record = await sync_media_prompt_index(session, media_id=media.id)
+
+            assert record.prompt_id == "character-src - 00001"
+            assert record.character_lora == "Character_A_v1"
+    finally:
+        await engine.dispose()

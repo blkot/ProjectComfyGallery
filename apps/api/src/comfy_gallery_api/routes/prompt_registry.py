@@ -12,6 +12,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from comfy_gallery_api.dependencies import CsrfPrincipalDep, DbSessionDep, PrincipalDep
 from comfy_gallery_api.errors import ApiError
 from comfy_gallery_api.prompt_registry_schemas import (
+    PromptRegistryCharacterLoraResponse,
     PromptRegistryEntryRequest,
     PromptRegistryEntryResponse,
     PromptRegistryHeatmapItemResponse,
@@ -27,6 +28,7 @@ from comfy_gallery_api.prompt_registry_schemas import (
     PromptRegistryStatsResponse,
 )
 from comfy_gallery_core.db.models import (
+    Evaluation,
     Media,
     MediaAsset,
     MediaPromptIndex,
@@ -45,6 +47,7 @@ from comfy_gallery_core.workflow.display_fields import (
 from comfy_gallery_core.workflow.prompt_index import (
     load_profiles_by_scope,
     prompt_id_candidate,
+    structural_prompt_id_candidate,
 )
 
 router = APIRouter(prefix="/api/v1/prompt-registry", tags=["prompt-registry"])
@@ -144,24 +147,70 @@ async def list_prompt_registry_sources(
     return [str(row.source) for row in rows]
 
 
+@router.get("/character-loras", response_model=list[PromptRegistryCharacterLoraResponse])
+async def list_prompt_registry_character_loras(
+    _principal: PrincipalDep,
+    session: DbSessionDep,
+    q: str | None = None,
+    limit: int = 50,
+) -> list[PromptRegistryCharacterLoraResponse]:
+    """Return character LoRA display values that have indexed media."""
+
+    limit = max(1, min(limit, 200))
+    filters = [
+        MediaPromptIndex.character_lora.is_not(None),
+        MediaPromptIndex.character_lora != "",
+    ]
+    if q and q.strip():
+        filters.append(MediaPromptIndex.character_lora.ilike(f"%{q.strip()}%"))
+    name = func.min(MediaPromptIndex.character_lora).label("name")
+    media_count = func.count().label("media_count")
+    rows = await session.execute(
+        select(name, media_count)
+        .select_from(MediaPromptIndex)
+        .where(*filters)
+        .group_by(func.lower(MediaPromptIndex.character_lora))
+        .order_by(media_count.desc(), name.asc())
+        .limit(limit)
+    )
+    return [
+        PromptRegistryCharacterLoraResponse(name=str(row.name), media_count=int(row.media_count))
+        for row in rows
+    ]
+
+
 @router.get("/heatmap", response_model=PromptRegistryHeatmapResponse)
 async def prompt_registry_heatmap(
     _principal: PrincipalDep,
     session: DbSessionDep,
     source: str | None = Query(default=None, max_length=256),
+    character_lora: str | None = None,
+    include_not_faved: bool = False,
+    include_trash: bool = False,
     limit: int = Query(default=20_000, ge=1, le=20_000),
     offset: int = Query(default=0, ge=0),
 ) -> PromptRegistryHeatmapResponse:
     filters = _source_filters(source)
+    character_filter = (
+        [func.lower(MediaPromptIndex.character_lora) == character_lora.strip().casefold()]
+        if character_lora and character_lora.strip()
+        else []
+    )
     media_counts = (
         select(
             MediaPromptIndex.source_key.label("source_key"),
             MediaPromptIndex.index_key.label("index_key"),
             func.count(MediaPromptIndex.media_id).label("media_count"),
         )
+        .join(Media, Media.id == MediaPromptIndex.media_id)
         .where(
             MediaPromptIndex.source_key.is_not(None),
             MediaPromptIndex.index_key.is_not(None),
+            _heatmap_media_scope(
+                include_not_faved=include_not_faved,
+                include_trash=include_trash,
+            ),
+            *character_filter,
         )
         .group_by(MediaPromptIndex.source_key, MediaPromptIndex.index_key)
         .subquery("prompt_registry_media_counts")
@@ -230,10 +279,12 @@ async def random_prompt_registry_entry(
     _principal: PrincipalDep,
     session: DbSessionDep,
     source: str | None = Query(default=None, max_length=256),
+    character_lora: str | None = None,
     materialization: PromptRegistryMaterialization = "any",
 ) -> PromptRegistryRandomResponse:
+    character = _normalized_character_lora(character_lora)
     filters = _source_filters(source)
-    materialized_expression = _prompt_registry_media_exists_expression()
+    materialized_expression = _favorite_media_exists_expression(character)
     if materialization == "materialized":
         filters.append(materialized_expression)
     elif materialization == "unmaterialized":
@@ -249,7 +300,7 @@ async def random_prompt_registry_entry(
             message="No prompt matches the requested filters.",
         )
 
-    media_count = await _prompt_registry_media_count(session, entry)
+    media_count = await _favorite_media_count(session, entry, character)
     entry_response = _entry_response(entry, media_count=media_count)
     return PromptRegistryRandomResponse(
         **entry_response.model_dump(),
@@ -263,7 +314,9 @@ async def prompt_registry_stats(
     _principal: PrincipalDep,
     session: DbSessionDep,
     source: str | None = Query(default=None, max_length=256),
+    character_lora: str | None = None,
 ) -> PromptRegistryStatsResponse:
+    character = _normalized_character_lora(character_lora)
     filters = _source_filters(source)
     registered_count = int(
         await session.scalar(select(func.count()).select_from(PromptRegistryEntry).where(*filters))
@@ -273,7 +326,7 @@ async def prompt_registry_stats(
         await session.scalar(
             select(func.count())
             .select_from(PromptRegistryEntry)
-            .where(*filters, _prompt_registry_media_exists_expression())
+            .where(*filters, _favorite_media_exists_expression(character))
         )
         or 0
     )
@@ -352,7 +405,7 @@ async def prompt_registry_neighbor(
         direction=direction,
         entry=_entry_response(
             entry,
-            media_count=await _prompt_registry_media_count(session, entry),
+            media_count=await _favorite_media_count(session, entry),
         ),
     )
 
@@ -362,6 +415,7 @@ async def lookup_prompt_registry_entry(
     _principal: PrincipalDep,
     session: DbSessionDep,
     prompt_id: str = Query(min_length=1, max_length=512),
+    character_lora: str | None = None,
     limit: int = Query(default=48, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> PromptRegistryLookupResponse:
@@ -373,19 +427,24 @@ async def lookup_prompt_registry_entry(
             message="Prompt ID must use the form 'source - index'.",
         )
     entry = await _find_entry(session, identifier)
-    matching_media = await _matching_media(session, identifier)
+    matching_media = await _filter_media_by_character(
+        session,
+        await _matching_media(session, identifier),
+        _normalized_character_lora(character_lora),
+    )
     media = matching_media[offset : offset + limit]
     display_identifier = (
         PromptIdentifier(source=entry.source, index=entry.entry_index)
         if entry is not None
         else identifier
     )
+    trashed_ids = await _trashed_media_ids(session, [media.id for media, _asset in media])
     return PromptRegistryLookupResponse(
         prompt_id=display_identifier.display,
         source=display_identifier.source,
         index=display_identifier.index,
         entry=_entry_response(entry, media_count=len(matching_media)) if entry else None,
-        media=[_media_response(row) for row in media],
+        media=[_media_response(row, is_trash=row[0].id in trashed_ids) for row in media],
         total_media=len(matching_media),
         limit=limit,
         offset=offset,
@@ -397,6 +456,7 @@ async def get_prompt_registry_entry(
     entry_id: UUID,
     _principal: PrincipalDep,
     session: DbSessionDep,
+    character_lora: str | None = None,
     limit: int = Query(default=48, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> PromptRegistryLookupResponse:
@@ -408,14 +468,19 @@ async def get_prompt_registry_entry(
             message="The prompt registry entry was not found.",
         )
     identifier = PromptIdentifier(source=entry.source, index=entry.entry_index)
-    matching_media = await _matching_media(session, identifier)
+    matching_media = await _filter_media_by_character(
+        session,
+        await _matching_media(session, identifier),
+        _normalized_character_lora(character_lora),
+    )
     media = matching_media[offset : offset + limit]
+    trashed_ids = await _trashed_media_ids(session, [media.id for media, _asset in media])
     return PromptRegistryLookupResponse(
         prompt_id=identifier.display,
         source=identifier.source,
         index=identifier.index,
         entry=_entry_response(entry, media_count=len(matching_media)),
-        media=[_media_response(row) for row in media],
+        media=[_media_response(row, is_trash=row[0].id in trashed_ids) for row in media],
         total_media=len(matching_media),
         limit=limit,
         offset=offset,
@@ -583,32 +648,100 @@ def _source_filters(source: str | None) -> list[Any]:
     return [PromptRegistryEntry.source_key == normalize_prompt_source(normalized)]
 
 
-def _prompt_registry_media_exists_expression() -> Any:
+def _media_trash_expression() -> Any:
+    """Trash lives on the base Evaluation of a media record, not on Media."""
+
+    return exists(
+        select(1)
+        .select_from(Evaluation)
+        .where(
+            Evaluation.media_id == Media.id,
+            Evaluation.evaluation_kind == "base",
+            Evaluation.is_trash.is_(True),
+        )
+    )
+
+
+def _normalized_character_lora(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip().casefold()
+    return normalized or None
+
+
+def _favorite_media_exists_expression(character_lora: str | None = None) -> Any:
+    """Report whether an entry produced at least one non-trashed favorite."""
+
+    conditions = [
+        MediaPromptIndex.source_key == PromptRegistryEntry.source_key,
+        MediaPromptIndex.index_key == PromptRegistryEntry.entry_index_key,
+        Media.favorite.is_(True),
+        ~_media_trash_expression(),
+    ]
+    if character_lora is not None:
+        conditions.append(func.lower(MediaPromptIndex.character_lora) == character_lora)
     return exists(
         select(1)
         .select_from(MediaPromptIndex)
-        .where(
-            MediaPromptIndex.source_key == PromptRegistryEntry.source_key,
-            MediaPromptIndex.index_key == PromptRegistryEntry.entry_index_key,
-        )
+        .join(Media, Media.id == MediaPromptIndex.media_id)
+        .where(*conditions)
     ).correlate(PromptRegistryEntry)
 
 
-async def _prompt_registry_media_count(
+async def _favorite_media_count(
     session: DbSessionDep,
     entry: PromptRegistryEntry,
+    character_lora: str | None = None,
 ) -> int:
+    conditions = [
+        MediaPromptIndex.source_key == entry.source_key,
+        MediaPromptIndex.index_key == entry.entry_index_key,
+        Media.favorite.is_(True),
+        ~_media_trash_expression(),
+    ]
+    if character_lora is not None:
+        conditions.append(func.lower(MediaPromptIndex.character_lora) == character_lora)
     return int(
         await session.scalar(
             select(func.count())
             .select_from(MediaPromptIndex)
-            .where(
-                MediaPromptIndex.source_key == entry.source_key,
-                MediaPromptIndex.index_key == entry.entry_index_key,
-            )
+            .join(Media, Media.id == MediaPromptIndex.media_id)
+            .where(*conditions)
         )
         or 0
     )
+
+
+async def _trashed_media_ids(
+    session: DbSessionDep,
+    media_ids: list[UUID],
+) -> set[UUID]:
+    if not media_ids:
+        return set()
+    rows = await session.scalars(
+        select(Media.id).where(
+            Media.id.in_(media_ids),
+            _media_trash_expression(),
+        )
+    )
+    return set(rows)
+
+
+def _heatmap_media_scope(*, include_not_faved: bool, include_trash: bool) -> Any:
+    """Classify linked media into favorites, ordinary media, and Trash.
+
+    Trash outranks Favorite: a trashed favorite is counted only when trash is
+    requested, and a favorite counts only outside Trash. Ordinary media is
+    excluded unless the caller asks for it.
+    """
+
+    trash_expression = _media_trash_expression()
+    categories = [and_(~trash_expression, Media.favorite.is_(True))]
+    if include_not_faved:
+        categories.append(and_(~trash_expression, Media.favorite.is_(False)))
+    if include_trash:
+        categories.append(trash_expression)
+    return or_(*categories)
 
 
 async def _find_entry(
@@ -704,6 +837,27 @@ async def _matching_media(
     return await _matching_media_fallback(session, identifier)
 
 
+async def _filter_media_by_character(
+    session: DbSessionDep,
+    matching_media: list[tuple[Media, MediaAsset]],
+    character_lora: str | None,
+) -> list[tuple[Media, MediaAsset]]:
+    if character_lora is None:
+        return matching_media
+    media_ids = [media.id for media, _asset in matching_media]
+    if not media_ids:
+        return []
+    allowed = set(
+        await session.scalars(
+            select(MediaPromptIndex.media_id).where(
+                MediaPromptIndex.media_id.in_(media_ids),
+                func.lower(MediaPromptIndex.character_lora) == character_lora,
+            )
+        )
+    )
+    return [(media, asset) for media, asset in matching_media if media.id in allowed]
+
+
 async def _matching_media_fallback(
     session: DbSessionDep,
     identifier: PromptIdentifier,
@@ -745,6 +899,8 @@ async def _matching_media_fallback(
                     value = recovered[0]
                 elif snapshot.api_prompt:
                     value = prompt_id_candidate(snapshot, profiles_by_scope)
+                    if value is None:
+                        value = structural_prompt_id_candidate(snapshot)
         parsed = parse_prompt_id(value)
         if parsed is not None and _same_identifier(parsed, identifier):
             matches.append((media, asset))
@@ -774,7 +930,11 @@ def _entry_response(
     )
 
 
-def _media_response(row: tuple[Media, MediaAsset]) -> PromptRegistryMediaResponse:
+def _media_response(
+    row: tuple[Media, MediaAsset],
+    *,
+    is_trash: bool,
+) -> PromptRegistryMediaResponse:
     media, asset = row
     return PromptRegistryMediaResponse(
         id=media.id,
@@ -784,6 +944,7 @@ def _media_response(row: tuple[Media, MediaAsset]) -> PromptRegistryMediaRespons
         height=media.height,
         duration_seconds=media.duration_seconds,
         favorite=media.favorite,
+        is_trash=is_trash,
         content_rating=media.content_rating,
         preview_url=f"/api/v1/media/{media.id}/preview",
         created_at=media.created_at,

@@ -617,6 +617,7 @@ export type PromptRegistryMedia = {
   height: number | null;
   duration_seconds: number | null;
   favorite: boolean;
+  is_trash: boolean;
   content_rating: ContentRating | null;
   preview_url: string;
   created_at: string;
@@ -646,6 +647,11 @@ export type PromptRegistryHeatmap = {
   limit: number;
   offset: number;
   max_media_count: number;
+};
+
+export type PromptRegistryCharacterLora = {
+  name: string;
+  media_count: number;
 };
 
 export type NodeMapping = {

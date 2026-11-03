@@ -10,6 +10,61 @@ All notable changes to Project Comfy Gallery are recorded here.
 - Derive release-version and health-check test fixtures from `VERSION` instead of
   hardcoding the current release.
 
+## 0.1.0-rc.40 — 2026-11-04
+
+- Fix the character-LoRA filter on random and stats: it now scopes the favorite
+  signal instead of the candidate universe, so prompts never generated with the
+  character remain eligible for `unmaterialized`.
+
+## 0.1.0-rc.39 — 2026-11-04
+
+- Extend the character-LoRA filter to random selection, stats, and lookup, with
+  materialization evaluated inside the selected character scope.
+- Remember the heatmap character-LoRA filter in browser storage and clear a stored
+  value that no longer exists.
+
+## 0.1.0-rc.38 — 2026-11-04
+
+- Add a character-LoRA filter to the Prompt Registry heatmap, backed by a
+  materialized `character_lora` value and a selector endpoint that lists the
+  character LoRAs which currently have media.
+
+## 0.1.0-rc.37 — 2026-11-04
+
+- Index Prompt IDs for workflows that have no registered display profile by
+  discovering `ShowText → XantaPromptLibrary` wiring in the API graph; the visual
+  widget value is used only when exactly one distinct Prompt ID parses.
+- Stop the active favorite star from disappearing when its card is hovered, move
+  the Safety control next to Favorite in Media Detail, and keep the Prompt heatmap
+  footer on a single line so hovering cannot change the panel height.
+
+
+## 0.1.0-rc.36 — 2026-11-04
+
+- Fix Prompt ID extraction for visual workflows whose ShowText widgets nest the
+  promoted text in a list, so the visual snapshot wins over the stale API cache.
+- Rebuild the materialized Prompt ID index after deploying the extraction fix.
+- Remove workflow-parse and warning badges from Library cards; show a single-letter
+  content-rating corner badge and a solid, high-contrast favorite star.
+- Label the Media Detail favorite toggle and use solid fills for the active
+  Favorite and SFW/NSFW controls.
+- Keep the Prompt heatmap tooltip inside its panel and hide the panel scrollbars so
+  hovering near an edge cannot reflow the matrix.
+
+## 0.1.0-rc.35 — 2026-11-04
+
+- Materialize Prompt Registry prompts from favorites instead of raw generation
+  history: Trash outranks Favorite, so only a favorited, non-trashed media record
+  materializes a prompt.
+- Add `include_not_faved` and `include_trash` scopes to the Prompt Registry
+  heatmap, defaulting to favorites outside Trash, and mark trashed media in
+  lookup results with `is_trash`.
+- Fix the Prompt Registry heatmap pointer offset caused by sizing the canvas from
+  the padded wrapper instead of the canvas content box.
+- Show trashed media greyed out in the Prompt Registry detail grid.
+- Remember the Prompt Registry heatmap scope filters in browser storage, with a
+  reusable persisted-state hook that ignores malformed or invalid preferences.
+
 ## 0.1.0-rc.34 — 2026-11-03
 
 - Add a compact Prompt Registry contribution heatmap with source filtering,
