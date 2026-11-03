@@ -44,6 +44,17 @@ index with `python -m comfy_gallery_core.cli rebuild-prompt-index` so existing
 media rows reflect the corrected interpretation. The rebuild is idempotent and
 does not rewrite embedded evidence.
 
+### Workflows without a display profile
+
+A registered `WorkflowDisplayProfile` is not required. When no profile matches,
+the materializer discovers structural bindings directly from the API graph:
+every `ShowText|pysssss` node whose `text` input is wired to a
+`XantaPromptLibrary` node is inspected, and its visual `widgets_values` value is
+parsed as a Prompt ID. The result is accepted only when exactly one distinct
+parseable Prompt ID appears; two different values fail closed and leave the
+media unindexed. Accepted rows record `evidence_source = visual_binding`, which
+is distinguishable from `display_profile`, `save_node`, and `verified_history`.
+
 ## Registry record
 
 Each entry stores:

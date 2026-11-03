@@ -210,6 +210,25 @@ def _visual_widget_text(node: Mapping[str, object] | None) -> str | None:
     return _first_widget_string(widgets)
 
 
+def library_show_nodes(api: Mapping[str, object]) -> list[str]:
+    """Return ShowText nodes whose ``text`` input is wired to a prompt library.
+
+    The API graph is authoritative for wiring, so this identifies prompt-ID
+    display nodes even when no per-workflow display profile was registered.
+    """
+
+    nodes: list[str] = []
+    for node_id, node in api.items():
+        if not isinstance(node, dict) or node.get("class_type") != "ShowText|pysssss":
+            continue
+        inputs = node.get("inputs")
+        link = wire(inputs.get("text")) if isinstance(inputs, dict) else None
+        upstream = api.get(link[0]) if link is not None else None
+        if isinstance(upstream, Mapping) and upstream.get("class_type") == "XantaPromptLibrary":
+            nodes.append(str(node_id))
+    return nodes
+
+
 def read_shows(
     api: Mapping[str, object], outputs: Mapping[str, object], bindings: Mapping[str, str]
 ) -> dict[str, str]:

@@ -46,6 +46,7 @@ from comfy_gallery_core.workflow.display_fields import (
 from comfy_gallery_core.workflow.prompt_index import (
     load_profiles_by_scope,
     prompt_id_candidate,
+    structural_prompt_id_candidate,
 )
 
 router = APIRouter(prefix="/api/v1/prompt-registry", tags=["prompt-registry"])
@@ -809,6 +810,8 @@ async def _matching_media_fallback(
                     value = recovered[0]
                 elif snapshot.api_prompt:
                     value = prompt_id_candidate(snapshot, profiles_by_scope)
+                    if value is None:
+                        value = structural_prompt_id_candidate(snapshot)
         parsed = parse_prompt_id(value)
         if parsed is not None and _same_identifier(parsed, identifier):
             matches.append((media, asset))

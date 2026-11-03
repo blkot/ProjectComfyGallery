@@ -17,6 +17,7 @@ from comfy_gallery_core.db.models import (
 )
 from comfy_gallery_core.prompt_registry import parse_prompt_id
 from comfy_gallery_core.workflow.display_fields import (
+    library_show_nodes,
     saved_fields,
     topology,
     widget_candidates,
@@ -76,6 +77,10 @@ async def sync_media_prompt_index(
                 prompt_id = prompt_id_candidate(snapshot, profiles_by_scope)
                 if prompt_id is not None:
                     evidence_source = "display_profile"
+                else:
+                    prompt_id = structural_prompt_id_candidate(snapshot)
+                    if prompt_id is not None:
+                        evidence_source = "visual_binding"
 
     parsed = parse_prompt_id(prompt_id)
     record.source_key = parsed.source_key if parsed is not None else None
@@ -120,6 +125,36 @@ def prompt_id_candidate(
         return None
     candidate = candidates.get("prompt_id")
     return candidate[0] if candidate is not None else None
+
+
+def structural_prompt_id_candidate(snapshot: WorkflowSnapshot) -> str | None:
+    """Derive a Prompt ID from library-wired ShowText nodes without a profile.
+
+    The API graph is authoritative for wiring, so a ShowText node linked to a
+    XantaPromptLibrary node identifies the prompt-ID display even when the
+    workflow has no registered display profile. The value still comes from the
+    visual widget snapshot. Ambiguous workflows (two distinct parseable Prompt
+    IDs) fail closed instead of guessing.
+    """
+
+    api = snapshot.api_prompt or {}
+    node_ids = library_show_nodes(api)
+    if not node_ids or not snapshot.visual_workflow:
+        return None
+    values: set[str] = set()
+    for node_id in node_ids:
+        try:
+            candidates = widget_candidates(api, {"prompt_id": node_id}, snapshot.visual_workflow)
+        except ValueError:
+            continue
+        candidate = candidates.get("prompt_id")
+        text = candidate[0] if candidate is not None else None
+        if not isinstance(text, str):
+            continue
+        parsed = parse_prompt_id(text)
+        if parsed is not None:
+            values.add(parsed.display)
+    return values.pop() if len(values) == 1 else None
 
 
 async def rebuild_prompt_index(
