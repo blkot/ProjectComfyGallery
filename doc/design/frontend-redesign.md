@@ -153,6 +153,10 @@ Recorded 2026-11-03:
   a reference study of a prompt gallery's card grid and independent card detail,
   including its overlay-and-deep-link model, media-driven sizing, information
   order, gestures, and the trade-offs that should not be copied wholesale.
+- [Library and detail prototype](../mockups/library-detail.html) — a static,
+  clickable mock-up of the proposed direction: pagination kept, grid/masonry
+  comparison, and an overlay detail that seeks across pages and returns to the
+  last viewed card.
 
 ## Open decisions
 
