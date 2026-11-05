@@ -79,23 +79,26 @@ matrix. It returns `items[]` with `prompt_id`, `source`, `index`, and
 
 ## Unreleased: media content-safety ratings
 
-**Database migration:** `0015_media_content_rating`
+**Database migrations:** `0015_media_content_rating`, `0022_media_rating_default_sfw`
 
-Media records now carry an optional `content_rating` value: `sfw`, `nsfw`, or
-`null` when no human rating has been assigned. List and detail projections expose
-the value, and the list, navigation, slideshow, saved-filter, selection, and review
-scope queries accept `content_rating=sfw|nsfw|unknown` (`unknown` matches `null`).
+Every media record now carries a non-null `content_rating` value: `sfw` or
+`nsfw`. Migration `0022_media_rating_default_sfw` backfills historical `null`
+rows to `sfw` and adds the same server default for new records. SFW is the
+implicit baseline and is not shown as a card badge; an NSFW record is shown with
+the compact `R` badge. The list and detail projections expose the effective value.
+The list, navigation, slideshow, saved-filter, selection, and review scope
+queries still accept `content_rating=sfw|nsfw`; the legacy `unknown` query value
+is retained as a compatibility alias for `sfw` during the transition.
 
 ```http
 PUT /api/v1/media/{media_id}/content-rating
 POST /api/v1/media/bulk/content-rating
 ```
 
-The single-media command accepts `{"content_rating":"sfw"}`,
-`{"content_rating":"nsfw"}`, or `{"content_rating":null}`. The bulk command
-accepts the same membership scope used by favorite/trash actions and treats either
-`null` or `unknown` as clearing the rating. Existing media remain unmarked after the
-migration; clients should not infer SFW from a missing value.
+The single-media command accepts `{"content_rating":"sfw"}` or
+`{"content_rating":"nsfw"}`. The bulk command accepts the same membership
+scope used by favorite/trash actions and the same two values. There is no clear
+operation: returning a record to the baseline means explicitly setting `sfw`.
 
 ## Unreleased: ComfyGallery-driven MSS spatial conversion
 

@@ -763,10 +763,10 @@ async def test_media_content_rating_is_persisted_and_filterable() -> None:
             filename="nsfw.png",
             sha256="2" * 64,
         )
-        unmarked = await _media_without_source(
+        defaulted = await _media_without_source(
             session,
             kind="image",
-            filename="unmarked.png",
+            filename="defaulted.png",
             sha256="3" * 64,
         )
         await session.commit()
@@ -793,19 +793,12 @@ async def test_media_content_rating_is_persisted_and_filterable() -> None:
             sort="filename_asc",
             content_rating="unknown",
         )
-        assert [item.id for item in sfw_page.items] == [sfw.id]
+        assert [item.id for item in sfw_page.items] == [defaulted.id, sfw.id]
         assert [item.id for item in nsfw_page.items] == [nsfw.id]
-        assert [item.id for item in unknown_page.items] == [unmarked.id]
+        assert [item.id for item in unknown_page.items] == [defaulted.id, sfw.id]
         assert sfw_page.items[0].content_rating == "sfw"
+        assert (await get_media(defaulted.id, None, session)).content_rating == "sfw"
         assert (await get_media(sfw.id, None, session)).content_rating == "sfw"
-
-        cleared = await update_media_content_rating(
-            sfw.id,
-            MediaContentRatingUpdateRequest(content_rating=None),
-            None,  # type: ignore[arg-type]
-            session,
-        )
-        assert cleared.content_rating is None
 
     await engine.dispose()
 

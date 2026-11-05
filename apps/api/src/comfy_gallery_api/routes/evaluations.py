@@ -232,9 +232,7 @@ async def update_media_content_ratings(
         media = by_id.get(media_id)
         if media is None:
             continue
-        next_rating = (
-            None if request.content_rating in (None, "unknown") else request.content_rating
-        )
+        next_rating = request.content_rating
         if media.content_rating == next_rating:
             continue
         media.content_rating = next_rating
@@ -998,7 +996,9 @@ def _media_scope_query(
     if media_filter.favorite is not None:
         query = query.where(Media.favorite.is_(media_filter.favorite))
     if media_filter.content_rating == "unknown":
-        query = query.where(Media.content_rating.is_(None))
+        # Kept as a backwards-compatible query alias; media are now always
+        # assigned the default SFW rating instead of remaining unmarked.
+        query = query.where(Media.content_rating == "sfw")
     elif media_filter.content_rating is not None:
         query = query.where(Media.content_rating == media_filter.content_rating)
     if media_filter.workflow_status == "unprocessed":

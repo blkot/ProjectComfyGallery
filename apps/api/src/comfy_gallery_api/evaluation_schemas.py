@@ -13,7 +13,7 @@ from comfy_gallery_api.media_filters import (
     normalize_media_search_query,
     normalize_media_sha256_query,
 )
-from comfy_gallery_api.media_schemas import ContentRatingFilter
+from comfy_gallery_api.media_schemas import ContentRating, ContentRatingFilter
 
 
 class CriterionResponse(BaseModel):
@@ -322,7 +322,7 @@ class MediaBulkTrashRequest(MediaMembershipRequest):
 
 
 class MediaBulkContentRatingRequest(MediaMembershipRequest):
-    content_rating: ContentRatingFilter | None = None
+    content_rating: ContentRating = "sfw"
 
 
 class MediaBulkActionResponse(BaseModel):

@@ -680,7 +680,7 @@ const videoDetail: MediaDetail = {
   prefer_spatial_playback: false,
   spatial_view_preferred: false,
   favorite: false,
-  content_rating: null,
+  content_rating: "sfw",
   file_created_at: "2026-07-31T00:00:00Z",
   created_at: "2026-07-31T00:00:00Z",
   preview_url: "/preview",

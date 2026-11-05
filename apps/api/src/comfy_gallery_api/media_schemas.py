@@ -233,7 +233,7 @@ class MediaListItemResponse(BaseModel):
     prefer_spatial_playback: bool
     spatial_view_preferred: bool
     favorite: bool
-    content_rating: ContentRating | None
+    content_rating: ContentRating
     file_created_at: datetime
     created_at: datetime
     preview_url: str
@@ -312,7 +312,7 @@ class MediaDetailResponse(BaseModel):
     prefer_spatial_playback: bool
     spatial_view_preferred: bool
     favorite: bool
-    content_rating: ContentRating | None
+    content_rating: ContentRating
     derivatives: list[DerivativeResponse]
     variants: list[MediaVariantResponse]
     sources: list[SourceOccurrenceResponse]
@@ -355,12 +355,12 @@ class MediaFavoriteResponse(BaseModel):
 
 
 class MediaContentRatingUpdateRequest(BaseModel):
-    content_rating: ContentRating | None = None
+    content_rating: ContentRating = "sfw"
 
 
 class MediaContentRatingResponse(BaseModel):
     media_id: UUID
-    content_rating: ContentRating | None
+    content_rating: ContentRating
     updated_at: datetime
 
 

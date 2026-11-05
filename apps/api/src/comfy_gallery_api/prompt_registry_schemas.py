@@ -56,7 +56,7 @@ class PromptRegistryMediaResponse(BaseModel):
     favorite: bool
     is_trash: bool
     character_lora: str | None
-    content_rating: str | None
+    content_rating: str
     preview_url: str
     created_at: datetime
 

@@ -203,8 +203,11 @@ occupies the complete left side below a persistent Media Action Bar. The bar con
 library return, deterministic Previous/Next traversal and position, Download,
 a labeled Favorite toggle (solid amber with dark text when active), spatial playback
 preference (neutral slate for standard playback and light blue for spatial playback),
-and reversible Trash/Restore (red). The SFW/NSFW rating control uses solid green and
-solid coral fills for the active choice. Permanent deletion is not exposed. On narrow
+and reversible Trash/Restore (red). The content-safety rating control uses solid
+green and solid coral fills for the active choice. SFW is the implicit baseline and
+has no card badge; an NSFW record is shown with a compact coral `R` badge. Rating is
+reversible by choosing SFW again—there is no separate Clear action. Permanent deletion
+is not exposed. On narrow
 media stages, the action group wraps within the same banner. Controls never overlay
 the media. The stage uses the
 dynamic browser viewport and a definite containment box so every edge of an image or

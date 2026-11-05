@@ -167,7 +167,12 @@ class Media(TimestampMixin, Base):
         default=False,
         server_default=false(),
     )
-    content_rating: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    content_rating: Mapped[str] = mapped_column(
+        String(16),
+        nullable=False,
+        default="sfw",
+        server_default="sfw",
+    )
     last_error_code: Mapped[str | None] = mapped_column(String(80))
     last_error_message: Mapped[str | None] = mapped_column(Text)
 

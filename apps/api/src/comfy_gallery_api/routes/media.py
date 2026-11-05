@@ -420,7 +420,7 @@ async def get_media(
         prefer_spatial_playback=media.prefer_spatial_playback,
         spatial_view_preferred=media.spatial_view_preferred,
         favorite=media.favorite,
-        content_rating=cast(ContentRating | None, media.content_rating),
+        content_rating=cast(ContentRating, media.content_rating),
         derivatives=[DerivativeResponse.model_validate(item) for item in media.derivatives],
         variants=[_variant_response(item) for item in media.variants if _is_public_variant(item)],
         sources=[
@@ -709,7 +709,7 @@ def _list_item(
         prefer_spatial_playback=media.prefer_spatial_playback,
         spatial_view_preferred=media.spatial_view_preferred,
         favorite=media.favorite,
-        content_rating=cast(ContentRating | None, media.content_rating),
+        content_rating=cast(ContentRating, media.content_rating),
         file_created_at=_file_created_at(source_mtime_ns, media.created_at),
         created_at=media.created_at,
         preview_url=f"/api/v1/media/{media.id}/preview",
@@ -768,7 +768,9 @@ def _media_id_query(
     if favorite is not None:
         filters.append(Media.favorite.is_(favorite))
     if content_rating == "unknown":
-        filters.append(Media.content_rating.is_(None))
+        # Kept as a backwards-compatible query alias; media are now always
+        # assigned the default SFW rating instead of remaining unmarked.
+        filters.append(Media.content_rating == "sfw")
     elif content_rating is not None:
         filters.append(Media.content_rating == content_rating)
     if workflow_status == "unprocessed":

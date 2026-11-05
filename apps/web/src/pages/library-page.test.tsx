@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -61,31 +62,31 @@ afterEach(() => {
 
 describe("LibraryPage controls sidebar", () => {
   it("collapses the controls and restores the saved preference", async () => {
-    const first = renderLibrary();
+    const first = renderLibrary("/library", { expandControls: false });
     const controls = screen.getByRole("complementary", {
       name: "Library controls",
     });
     const workspace = controls.closest(".library-workspace");
     const content = document.getElementById("library-controls-content");
 
-    expect(workspace).toHaveAttribute("data-controls-collapsed", "false");
-    expect(content).not.toHaveAttribute("hidden");
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Collapse library controls" }),
-    );
-
     expect(workspace).toHaveAttribute("data-controls-collapsed", "true");
     expect(content).toHaveAttribute("hidden");
-    expect(
+
+    fireEvent.click(
       screen.getByRole("button", { name: "Expand library controls" }),
-    ).toHaveAttribute("aria-expanded", "false");
+    );
+
+    expect(workspace).toHaveAttribute("data-controls-collapsed", "false");
+    expect(content).not.toHaveAttribute("hidden");
+    expect(
+      screen.getByRole("button", { name: "Collapse library controls" }),
+    ).toHaveAttribute("aria-expanded", "true");
     await waitFor(() =>
       expect(
         window.localStorage.getItem(
-          "comfy-gallery.library-controls-collapsed",
+          "comfy-gallery.library-controls-collapsed-v2",
         ),
-      ).toBe("true"),
+      ).toBe("false"),
     );
 
     first.unmount();
@@ -95,7 +96,32 @@ describe("LibraryPage controls sidebar", () => {
       screen
         .getByRole("complementary", { name: "Library controls" })
         .closest(".library-workspace"),
-    ).toHaveAttribute("data-controls-collapsed", "true");
+    ).toHaveAttribute("data-controls-collapsed", "false");
+  });
+
+  it("auto-collapses expanded controls after the pointer leaves", async () => {
+    vi.useFakeTimers();
+    try {
+      renderLibrary("/library", { expandControls: false });
+      const controls = screen.getByRole("complementary", {
+        name: "Library controls",
+      });
+      const workspace = controls.closest(".library-workspace");
+
+      fireEvent.click(
+        screen.getByRole("button", { name: "Expand library controls" }),
+      );
+      expect(workspace).toHaveAttribute("data-controls-collapsed", "false");
+
+      fireEvent.pointerLeave(controls);
+      await act(async () => {
+        vi.advanceTimersByTime(650);
+      });
+
+      expect(workspace).toHaveAttribute("data-controls-collapsed", "true");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("navigates with numbered pages around the current page", async () => {
@@ -546,12 +572,18 @@ describe("LibraryPage controls sidebar", () => {
 
     renderLibrary();
 
-    const card = await screen.findByRole("link", { name: "Open media record" });
+    const link = await screen.findByRole("link", { name: "Open media record" });
+    const card = link.closest("article");
+    expect(card).not.toBeNull();
     expect(
-      within(card).getByRole("img", { name: "Content rating: NSFW" }),
+      within(card as HTMLElement).getByRole("img", {
+        name: "Content rating: R",
+      }),
     ).toHaveTextContent("R");
-    expect(within(card).queryByText(/WF/)).not.toBeInTheDocument();
-    expect(within(card).queryByText("Warning")).not.toBeInTheDocument();
+    expect(within(card as HTMLElement).queryByText(/WF/)).not.toBeInTheDocument();
+    expect(
+      within(card as HTMLElement).queryByText("Warning"),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Remove from favorites" }),
     ).toHaveAttribute("aria-pressed", "true");
@@ -679,7 +711,7 @@ function mediaFixture(overrides: Partial<Record<string, unknown>> = {}) {
     prefer_spatial_playback: false,
     spatial_view_preferred: false,
     favorite: false,
-    content_rating: null,
+    content_rating: "sfw",
     file_created_at: "2026-01-01T00:00:00Z",
     created_at: "2026-01-01T00:00:00Z",
     preview_url: "/api/v1/media/media-fixture/preview",
@@ -687,15 +719,25 @@ function mediaFixture(overrides: Partial<Record<string, unknown>> = {}) {
   };
 }
 
-function renderLibrary(initialEntry = "/library") {
+function renderLibrary(
+  initialEntry = "/library",
+  { expandControls = true }: { expandControls?: boolean } = {},
+) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return render(
+  const result = render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[initialEntry]}>
         <LibraryPage />
       </MemoryRouter>
     </QueryClientProvider>,
   );
+  if (expandControls) {
+    const expandButton = screen.queryByRole("button", {
+      name: "Expand library controls",
+    });
+    if (expandButton) fireEvent.click(expandButton);
+  }
+  return result;
 }

@@ -92,7 +92,7 @@ export type MediaListItem = {
   prefer_spatial_playback: boolean;
   spatial_view_preferred: boolean;
   favorite: boolean;
-  content_rating: ContentRating | null;
+  content_rating: ContentRating;
   file_created_at: string;
   created_at: string;
   preview_url: string;
@@ -151,7 +151,7 @@ export type MediaFavorite = {
 
 export type MediaContentRating = {
   media_id: string;
-  content_rating: ContentRating | null;
+  content_rating: ContentRating;
   updated_at: string;
 };
 
@@ -619,7 +619,7 @@ export type PromptRegistryMedia = {
   favorite: boolean;
   is_trash: boolean;
   character_lora: string | null;
-  content_rating: ContentRating | null;
+  content_rating: ContentRating;
   preview_url: string;
   created_at: string;
 };

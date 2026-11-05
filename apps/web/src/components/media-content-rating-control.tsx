@@ -24,13 +24,13 @@ export function MediaContentRatingControl({
   shortcutButtonRef,
 }: {
   mediaId: string;
-  rating: ContentRating | null;
+  rating: ContentRating;
   className?: string;
   shortcutButtonRef?: RefObject<HTMLButtonElement | null>;
 }) {
   const queryClient = useQueryClient();
   const mutation = useMutation({
-    mutationFn: (contentRating: ContentRating | null) =>
+    mutationFn: (contentRating: ContentRating) =>
       apiRequest<MediaContentRating>(
         `/api/v1/media/${mediaId}/content-rating`,
         {
@@ -77,7 +77,7 @@ export function MediaContentRatingControl({
       className={`media-content-rating-control ${className}`.trim()}
       role="group"
       aria-label="Content safety rating"
-      data-rating={rating ?? "unknown"}
+      data-rating={rating}
     >
       {ratingOptions.map((option) => (
         <button
@@ -90,6 +90,7 @@ export function MediaContentRatingControl({
           data-rating={option.value}
           type="button"
           aria-pressed={rating === option.value}
+          aria-label={option.label}
           aria-keyshortcuts={option.value === "nsfw" ? "N" : undefined}
           disabled={mutation.isPending}
           key={option.value}
@@ -99,20 +100,6 @@ export function MediaContentRatingControl({
           {option.label}
         </button>
       ))}
-      {rating ? (
-        <button
-          ref={rating === "nsfw" ? shortcutButtonRef : undefined}
-          className="media-content-rating-clear"
-          type="button"
-          aria-label="Clear content safety rating"
-          aria-keyshortcuts="N"
-          disabled={mutation.isPending}
-          title="Clear content safety rating (N)"
-          onClick={() => mutation.mutate(null)}
-        >
-          Clear
-        </button>
-      ) : null}
       {mutation.isError ? (
         <span className="sr-only" role="alert">
           {mutation.error.message}

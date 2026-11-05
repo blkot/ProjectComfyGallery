@@ -1,5 +1,12 @@
 # Glossary
 
+## Content rating
+
+The effective safety classification of a media record. `sfw` is the persisted
+baseline and is not an exceptional or missing state; `nsfw` is an explicit
+classification that the current UI renders as `R`. A future ordered rating model
+may add finer levels without reintroducing an unmarked state.
+
 ## Analysis run
 
 An immutable snapshot of a dataset, score revisions, filters, grouping factor, exclusions, criteria/template versions, weighting profile, and calculated results.

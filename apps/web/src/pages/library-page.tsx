@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 
 import { MediaFavoriteButton } from "../components/media-favorite-button";
 import {
   apiRequest,
-  type ContentRating,
   type ContentRatingFilter,
   type Collection,
   type MediaArchive,
@@ -51,7 +51,7 @@ import {
 } from "../lib/media-view";
 
 const libraryControlsStorageKey =
-  "comfy-gallery.library-controls-collapsed";
+  "comfy-gallery.library-controls-collapsed-v2";
 
 const mediaTypeFilterOptions = [
   { value: "", label: "All", icon: "all" },
@@ -75,7 +75,6 @@ const contentRatingFilterOptions = [
   { value: "", label: "All", icon: "all" },
   { value: "sfw", label: "SFW", icon: "sfw" },
   { value: "nsfw", label: "NSFW", icon: "nsfw" },
-  { value: "unknown", label: "Unmarked", icon: "unmarked" },
 ] as const;
 
 const spatialPreferenceFilterOptions = [
@@ -104,17 +103,7 @@ type LibraryFilterIconName =
   | "sfw"
   | "spatial"
   | "two-d"
-  | "unmarked"
   | "video";
-
-const contentRatingLetters: Record<string, string> = {
-  sfw: "S",
-  nsfw: "R",
-};
-
-function contentRatingLetter(rating: ContentRating): string {
-  return contentRatingLetters[rating] ?? rating.slice(0, 1).toUpperCase();
-}
 
 type LibrarySegmentedFilterProps = {
   label: string;
@@ -248,13 +237,6 @@ function LibraryFilterIcon({ name }: { name: LibraryFilterIconName }) {
           <path d="M12 8v5M12 16h.01" />
         </svg>
       );
-    case "unmarked":
-      return (
-        <svg {...commonProps}>
-          <path d="M12 3 20 6v5c0 5-3.3 8.2-8 10-4.7-1.8-8-5-8-10V6z" />
-          <path d="M8 12h8" />
-        </svg>
-      );
     case "spatial":
       return (
         <svg {...commonProps}>
@@ -311,6 +293,7 @@ export function LibraryPage() {
   const [controlsCollapsed, setControlsCollapsed] = useState(
     readLibraryControlsCollapsed,
   );
+  const controlsCollapseTimeoutRef = useRef<number | null>(null);
   const keywordQuery = searchParams.get("q")?.trim() ?? "";
   const kind = searchParams.get("kind") ?? "";
   const status = searchParams.get("status") ?? "";
@@ -564,6 +547,31 @@ export function LibraryPage() {
       // The Library remains usable when storage is unavailable.
     }
   }, [controlsCollapsed]);
+
+  const clearControlsCollapseTimeout = useCallback(() => {
+    if (controlsCollapseTimeoutRef.current === null) return;
+    window.clearTimeout(controlsCollapseTimeoutRef.current);
+    controlsCollapseTimeoutRef.current = null;
+  }, []);
+
+  const scheduleControlsCollapse = useCallback(() => {
+    clearControlsCollapseTimeout();
+    if (controlsCollapsed) return;
+    controlsCollapseTimeoutRef.current = window.setTimeout(() => {
+      setControlsCollapsed(true);
+      controlsCollapseTimeoutRef.current = null;
+    }, 650);
+  }, [clearControlsCollapseTimeout, controlsCollapsed]);
+
+  useEffect(
+    () => () => clearControlsCollapseTimeout(),
+    [clearControlsCollapseTimeout],
+  );
+
+  const toggleControls = useCallback(() => {
+    clearControlsCollapseTimeout();
+    setControlsCollapsed((collapsed) => !collapsed);
+  }, [clearControlsCollapseTimeout]);
 
   const changeOffset = useCallback((nextOffset: number) => {
     setSearchParams((current) => {
@@ -851,6 +859,8 @@ export function LibraryPage() {
           className="library-sidebar"
           aria-label="Library controls"
           data-collapsed={controlsCollapsed}
+          onPointerEnter={clearControlsCollapseTimeout}
+          onPointerLeave={scheduleControlsCollapse}
         >
           <div className="library-sidebar-header">
             <span className="library-sidebar-title">
@@ -874,9 +884,7 @@ export function LibraryPage() {
                   ? "Expand library controls"
                   : "Collapse library controls"
               }
-              onClick={() =>
-                setControlsCollapsed((collapsed) => !collapsed)
-              }
+              onClick={toggleControls}
             >
               <LibraryControlsCollapseIcon collapsed={controlsCollapsed} />
             </button>
@@ -1169,14 +1177,6 @@ export function LibraryPage() {
                     Mark NSFW
                   </button>
                   <button
-                    className="content-rating-batch-button"
-                    type="button"
-                    disabled={!selectedCount || bulkContentRating.isPending}
-                    onClick={() => bulkContentRating.mutate(null)}
-                  >
-                    Clear rating
-                  </button>
-                  <button
                     className="trash-batch-button"
                     type="button"
                     disabled={!selectedCount || bulkTrash.isPending}
@@ -1458,71 +1458,65 @@ export function LibraryPage() {
                   <div className="media-preview">
                     {item.status === "ready" ||
                     item.status === "ready_with_warnings" ? (
-                      <img src={item.preview_url} alt="" loading="lazy" />
+                      <img
+                        src={item.preview_url}
+                        alt=""
+                        decoding="async"
+                        loading="lazy"
+                      />
                     ) : (
                       <span>{titleCase(item.status)}</span>
                     )}
-                    {item.kind === "video" ? (
-                      <span className="media-duration">
-                        {formatDuration(item.duration_seconds)}
-                      </span>
-                    ) : null}
-                    {item.spatial_available || item.prefer_spatial_playback ? (
-                      <span
-                        className="spatial-badge"
-                        data-available={item.spatial_available || undefined}
-                      >
-                        {item.spatial_available && item.prefer_spatial_playback
-                          ? "Spatial ready · preferred"
-                          : item.spatial_available
-                            ? "Spatial ready"
-                            : "Spatial preferred"}
-                      </span>
-                    ) : null}
-                    {item.content_rating ? (
-                      <span
-                        className="content-rating-badge"
-                        data-rating={item.content_rating}
-                        role="img"
-                        title={
-                          item.content_rating === "sfw"
-                            ? "Content rating: SFW"
-                            : "Content rating: NSFW"
-                        }
-                        aria-label={`Content rating: ${item.content_rating.toUpperCase()}`}
-                      >
-                        {contentRatingLetter(item.content_rating)}
-                      </span>
-                    ) : null}
-                    <span
-                      className="evaluation-badge"
-                      data-status={item.evaluation_state}
+                    <div
+                      className="media-card-status-stack"
+                      role="group"
+                      aria-label="Media status"
                     >
-                      {item.is_trash
-                        ? "Trash"
-                        : titleCase(item.evaluation_state)}
-                    </span>
+                      {item.kind === "video" ? (
+                        <span className="media-duration">
+                          {formatDuration(item.duration_seconds)}
+                        </span>
+                      ) : null}
+                      {item.spatial_available || item.prefer_spatial_playback ? (
+                        <span
+                          className="spatial-badge"
+                          data-available={item.spatial_available || undefined}
+                        >
+                          {item.spatial_available && item.prefer_spatial_playback
+                            ? "Spatial ready · preferred"
+                            : item.spatial_available
+                              ? "Spatial ready"
+                              : "Spatial preferred"}
+                        </span>
+                      ) : null}
+                      <span
+                        className="evaluation-badge"
+                        data-status={item.evaluation_state}
+                      >
+                        {item.is_trash
+                          ? "Trash"
+                          : titleCase(item.evaluation_state)}
+                      </span>
+                    </div>
                   </div>
                   <div className="media-card-body">
-                    <strong title={item.original_filename}>
-                      {item.original_filename}
-                    </strong>
-                    <small>
-                      {item.width && item.height
-                        ? `${item.width} × ${item.height}`
-                        : "Unknown size"}
-                      {" · "}
-                      {formatBytes(item.byte_size)}
-                    </small>
-                    <small>
-                      {titleCase(item.detected_format ?? item.kind)}
-                      {item.source_count
-                        ? ` · ${item.source_count} source path(s)`
-                        : ""}
-                    </small>
-                    <small>
-                      File time · {formatDate(item.file_created_at)}
-                    </small>
+                    <div className="media-card-primary-line">
+                      <MediaCardFilename filename={item.original_filename} />
+                      <time
+                        className="media-card-file-time"
+                        dateTime={item.file_created_at}
+                      >
+                        {formatDate(item.file_created_at)}
+                      </time>
+                    </div>
+                    <div className="media-card-secondary-line">
+                      <span>
+                        {item.width && item.height
+                          ? `${item.width} × ${item.height}`
+                          : "Unknown size"}
+                      </span>
+                      <span>{formatBytes(item.byte_size)}</span>
+                    </div>
                   </div>
                 </>
               );
@@ -1548,23 +1542,58 @@ export function LibraryPage() {
                       </span>
                     </label>
                   ) : null}
-                  {selectionActive && item.favorite ? (
-                    <span
-                      className="media-card-favorite-badge"
-                      role="img"
-                      aria-label="Favorited"
-                      title="Favorited"
+                  {selectionActive ? (
+                    <div
+                      className="media-card-selection-status"
+                      role="group"
+                      aria-label="Media status"
                     >
-                      ★
-                    </span>
-                  ) : null}
-                  {!selectionActive ? (
-                    <MediaFavoriteButton
-                      mediaId={item.id}
-                      favorite={item.favorite}
-                      className="media-card-favorite"
-                    />
-                  ) : null}
+                      {item.favorite ? (
+                        <span
+                          className="media-card-favorite-badge"
+                          role="img"
+                          aria-label="Favorited"
+                          title="Favorited"
+                        >
+                          ★
+                        </span>
+                      ) : null}
+                      {item.content_rating === "nsfw" ? (
+                        <span
+                          className="content-rating-badge"
+                          data-rating="nsfw"
+                          role="img"
+                          title="Content rating: R"
+                          aria-label="Content rating: R"
+                        >
+                          R
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div
+                      className="media-card-actions"
+                      role="group"
+                      aria-label="Media actions"
+                    >
+                      {item.content_rating === "nsfw" ? (
+                        <span
+                          className="content-rating-badge"
+                          data-rating="nsfw"
+                          role="img"
+                          title="Content rating: R"
+                          aria-label="Content rating: R"
+                        >
+                          R
+                        </span>
+                      ) : null}
+                      <MediaFavoriteButton
+                        mediaId={item.id}
+                        favorite={item.favorite}
+                        className="media-card-favorite"
+                      />
+                    </div>
+                  )}
                   {selectionActive ? (
                     <button
                       className="media-card-selection-target"
@@ -1602,11 +1631,44 @@ export function LibraryPage() {
   );
 }
 
+function MediaCardFilename({ filename }: { filename: string }) {
+  const containerRef = useRef<HTMLSpanElement>(null);
+  const textRef = useRef<HTMLSpanElement>(null);
+  const [overflow, setOverflow] = useState(0);
+
+  const measureOverflow = useCallback(() => {
+    const container = containerRef.current;
+    const text = textRef.current;
+    if (!container || !text) return;
+    setOverflow(Math.max(0, text.scrollWidth - container.clientWidth));
+  }, []);
+
+  const style = overflow
+    ? ({
+        "--media-card-filename-shift": `${overflow}px`,
+      } as CSSProperties)
+    : undefined;
+
+  return (
+    <span
+      ref={containerRef}
+      className="media-card-filename"
+      data-overflow={overflow > 0 || undefined}
+      title={filename}
+      style={style}
+      onMouseEnter={measureOverflow}
+    >
+      <span ref={textRef}>{filename}</span>
+    </span>
+  );
+}
+
 function readLibraryControlsCollapsed(): boolean {
   try {
-    return window.localStorage.getItem(libraryControlsStorageKey) === "true";
+    const stored = window.localStorage.getItem(libraryControlsStorageKey);
+    return stored === null ? true : stored === "true";
   } catch {
-    return false;
+    return true;
   }
 }
 

@@ -2501,20 +2501,13 @@
       "MediaBulkContentRatingRequest": {
         "properties": {
           "content_rating": {
-            "anyOf": [
-              {
-                "enum": [
-                  "sfw",
-                  "nsfw",
-                  "unknown"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
+            "default": "sfw",
+            "enum": [
+              "sfw",
+              "nsfw"
             ],
-            "title": "Content Rating"
+            "title": "Content Rating",
+            "type": "string"
           },
           "exclude_media_ids": {
             "items": {
@@ -2633,19 +2626,12 @@
       "MediaContentRatingResponse": {
         "properties": {
           "content_rating": {
-            "anyOf": [
-              {
-                "enum": [
-                  "sfw",
-                  "nsfw"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
+            "enum": [
+              "sfw",
+              "nsfw"
             ],
-            "title": "Content Rating"
+            "title": "Content Rating",
+            "type": "string"
           },
           "media_id": {
             "format": "uuid",
@@ -2669,19 +2655,13 @@
       "MediaContentRatingUpdateRequest": {
         "properties": {
           "content_rating": {
-            "anyOf": [
-              {
-                "enum": [
-                  "sfw",
-                  "nsfw"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
+            "default": "sfw",
+            "enum": [
+              "sfw",
+              "nsfw"
             ],
-            "title": "Content Rating"
+            "title": "Content Rating",
+            "type": "string"
           }
         },
         "title": "MediaContentRatingUpdateRequest",
@@ -2716,19 +2696,12 @@
             "title": "Container"
           },
           "content_rating": {
-            "anyOf": [
-              {
-                "enum": [
-                  "sfw",
-                  "nsfw"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
+            "enum": [
+              "sfw",
+              "nsfw"
             ],
-            "title": "Content Rating"
+            "title": "Content Rating",
+            "type": "string"
           },
           "created_at": {
             "format": "date-time",
@@ -3428,19 +3401,12 @@
             "title": "Container"
           },
           "content_rating": {
-            "anyOf": [
-              {
-                "enum": [
-                  "sfw",
-                  "nsfw"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
+            "enum": [
+              "sfw",
+              "nsfw"
             ],
-            "title": "Content Rating"
+            "title": "Content Rating",
+            "type": "string"
           },
           "created_at": {
             "format": "date-time",
@@ -6040,15 +6006,8 @@
             "title": "Character Lora"
           },
           "content_rating": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Content Rating"
+            "title": "Content Rating",
+            "type": "string"
           },
           "created_at": {
             "format": "date-time",
