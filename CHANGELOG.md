@@ -4,6 +4,8 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.41 — 2026-11-05
+
 - Group Prompt Registry usage by character LoRA and split heatmap, lookup, and usage
   into a persistent two-column layout.
 - Make the NAS deploy wrapper fail fast with an actionable error when the host is
