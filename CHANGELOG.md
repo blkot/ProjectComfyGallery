@@ -4,6 +4,12 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+- Make persisted media content ratings default to SFW, remove the unmarked/clear
+  states, and keep NSFW badges limited to explicitly marked media.
+- Refine Library cards and controls with compact metadata rows, unified status
+  badges, lazy preview decoding, and delayed sidebar auto-collapse.
+- Widen the Prompt Registry layout and compress its heatmap for a denser view.
+
 ## 0.1.0-rc.41 — 2026-11-05
 
 - Group Prompt Registry usage by character LoRA and split heatmap, lookup, and usage
