@@ -4,6 +4,8 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+- Group Prompt Registry usage by character LoRA and split heatmap, lookup, and usage
+  into a persistent two-column layout.
 - Make the NAS deploy wrapper fail fast with an actionable error when the host is
   unreachable, and refuse to run when sourced into an interactive shell.
 - Add `make release-prepare` to lock one version across every manifest, promote
