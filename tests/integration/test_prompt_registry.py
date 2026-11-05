@@ -105,6 +105,14 @@ async def test_prompt_registry_lookup_prefers_visual_show_text_and_returns_all_m
             await session.commit()
 
             assert await rebuild_prompt_index(session) == 2
+            indexed_rows = list(await session.scalars(select(MediaPromptIndex)))
+            prompt_zero_id = await session.scalar(
+                select(MediaAsset.media_id).where(MediaAsset.original_filename == "prompt-0.png")
+            )
+            next(
+                row for row in indexed_rows if row.media_id == prompt_zero_id
+            ).character_lora = "Character_A_v1"
+            await session.commit()
 
             await create_prompt_registry_entry(
                 PromptRegistryEntryRequest(
@@ -145,6 +153,13 @@ async def test_prompt_registry_lookup_prefers_visual_show_text_and_returns_all_m
             assert {item.original_filename for item in result.media} == {
                 "prompt-0.png",
                 "prompt-1.png",
+            }
+            character_loras_by_filename = {
+                item.original_filename: item.character_lora for item in result.media
+            }
+            assert character_loras_by_filename == {
+                "prompt-0.png": "Character_A_v1",
+                "prompt-1.png": None,
             }
             assert not any(
                 "left outer join workflow_snapshot" in statement.lower()

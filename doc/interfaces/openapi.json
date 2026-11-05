@@ -6028,6 +6028,17 @@
       },
       "PromptRegistryMediaResponse": {
         "properties": {
+          "character_lora": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Character Lora"
+          },
           "content_rating": {
             "anyOf": [
               {
@@ -6112,6 +6123,7 @@
           "duration_seconds",
           "favorite",
           "is_trash",
+          "character_lora",
           "content_rating",
           "preview_url",
           "created_at"

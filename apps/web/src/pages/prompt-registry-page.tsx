@@ -14,6 +14,7 @@ import {
   type PromptRegistryHeatmap,
   type PromptRegistryEntry,
   type PromptRegistryLookup,
+  type PromptRegistryMedia,
 } from "../lib/api";
 import { PromptRegistryHeatmap as PromptRegistryHeatmapView } from "../components/prompt-registry-heatmap";
 import { usePersistedState } from "../lib/use-persisted-state";
@@ -21,6 +22,17 @@ import { usePersistedState } from "../lib/use-persisted-state";
 type PromptIdParts = {
   source: string;
   index: string;
+};
+
+type PromptSelectionContext = {
+  source: "heatmap" | "lookup";
+  characterLora: string | null;
+};
+
+type PromptRegistryMediaGroup = {
+  key: string;
+  label: string;
+  media: PromptRegistryMedia[];
 };
 
 const PROMPT_ID_PATTERN = /^\s*(.+?)\s*-\s*(\d+)\s*$/;
@@ -34,6 +46,48 @@ const isBooleanPreference = (value: unknown): value is boolean =>
   typeof value === "boolean";
 const isStringPreference = (value: unknown): value is string =>
   typeof value === "string";
+const UNDEFINED_CHARACTER_LORA_KEY = "__undefined__";
+const UNDEFINED_CHARACTER_LORA_LABEL = "Undefined character LoRA";
+
+function characterLoraKey(value: string | null): string {
+  const normalized = value?.trim().toLocaleLowerCase();
+  return normalized || UNDEFINED_CHARACTER_LORA_KEY;
+}
+
+function characterLoraLabel(value: string | null): string {
+  const normalized = value?.trim();
+  return normalized || UNDEFINED_CHARACTER_LORA_LABEL;
+}
+
+function groupMediaByCharacterLora(
+  media: PromptRegistryMedia[],
+  preferredCharacterLora: string | null,
+): PromptRegistryMediaGroup[] {
+  const groups = new Map<string, PromptRegistryMediaGroup>();
+  for (const item of media) {
+    const key = characterLoraKey(item.character_lora);
+    const group = groups.get(key);
+    if (group) {
+      group.media.push(item);
+    } else {
+      groups.set(key, {
+        key,
+        label: characterLoraLabel(item.character_lora),
+        media: [item],
+      });
+    }
+  }
+  const preferredKey = preferredCharacterLora
+    ? characterLoraKey(preferredCharacterLora)
+    : null;
+  return [...groups.values()].sort((left, right) => {
+    if (preferredKey && left.key === preferredKey) return -1;
+    if (preferredKey && right.key === preferredKey) return 1;
+    if (left.key === UNDEFINED_CHARACTER_LORA_KEY) return 1;
+    if (right.key === UNDEFINED_CHARACTER_LORA_KEY) return -1;
+    return left.label.localeCompare(right.label);
+  });
+}
 
 function parsePromptId(value: string): PromptIdParts | null {
   const match = PROMPT_ID_PATTERN.exec(value);
@@ -61,6 +115,8 @@ export function PromptRegistryPage() {
   const [prompt, setPrompt] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
   const [showRegister, setShowRegister] = useState(false);
+  const [promptSelectionContext, setPromptSelectionContext] =
+    useState<PromptSelectionContext | null>(null);
   const [heatmapSource, setHeatmapSource] = useState("");
   const [heatmapCharacterLora, setHeatmapCharacterLora] = usePersistedState(
     heatmapCharacterLoraKey,
@@ -168,9 +224,16 @@ export function PromptRegistryPage() {
     },
   });
 
-  function selectPrompt(nextPromptId: string) {
+  function selectPrompt(
+    nextPromptId: string,
+    source: PromptSelectionContext["source"] = "lookup",
+  ) {
     const normalized = nextPromptId.trim();
     if (!normalized) return;
+    setPromptSelectionContext({
+      source,
+      characterLora: source === "heatmap" ? heatmapCharacterLora || null : null,
+    });
     setSearchParams((current) => {
       const next = new URLSearchParams(current);
       next.set("prompt_id", normalized);
@@ -180,6 +243,7 @@ export function PromptRegistryPage() {
   }
 
   function clearPrompt() {
+    setPromptSelectionContext(null);
     setSearchParams((current) => {
       const next = new URLSearchParams(current);
       next.delete("prompt_id");
@@ -229,7 +293,9 @@ export function PromptRegistryPage() {
         </button>
       </header>
 
-      <section className="panel prompt-registry-heatmap-panel">
+      <div className="prompt-registry-layout">
+        <aside className="prompt-registry-sidebar">
+          <section className="panel prompt-registry-heatmap-panel">
         <div className="prompt-registry-heatmap-heading">
           <div>
             <p className="kicker">Usage at a glance</p>
@@ -291,12 +357,12 @@ export function PromptRegistryPage() {
             includeTrash={heatmapIncludeTrash}
             onIncludeNotFavedChange={setHeatmapIncludeNotFaved}
             onIncludeTrashChange={setHeatmapIncludeTrash}
-            onSelectPrompt={selectPrompt}
+            onSelectPrompt={(nextPromptId) => selectPrompt(nextPromptId, "heatmap")}
           />
         ) : null}
-      </section>
+          </section>
 
-      {showRegister ? (
+          {showRegister ? (
         <form
           className="panel prompt-registry-editor"
           onSubmit={(event) => {
@@ -349,10 +415,20 @@ export function PromptRegistryPage() {
         </form>
       ) : null}
 
-      <section className="prompt-registry-search panel">
+          <details className="panel prompt-registry-locate" data-testid="prompt-registry-locate">
+            <summary data-testid="prompt-registry-locate-summary">
+              <span>
+                <strong>Locate an entry</strong>
+                <small>Direct or source + index lookup</small>
+              </span>
+              <span className="prompt-registry-locate-chevron" aria-hidden="true">
+                +
+              </span>
+            </summary>
+            <div className="prompt-registry-search">
         <div className="prompt-registry-search-intro">
           <div>
-            <p className="kicker">Locate an entry</p>
+            <p className="kicker">Low-frequency lookup</p>
             <h2>Open a prompt definition</h2>
           </div>
           <p className="muted">
@@ -456,10 +532,24 @@ export function PromptRegistryPage() {
             </button>
           </form>
         </div>
-      </section>
+            </div>
+          </details>
+        </aside>
 
-      <div className="prompt-registry-results">
-        <PromptRegistryDetail lookup={lookup} promptId={promptId} onClear={clearPrompt} />
+        <div className="prompt-registry-usage-column">
+          <div className="prompt-registry-results">
+            <PromptRegistryDetail
+              lookup={lookup}
+              promptId={promptId}
+              preferredCharacterLora={
+                promptSelectionContext?.source === "heatmap"
+                  ? promptSelectionContext.characterLora
+                  : null
+              }
+              onClear={clearPrompt}
+            />
+          </div>
+        </div>
       </div>
     </main>
   );
@@ -468,10 +558,12 @@ export function PromptRegistryPage() {
 function PromptRegistryDetail({
   lookup,
   promptId,
+  preferredCharacterLora,
   onClear,
 }: {
   lookup: UseQueryResult<PromptRegistryLookup>;
   promptId: string;
+  preferredCharacterLora: string | null;
   onClear: () => void;
 }) {
   if (!promptId.trim()) {
@@ -538,28 +630,54 @@ function PromptRegistryDetail({
         <span className="document-count">{data.total_media}</span>
       </div>
       {data.media.length ? (
-        <div className="prompt-registry-media-grid">
-          {data.media.map((media) => (
-            <Link
-              className={
-                media.is_trash
-                  ? "prompt-registry-media-card is-trash"
-                  : "prompt-registry-media-card"
-              }
-              to={`/library/${media.id}`}
-              key={media.id}
-            >
-              <img src={media.preview_url} alt="" loading="lazy" />
-              <span>
-                <strong>{media.original_filename}</strong>
-                <small>
-                  {media.is_trash
-                    ? "Trash"
-                    : `${media.kind}${media.favorite ? " · favorite" : ""}`}
-                </small>
-              </span>
-            </Link>
-          ))}
+        <div className="prompt-registry-usage-groups" data-testid="prompt-registry-usage-groups">
+          {groupMediaByCharacterLora(data.media, preferredCharacterLora).map((group) => {
+            const isPriority =
+              Boolean(preferredCharacterLora) &&
+              group.key === characterLoraKey(preferredCharacterLora);
+            return (
+              <section
+                className={
+                  isPriority
+                    ? "prompt-registry-usage-group is-priority"
+                    : "prompt-registry-usage-group"
+                }
+                data-testid={`prompt-registry-usage-group-${group.key}`}
+                key={group.key}
+              >
+                <header className="prompt-registry-usage-group-header">
+                  <div>
+                    <p className="kicker">Character LoRA</p>
+                    <h4>{group.label}</h4>
+                  </div>
+                  <span className="document-count">{group.media.length}</span>
+                </header>
+                <div className="prompt-registry-media-grid">
+                  {group.media.map((media) => (
+                    <Link
+                      className={
+                        media.is_trash
+                          ? "prompt-registry-media-card is-trash"
+                          : "prompt-registry-media-card"
+                      }
+                      to={`/library/${media.id}`}
+                      key={media.id}
+                    >
+                      <img src={media.preview_url} alt="" loading="lazy" />
+                      <span>
+                        <strong>{media.original_filename}</strong>
+                        <small>
+                          {media.is_trash
+                            ? "Trash"
+                            : `${media.kind}${media.favorite ? " · favorite" : ""}`}
+                        </small>
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            );
+          })}
         </div>
       ) : (
         <p className="muted">No media has been matched to this prompt ID yet.</p>

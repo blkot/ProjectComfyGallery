@@ -41,6 +41,10 @@ function renderPromptRegistry(initialEntry = "/system/prompt-registry") {
   );
 }
 
+function openLocate() {
+  fireEvent.click(screen.getByTestId("prompt-registry-locate-summary"));
+}
+
 beforeEach(() => {
   window.localStorage.clear();
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
@@ -95,6 +99,7 @@ afterEach(() => {
 describe("PromptRegistryPage structured lookup", () => {
   it("uses registered sources as a select instead of requiring source text input", async () => {
     renderPromptRegistry();
+    openLocate();
 
     const source = await screen.findByRole("combobox", { name: "Source" });
     await screen.findAllByRole("option", { name: "sfw-zimage-por-v3" });
@@ -108,6 +113,7 @@ describe("PromptRegistryPage structured lookup", () => {
 
   it("opens the prompt from a selected source and numeric index", async () => {
     renderPromptRegistry();
+    openLocate();
 
     await screen.findAllByRole("option", { name: "sfw-zimage-por-v3" });
     fireEvent.change(screen.getByRole("combobox", { name: "Source" }), {
@@ -141,8 +147,111 @@ describe("PromptRegistryPage structured lookup", () => {
     });
   });
 
+  it("groups prompt usage by character LoRA and prioritizes the heatmap selection", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path.startsWith("/api/v1/prompt-registry/sources")) {
+        return Promise.resolve([]);
+      }
+      if (path.startsWith("/api/v1/prompt-registry/character-loras")) {
+        return Promise.resolve([
+          { name: "Character_A_v1", media_count: 2 },
+          { name: "Character_B_v1", media_count: 1 },
+        ]);
+      }
+      if (path.startsWith("/api/v1/prompt-registry/heatmap")) {
+        return Promise.resolve({
+          items: [
+            {
+              prompt_id: "xanta-utils - 0007",
+              source: "xanta-utils",
+              index: "0007",
+              media_count: 2,
+            },
+          ],
+          total: 1,
+          limit: 20_000,
+          offset: 0,
+          max_media_count: 2,
+        });
+      }
+      return Promise.resolve({
+        prompt_id: "xanta-utils - 0007",
+        source: "xanta-utils",
+        index: "0007",
+        entry: null,
+        media: [
+          {
+            id: "m-b",
+            kind: "image",
+            original_filename: "character-b.png",
+            width: 512,
+            height: 768,
+            duration_seconds: null,
+            favorite: false,
+            is_trash: false,
+            character_lora: "Character_B_v1",
+            content_rating: null,
+            preview_url: "/api/v1/media/m-b/preview",
+            created_at: "2026-01-01T00:00:00Z",
+          },
+          {
+            id: "m-none",
+            kind: "image",
+            original_filename: "undefined.png",
+            width: 512,
+            height: 768,
+            duration_seconds: null,
+            favorite: false,
+            is_trash: false,
+            character_lora: null,
+            content_rating: null,
+            preview_url: "/api/v1/media/m-none/preview",
+            created_at: "2026-01-01T00:00:00Z",
+          },
+          {
+            id: "m-a",
+            kind: "image",
+            original_filename: "character-a.png",
+            width: 512,
+            height: 768,
+            duration_seconds: null,
+            favorite: false,
+            is_trash: false,
+            character_lora: "Character_A_v1",
+            content_rating: null,
+            preview_url: "/api/v1/media/m-a/preview",
+            created_at: "2026-01-01T00:00:00Z",
+          },
+        ],
+        total_media: 3,
+        limit: 48,
+        offset: 0,
+      });
+    });
+
+    renderPromptRegistry();
+    const character = await screen.findByRole("combobox", {
+      name: "Heatmap character LoRA",
+    });
+    fireEvent.change(character, { target: { value: "Character_A_v1" } });
+    const heatmap = await screen.findByTestId("prompt-registry-heatmap-canvas");
+    fireEvent.click(heatmap, { clientX: 2, clientY: 22 });
+
+    const groups = await screen.findByTestId("prompt-registry-usage-groups");
+    expect(
+      Array.from(groups.querySelectorAll("[data-testid^='prompt-registry-usage-group-']"))
+        .map((group) => group.getAttribute("data-testid")),
+    ).toEqual([
+      "prompt-registry-usage-group-character_a_v1",
+      "prompt-registry-usage-group-character_b_v1",
+      "prompt-registry-usage-group-__undefined__",
+    ]);
+    expect(within(groups).getByRole("heading", { name: "Character_A_v1" })).toBeInTheDocument();
+  });
+
   it("seeks the direct lookup index while preserving source and padding", async () => {
     renderPromptRegistry("/system/prompt-registry?prompt_id=xanta-utils%20-%200007");
+    openLocate();
 
     const previous = screen.getByRole("button", { name: "← Previous index" });
     const next = screen.getByRole("button", { name: "Next index →" });
@@ -170,11 +279,13 @@ describe("PromptRegistryPage structured lookup", () => {
     const zeroView = renderPromptRegistry(
       "/system/prompt-registry?prompt_id=xanta-utils%20-%200000",
     );
+    openLocate();
     expect(screen.getByRole("button", { name: "← Previous index" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Next index →" })).toBeEnabled();
     zeroView.unmount();
 
     renderPromptRegistry("/system/prompt-registry?prompt_id=unstructured-id");
+    openLocate();
     expect(screen.getByRole("button", { name: "← Previous index" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Next index →" })).toBeDisabled();
   });
@@ -368,6 +479,7 @@ describe("PromptRegistryPage structured lookup", () => {
             duration_seconds: null,
             favorite: true,
             is_trash: true,
+            character_lora: "Character_A_v1",
             content_rating: null,
             preview_url: "/api/v1/media/m-1/preview",
             created_at: "2026-01-01T00:00:00Z",

@@ -618,6 +618,7 @@ export type PromptRegistryMedia = {
   duration_seconds: number | null;
   favorite: boolean;
   is_trash: boolean;
+  character_lora: string | null;
   content_rating: ContentRating | null;
   preview_url: string;
   created_at: string;

@@ -439,12 +439,22 @@ async def lookup_prompt_registry_entry(
         else identifier
     )
     trashed_ids = await _trashed_media_ids(session, [media.id for media, _asset in media])
+    character_loras = await _character_loras_for_media(
+        session, [media.id for media, _asset in media]
+    )
     return PromptRegistryLookupResponse(
         prompt_id=display_identifier.display,
         source=display_identifier.source,
         index=display_identifier.index,
         entry=_entry_response(entry, media_count=len(matching_media)) if entry else None,
-        media=[_media_response(row, is_trash=row[0].id in trashed_ids) for row in media],
+        media=[
+            _media_response(
+                row,
+                is_trash=row[0].id in trashed_ids,
+                character_lora=character_loras.get(row[0].id),
+            )
+            for row in media
+        ],
         total_media=len(matching_media),
         limit=limit,
         offset=offset,
@@ -475,12 +485,22 @@ async def get_prompt_registry_entry(
     )
     media = matching_media[offset : offset + limit]
     trashed_ids = await _trashed_media_ids(session, [media.id for media, _asset in media])
+    character_loras = await _character_loras_for_media(
+        session, [media.id for media, _asset in media]
+    )
     return PromptRegistryLookupResponse(
         prompt_id=identifier.display,
         source=identifier.source,
         index=identifier.index,
         entry=_entry_response(entry, media_count=len(matching_media)),
-        media=[_media_response(row, is_trash=row[0].id in trashed_ids) for row in media],
+        media=[
+            _media_response(
+                row,
+                is_trash=row[0].id in trashed_ids,
+                character_lora=character_loras.get(row[0].id),
+            )
+            for row in media
+        ],
         total_media=len(matching_media),
         limit=limit,
         offset=offset,
@@ -727,6 +747,23 @@ async def _trashed_media_ids(
     return set(rows)
 
 
+async def _character_loras_for_media(
+    session: DbSessionDep,
+    media_ids: list[UUID],
+) -> dict[UUID, str | None]:
+    if not media_ids:
+        return {}
+    rows = await session.execute(
+        select(MediaPromptIndex.media_id, MediaPromptIndex.character_lora).where(
+            MediaPromptIndex.media_id.in_(media_ids)
+        )
+    )
+    return {
+        media_id: character_lora.strip() or None if isinstance(character_lora, str) else None
+        for media_id, character_lora in rows
+    }
+
+
 def _heatmap_media_scope(*, include_not_faved: bool, include_trash: bool) -> Any:
     """Classify linked media into favorites, ordinary media, and Trash.
 
@@ -934,6 +971,7 @@ def _media_response(
     row: tuple[Media, MediaAsset],
     *,
     is_trash: bool,
+    character_lora: str | None,
 ) -> PromptRegistryMediaResponse:
     media, asset = row
     return PromptRegistryMediaResponse(
@@ -945,6 +983,7 @@ def _media_response(
         duration_seconds=media.duration_seconds,
         favorite=media.favorite,
         is_trash=is_trash,
+        character_lora=character_lora,
         content_rating=media.content_rating,
         preview_url=f"/api/v1/media/{media.id}/preview",
         created_at=media.created_at,
