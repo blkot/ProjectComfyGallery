@@ -4,6 +4,8 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.42 — 2026-11-06
+
 - Make persisted media content ratings default to SFW, remove the unmarked/clear
   states, and keep NSFW badges limited to explicitly marked media.
 - Refine Library cards and controls with compact metadata rows, unified status
