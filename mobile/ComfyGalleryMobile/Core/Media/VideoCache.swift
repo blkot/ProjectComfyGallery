@@ -43,6 +43,7 @@ actor VideoCache {
     }
 
     func store(mediaID: String, sourceURL: URL, suggestedExtension: String = "mp4") throws -> URL {
+        try Task.checkCancellation()
         let ext = Self.extensionFor(sourceURL: sourceURL, fallback: suggestedExtension)
         let destination = cacheDirectory.appendingPathComponent("\(mediaID).\(ext)")
         let fm = FileManager.default

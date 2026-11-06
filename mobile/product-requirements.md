@@ -1,5 +1,10 @@
 # Mobile Product Requirements
 
+> **Current browsing scope:** [UX iteration 2](design/photos-v1/UX-ITERATION-2.md)
+> supersedes the review-first navigation and no-metadata/no-registry restrictions
+> below for normal Library / Prompt Registry browsing. Blind-review boundaries
+> continue to govern a future separate review flow; that flow is not a core tab.
+
 **Status:** Accepted handoff scope  
 **Audience:** Product designer, iOS developer, QA engineer, and coding agent
 

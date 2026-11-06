@@ -4,6 +4,29 @@ This file is the cross-agent handoff for backend contract changes. Consumers sho
 also use the committed [OpenAPI snapshot](openapi.json); prose here explains
 semantics and compatibility that a schema alone cannot express.
 
+## Unreleased: exact Library Character LoRA filter
+
+`GET /api/v1/media` and `GET /api/v1/media/{id}/navigation` add optional
+`character_lora` (maximum 512 characters). Both use the same exact,
+case-insensitive, surrounding-whitespace-insensitive match against the trusted
+`MediaPromptIndex.character_lora` value. This is not a substring match or a
+generic LoRA model-reference filter. It combines with existing filters using AND;
+counting, pagination, and navigation use the same population, without duplicate
+media rows. Whitespace-only input behaves as no filter.
+
+The list response adds nullable `character_lora`, echoing the requested value
+with surrounding whitespace removed (case preserved). New mobile clients use
+this field to detect old servers that silently ignore the new query parameter,
+and show an upgrade message instead of unfiltered results. Requests without the
+parameter retain their existing behavior. Other endpoint scopes are unchanged.
+
+**Database migration:** none added; requires the existing
+`0021_prompt_index_character_lora` migration and populated materialized index.
+This Library filter does not scan workflow evidence on each request as a fallback.
+An out-of-scope navigation current item returns `404 MEDIA_NOT_IN_VIEW` as before.
+See [native UX iteration 2](../../mobile/design/photos-v1/UX-ITERATION-2.md) for
+consumer behavior and local verification boundaries. No deployment performed.
+
 ## Unreleased: Library slideshow start window
 
 `GET /api/v1/media/slideshow` adds optional `start_media_id=<uuid>`. The server

@@ -8,6 +8,7 @@ from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from comfy_gallery_api.errors import ApiError
+from comfy_gallery_api.routes.media import get_media_navigation, list_media
 from comfy_gallery_api.routes.prompt_registry import (
     lookup_prompt_registry_entry,
     prompt_usage_navigation,
@@ -136,6 +137,48 @@ async def test_grouped_lookup_paginates_priority_without_filtering_or_workflow_l
         offset=0,
     )
     assert [row.id for row in default.media] == [UUID(int=i) for i in range(72, 24, -1)]
+
+
+@pytest.mark.parametrize("character", ["Alpha", " ALPHA ", "alpha"])
+async def test_library_character_scope_matches_navigation_and_pagination(
+    usage_session: AsyncSession, character: str
+) -> None:
+    scope = {
+        "q": None,
+        "sha256": None,
+        "kind": "image",
+        "media_status": None,
+        "workflow_status": None,
+        "evaluation_state": None,
+        "trash": False,
+        "favorite": True,
+        "content_rating": "sfw",
+        "source_root_id": None,
+        "checkpoint_reference_id": None,
+        "lora_reference_id": None,
+        "character_lora": character,
+        "sort": "imported_desc",
+    }
+    expected = [UUID(int=i) for i in range(68, 0, -6)]
+    first = await list_media(None, usage_session, **scope, limit=5, offset=0)
+    second = await list_media(None, usage_session, **scope, limit=5, offset=5)
+    assert first.total == second.total == len(expected)
+    assert first.character_lora == character.strip()
+    assert [item.id for item in first.items] == expected[:5]
+    assert [item.id for item in second.items] == expected[5:10]
+    navigation = await get_media_navigation(expected[4], None, usage_session, **scope)
+    assert navigation.total == len(expected)
+    assert navigation.position == 5
+    assert navigation.previous_id == expected[3]
+    assert navigation.next_id == expected[5]
+    with pytest.raises(ApiError) as error:
+        await get_media_navigation(UUID(int=70), None, usage_session, **scope)
+    assert error.value.status_code == 404
+    # Exact character identity is not a substring search and does not fall back to any LoRA.
+    scope["character_lora"] = "Alp"
+    empty = await list_media(None, usage_session, **scope, limit=5, offset=0)
+    assert empty.total == 0
+    assert empty.character_lora == "Alp"
 
 
 @pytest.mark.parametrize("preferred", [None, "beta"])

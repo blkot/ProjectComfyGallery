@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ImageViewer: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let image: UIImage
     @Binding var scale: CGFloat
     @State private var lastScale: CGFloat = 1.0
@@ -19,9 +20,9 @@ struct ImageViewer: View {
             .scaleEffect(scale)
             .offset(offset)
             .gesture(zoomGesture)
-            .simultaneousGesture(panGesture)
+            .simultaneousGesture(panGesture, including: scale > 1.05 ? .all : .none)
             .onTapGesture(count: 2) {
-                withAnimation(.spring()) {
+                withAnimation(reduceMotion ? nil : .spring()) {
                     if scale > 1.0 {
                         resetZoom()
                     } else {
@@ -44,7 +45,7 @@ struct ImageViewer: View {
             .onEnded { _ in
                 lastScale = 1.0
                 if scale <= 1.05 {
-                    withAnimation(.spring()) { resetZoom() }
+                    withAnimation(reduceMotion ? nil : .spring()) { resetZoom() }
                 }
             }
     }

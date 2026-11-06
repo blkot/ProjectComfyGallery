@@ -3682,6 +3682,17 @@
       },
       "MediaPageResponse": {
         "properties": {
+          "character_lora": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Character Lora"
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/MediaListItemResponse"
@@ -9735,7 +9746,7 @@
   },
   "info": {
     "title": "Project Comfy Gallery API",
-    "version": "0.1.0-rc.43"
+    "version": "0.1.0-rc.44"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -11643,6 +11654,23 @@
           },
           {
             "in": "query",
+            "name": "character_lora",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Character Lora"
+            }
+          },
+          {
+            "in": "query",
             "name": "status",
             "required": false,
             "schema": {
@@ -12975,6 +13003,23 @@
                 }
               ],
               "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "character_lora",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Character Lora"
             }
           },
           {

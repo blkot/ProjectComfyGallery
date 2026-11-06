@@ -1,5 +1,14 @@
 # Mobile UI/UX Design
 
+> **2026-11-07 redesign:** Current behavior is recorded in
+> [UX iteration 2](design/photos-v1/UX-ITERATION-2.md): Library / Prompt Registry /
+> Search, a left overlay drawer, native paging, Photos export, and swipe-up detail.
+> The [V1 interactive preview](design/photos-v1/index.html) is archived and has not
+> been updated to reflect iteration 2. The specification below
+> describes the earlier review-centered app; do not use its navigation or grid
+> layout as the default for the rebuild. Blind-review safety rules still apply
+> when that feature returns.
+
 **Status:** Implementation-ready interaction specification  
 **Design language:** Native iOS, media-first, quiet, interruption-friendly
 

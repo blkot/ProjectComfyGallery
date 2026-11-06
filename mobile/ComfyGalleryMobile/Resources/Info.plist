@@ -24,6 +24,8 @@
 	<true/>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Connect to your self-hosted Comfy Gallery server on the local network.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>将你选择的原始图片或视频保存到 iOS 系统相册。不会读取已有照片。</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

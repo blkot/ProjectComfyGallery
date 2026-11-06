@@ -5,6 +5,7 @@ actor APIClient {
     private let credentialStore: CredentialStore
     private let session: URLSession
     private var baseURL: URL?
+    private var credentialAccount = "default"
     private let logger = Logger(subsystem: "com.comfygallery.mobile", category: "APIClient")
 
     init(credentialStore: CredentialStore) {
@@ -16,12 +17,14 @@ actor APIClient {
         self.session = URLSession(configuration: config)
     }
 
-    func configure(baseURL: URL) {
+    func configure(baseURL: URL, credentialAccount: String = "default") {
         self.baseURL = baseURL
+        self.credentialAccount = credentialAccount
     }
 
     func reset() {
         baseURL = nil
+        credentialAccount = "default"
     }
 
     func request<T: Decodable>(_ endpoint: Endpoint) async throws -> T {
@@ -31,13 +34,11 @@ actor APIClient {
             return try decoder.decode(T.self, from: data)
         } catch let error as DecodingError {
             let detail = decodingErrorDetail(error)
-            let body = prettyPrint(data: data)
-            logger.error("Decoding \(endpoint.path, privacy: .public) as \(String(describing: T.self), privacy: .public) failed: \(detail, privacy: .public)\nbody: \(body, privacy: .public)")
-            throw APIError.decodingError("\(detail). Server response: \(body)")
+            logger.error("Decoding \(String(describing: T.self), privacy: .public) failed: \(detail, privacy: .private)")
+            throw APIError.decodingError(detail)
         } catch {
-            let body = prettyPrint(data: data)
-            logger.error("Decoding \(endpoint.path, privacy: .public) failed: \(error.localizedDescription, privacy: .public)\nbody: \(body, privacy: .public)")
-            throw APIError.decodingError("\(error.localizedDescription). Server response: \(body)")
+            logger.error("Response decoding failed: \(error.localizedDescription, privacy: .private)")
+            throw APIError.decodingError("Could not decode the server response.")
         }
     }
 
@@ -85,7 +86,7 @@ actor APIClient {
         var request = URLRequest(url: url)
         request.httpMethod = endpoint.method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        if endpoint.requiresAuth, let token = await credentialStore.token() {
+        if endpoint.requiresAuth, let token = credentialStore.token(for: credentialAccount) {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         if let body = endpoint.body {
@@ -120,16 +121,4 @@ actor APIClient {
         }
     }
 
-    private func prettyPrint(data: Data) -> String {
-        guard let parsed = try? JSONSerialization.jsonObject(with: data, options: []),
-              let pretty = try? JSONSerialization.data(withJSONObject: parsed, options: [.prettyPrinted, .sortedKeys]),
-              let str = String(data: pretty, encoding: .utf8) else {
-            return String(data: data, encoding: .utf8) ?? "<binary>"
-        }
-        let max = 1500
-        if str.count > max {
-            return String(str.prefix(max)) + "…<truncated>"
-        }
-        return str
-    }
 }

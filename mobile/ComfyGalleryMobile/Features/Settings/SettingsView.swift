@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @Environment(\.dismiss) private var dismiss
     @Environment(AppEnvironment.self) private var environment
     @State private var feature: SettingsFeature
 
@@ -44,10 +45,6 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("Privacy") {
-                    Toggle("Privacy Cover in App Switcher", isOn: $feature.privacyCoverEnabled)
-                }
-
                 Section("Cache") {
                     HStack {
                         Text("Cache Size")
@@ -70,9 +67,18 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() } }
+            }
             .alert("Disconnect", isPresented: $feature.showDisconnectConfirmation) {
                 Button("Disconnect", role: .destructive) {
-                    Task { await feature.disconnect() }
+                    Task {
+                        environment.isConnected = false
+                        await environment.mediaRepository.clearAllCaches()
+                        await feature.disconnect()
+                        environment.selectedTab = .library
+                        dismiss()
+                    }
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {

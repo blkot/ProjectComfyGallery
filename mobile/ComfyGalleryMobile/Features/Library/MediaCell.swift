@@ -2,92 +2,65 @@ import SwiftUI
 
 struct MediaCell: View {
     let item: MobileMediaSummary
+    var isSelecting = false
+    var isSelected = false
+    var showsBadges = true
     @Environment(AppEnvironment.self) private var environment
-
+    @Environment(\.displayScale) private var displayScale
     @State private var image: UIImage?
-    @State private var loadFailed = false
-
-    private let targetSize = CGSize(width: 200, height: 300)
+    @State private var failed = false
 
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                if let image = image {
-                    Image(uiImage: image)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: geometry.size.width, height: geometry.size.height)
-                        .clipped()
-                } else if loadFailed {
-                    Color(.systemGray6)
-                        .overlay {
-                            Image(systemName: item.kind == .video ? "play.slash" : "photo")
-                                .foregroundStyle(.secondary)
-                        }
+                Rectangle().fill(.quaternary)
+                if let image {
+                    Image(uiImage: image).resizable().scaledToFill()
+                        .frame(width: geometry.size.width, height: geometry.size.height).clipped()
                 } else {
-                    Color(.systemGray6)
-                        .overlay {
-                            ProgressView()
-                        }
+                    Image(systemName: failed ? "exclamationmark.arrow.triangle.2.circlepath" : "photo")
+                        .foregroundStyle(.secondary)
                 }
-
+                if showsBadges {
+                    LinearGradient(colors: [.clear, .black.opacity(0.45)], startPoint: .center, endPoint: .bottom)
+                }
                 VStack {
                     HStack {
+                        if showsBadges, item.isTrash == true { Image(systemName: "trash.fill") }
                         Spacer()
-                        if item.kind == .video {
-                            Image(systemName: "play.rectangle.fill")
-                                .font(.caption)
-                                .foregroundStyle(.white)
-                                .padding(6)
-                                .background(.black.opacity(0.5))
-                                .clipShape(RoundedRectangle(cornerRadius: 6))
-                                .padding(4)
+                        if isSelecting {
+                            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                .font(.title3).foregroundStyle(isSelected ? Color.accentColor : .white)
+                                .background(Circle().fill(isSelected ? .white : .black.opacity(0.2)))
                         }
                     }
-                    Spacer()
-                    HStack {
-                        if item.isTrash == true {
-                            Image(systemName: "trash.fill")
-                                .font(.caption)
-                                .foregroundStyle(.red)
-                                .padding(4)
-                        }
-                        Spacer()
-                        if let state = item.evaluationState {
-                            evaluationIndicator(state)
-                                .padding(4)
+                    Spacer(minLength: 0)
+                    HStack(alignment: .bottom) {
+                        if showsBadges, item.favorite == true { Image(systemName: "heart.fill") }
+                        Spacer(minLength: 0)
+                        if showsBadges, item.kind == .video {
+                            Image(systemName: "play.fill")
+                            if let duration = item.durationLabel { Text(duration).monospacedDigit() }
                         }
                     }
+                    .font(.caption2).fontWeight(.semibold)
                 }
+                .foregroundStyle(.white).padding(7)
+                if isSelected { Rectangle().strokeBorder(.tint, lineWidth: 3) }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-        }
-        .aspectRatio(2.0 / 3.0, contentMode: .fit)
-        .task {
-            guard image == nil, !loadFailed else { return }
-            do {
-                image = try await environment.mediaRepository.fetchPreviewImage(
-                    mediaID: item.id,
-                    targetSize: targetSize
-                )
-            } catch {
-                loadFailed = true
+            .task(id: item.id) {
+                do {
+                    image = try await environment.mediaRepository.fetchPreviewImage(
+                        mediaID: item.id, targetSize: geometry.size, scale: displayScale
+                    )
+                    failed = false
+                } catch { if !Task.isCancelled { failed = true } }
             }
         }
-    }
-
-    @ViewBuilder
-    private func evaluationIndicator(_ state: EvaluationState) -> some View {
-        switch state {
-        case .complete:
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(.green)
-        case .inProgress:
-            Image(systemName: "circle.dotted")
-                .foregroundStyle(.orange)
-        case .notStarted:
-            Image(systemName: "circle")
-                .foregroundStyle(.secondary)
-        }
+        .aspectRatio(LibraryLayout.tileAspectRatio, contentMode: .fit)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(item.kind == .video ? "视频，\(item.durationLabel ?? "时长未知")" : "照片")
+        .accessibilityValue([item.favorite == true ? "已收藏" : nil, item.isTrash == true ? "在废纸篓" : nil,
+                             isSelected ? "已选择" : nil, failed ? "缩略图加载失败，打开可重试" : nil].compactMap { $0 }.joined(separator: "，"))
     }
 }
