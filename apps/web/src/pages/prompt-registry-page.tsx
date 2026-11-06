@@ -270,7 +270,13 @@ export function PromptRegistryPage() {
 
   function seekDirectLookup(delta: -1 | 1) {
     const nextPromptId = shiftPromptId(promptId, delta);
-    if (nextPromptId) selectPrompt(nextPromptId);
+    if (!nextPromptId) return;
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set("prompt_id", nextPromptId);
+      for (const key of ["usage_offset", "return_media", "view_media", "q"]) next.delete(key);
+      return next;
+    });
   }
 
   const previousPromptId = shiftPromptId(promptId, -1);
@@ -556,6 +562,9 @@ export function PromptRegistryPage() {
               onClear={clearPrompt}
               searchParams={searchParams}
               onOpenMedia={overlay.open}
+              previousPromptId={previousPromptId}
+              nextPromptId={nextPromptId}
+              onSeekIndex={seekDirectLookup}
             />
             {lookup.data && lookup.data.total_media > mediaPageSize ? <nav className="prompt-usage-pagination" aria-label="Prompt usage pages">
               <button type="button" disabled={usageOffset === 0 || lookup.isFetching} onClick={() => setSearchParams((current) => {
@@ -581,6 +590,9 @@ function PromptRegistryDetail({
   onClear,
   searchParams,
   onOpenMedia,
+  previousPromptId,
+  nextPromptId,
+  onSeekIndex,
 }: {
   lookup: UseQueryResult<PromptRegistryLookup>;
   promptId: string;
@@ -588,6 +600,9 @@ function PromptRegistryDetail({
   onClear: () => void;
   searchParams: URLSearchParams;
   onOpenMedia: (id: string) => void;
+  previousPromptId: string | null;
+  nextPromptId: string | null;
+  onSeekIndex: (delta: -1 | 1) => void;
 }) {
   if (!promptId.trim()) {
     return (
@@ -621,9 +636,17 @@ function PromptRegistryDetail({
   return (
     <section className="panel prompt-registry-detail">
       <header className="prompt-registry-detail-header">
-        <div>
+        <div className="prompt-registry-detail-identity">
           <p className="kicker">Resolved prompt ID</p>
-          <h2>{data.prompt_id}</h2>
+          <div className="prompt-registry-detail-id-row">
+            <h2>{data.prompt_id}</h2>
+            <nav className="prompt-registry-index-seek" aria-label="Prompt index navigation">
+              <button type="button" aria-label="Previous prompt index" title={previousPromptId ?? "No previous index"}
+                disabled={!previousPromptId} onClick={() => onSeekIndex(-1)}>←</button>
+              <button type="button" aria-label="Next prompt index" title={nextPromptId ?? "No next index"}
+                disabled={!nextPromptId} onClick={() => onSeekIndex(1)}>→</button>
+            </nav>
+          </div>
         </div>
         <div className="prompt-registry-detail-actions">
           <span className="status-chip" data-status={data.entry ? "ready" : "partial"}>

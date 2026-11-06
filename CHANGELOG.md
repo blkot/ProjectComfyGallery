@@ -4,6 +4,10 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+- Improve Media Quick View responsiveness and keep the current image visible while
+  a selected neighbor loads; add Prompt Registry index navigation and browser
+  regression coverage for the viewer and responsive layouts.
+
 ## 0.1.0-rc.43 — 2026-11-06
 
 - Add a source-preserving media quick view for Library and Prompt Registry, with

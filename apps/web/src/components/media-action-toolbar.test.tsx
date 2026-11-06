@@ -42,6 +42,22 @@ describe("MediaActionToolbar", () => {
     expect(screen.getByRole("link", { name: "Start slideshow from here" })).toHaveAttribute("href", "/slideshow?start=one");
     expect(screen.getByRole("link", { name: "Post to Civitai" })).toHaveAttribute("href", "/library/one/civitai-post");
     expect(screen.getByRole("button", { name: "Move to Trash" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Move to Trash" })).not.toHaveAttribute("aria-pressed");
+    expect(screen.getByRole("button", { name: "Move to Trash" })).toHaveAttribute("data-action", "trash");
+    client.clear();
+  });
+
+  it("makes restoring an explicit action instead of a selected Trash toggle", () => {
+    const client = new QueryClient();
+    render(<QueryClientProvider client={client}><MemoryRouter>
+      <MediaActionToolbar media={{ ...media, is_trash: true }} slideshowHref="/slideshow" civitaiHref="/civitai" />
+    </MemoryRouter></QueryClientProvider>);
+    const restore = screen.getByRole("button", { name: "Restore from Trash" });
+    expect(restore).toHaveTextContent("Restore");
+    expect(restore).toHaveAttribute("title", "In Trash — Restore media");
+    expect(restore).toHaveAttribute("data-action", "restore");
+    expect(restore).not.toHaveAttribute("aria-pressed");
+    expect(screen.queryByRole("button", { name: "Move to Trash" })).not.toBeInTheDocument();
     client.clear();
   });
 

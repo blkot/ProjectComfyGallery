@@ -86,6 +86,7 @@ export function MediaTrashButton({
     },
   });
   const label = isTrash ? "Restore from Trash" : "Move to Trash";
+  const description = isTrash ? "In Trash — Restore media" : "Move to Trash";
 
   return (
     <span className="media-trash-action">
@@ -94,12 +95,16 @@ export function MediaTrashButton({
         type="button"
         aria-label={label}
         data-trashed={isTrash || undefined}
+        data-action={isTrash ? "restore" : "trash"}
         data-compact={compact || undefined}
         disabled={mutation.isPending}
-        title={mutation.isError ? `${label} — update failed` : label}
+        title={mutation.isError ? `${description} — update failed` : description}
         onClick={() => mutation.mutate(isTrash)}
       >
-        {compact ? <MediaActionIcon name={isTrash ? "restore" : "trash"} /> : mutation.isPending ? "Updating…" : isTrash ? "Restore" : "Trash"}
+        {compact ? <>
+          <MediaActionIcon name={isTrash ? "restore" : "trash"} />
+          {isTrash ? <span className="media-trash-restore-label" aria-hidden="true">Restore</span> : null}
+        </> : mutation.isPending ? "Updating…" : isTrash ? "Restore" : "Trash"}
       </button>
       {mutation.isError ? (
         <span className="sr-only" role="alert">
