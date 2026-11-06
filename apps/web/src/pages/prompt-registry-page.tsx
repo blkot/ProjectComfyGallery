@@ -17,6 +17,7 @@ import {
   type PromptRegistryMedia,
 } from "../lib/api";
 import { PromptRegistryHeatmap as PromptRegistryHeatmapView } from "../components/prompt-registry-heatmap";
+import { MediaFavoriteButton } from "../components/media-favorite-button";
 import { usePersistedState } from "../lib/use-persisted-state";
 import { useMediaOverlay } from "../lib/use-media-overlay";
 import { MediaOverlayHost } from "../components/media-overlay-host";
@@ -700,32 +701,65 @@ function PromptRegistryDetail({
                 </header>
                 <div className="prompt-registry-media-grid">
                   {group.media.map((media) => (
-                    <Link
-                      className={
-                        media.is_trash
-                          ? "prompt-registry-media-card is-trash"
-                          : "prompt-registry-media-card"
-                      }
-                      to={browseDetailHref("prompt", searchParams, media.id)}
+                    <article
+                      className="prompt-registry-usage-card"
                       key={media.id}
                       id={`prompt-media-${media.id}`}
-                      data-return-target={searchParams.get("return_media") === media.id || undefined}
-                      onClick={(event) => {
-                        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-                        event.preventDefault();
-                        onOpenMedia(media.id);
-                      }}
+                      tabIndex={-1}
                     >
-                      <img src={media.preview_url} alt="" loading="lazy" />
-                      <span>
-                        <strong>{media.original_filename}</strong>
-                        <small>
-                          {media.is_trash
-                            ? "Trash"
-                            : `${media.kind}${media.favorite ? " · favorite" : ""}`}
-                        </small>
-                      </span>
-                    </Link>
+                      <div
+                        className="prompt-registry-media-card-actions"
+                        role="group"
+                        aria-label="Media actions"
+                      >
+                        {media.content_rating === "nsfw" ? (
+                          <span
+                            className="content-rating-badge"
+                            data-rating="nsfw"
+                            role="img"
+                            title="Content rating: R"
+                            aria-label="Content rating: R"
+                          >
+                            R
+                          </span>
+                        ) : null}
+                        <MediaFavoriteButton
+                          mediaId={media.id}
+                          favorite={media.favorite}
+                          className="prompt-registry-media-card-favorite"
+                        />
+                      </div>
+                      <Link
+                        className={
+                          media.is_trash
+                            ? "prompt-registry-media-card is-trash"
+                            : "prompt-registry-media-card"
+                        }
+                        to={browseDetailHref("prompt", searchParams, media.id)}
+                        data-return-target={
+                          searchParams.get("return_media") === media.id || undefined
+                        }
+                        onClick={(event) => {
+                          if (
+                            event.button !== 0 ||
+                            event.metaKey ||
+                            event.ctrlKey ||
+                            event.shiftKey ||
+                            event.altKey
+                          ) {
+                            return;
+                          }
+                          event.preventDefault();
+                          onOpenMedia(media.id);
+                        }}
+                      >
+                        <img src={media.preview_url} alt="" loading="lazy" />
+                        <span>
+                          <strong>{media.original_filename}</strong>
+                          {media.is_trash ? <small>Trash</small> : null}
+                        </span>
+                      </Link>
+                    </article>
                   ))}
                 </div>
               </section>

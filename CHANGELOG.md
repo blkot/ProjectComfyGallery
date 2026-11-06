@@ -4,6 +4,8 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+- Add Favorite and NSFW cues to Prompt Registry usage cards, keep Trash labels
+  explicit, and simplify the Library page header.
 - Improve Media Quick View responsiveness and keep the current image visible while
   a selected neighbor loads; add Prompt Registry index navigation and browser
   regression coverage for the viewer and responsive layouts.

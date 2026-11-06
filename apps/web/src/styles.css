@@ -5691,7 +5691,13 @@ textarea {
   gap: 9px;
 }
 
+.prompt-registry-usage-card {
+  position: relative;
+  min-width: 0;
+}
+
 .prompt-registry-media-card {
+  display: block;
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--line-soft);
@@ -5703,6 +5709,34 @@ textarea {
 
 .prompt-registry-media-card:hover {
   border-color: var(--accent);
+}
+
+.prompt-registry-media-card-actions {
+  position: absolute;
+  z-index: 2;
+  top: 7px;
+  right: 7px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.prompt-registry-media-card-actions .content-rating-badge {
+  position: static;
+  flex: 0 0 auto;
+}
+
+.prompt-registry-media-card-actions .prompt-registry-media-card-favorite {
+  width: 28px;
+  height: 28px;
+  border-color: rgba(255, 255, 255, 0.13);
+  background: rgba(12, 12, 10, 0.82);
+}
+
+.prompt-registry-media-card-actions .prompt-registry-media-card-favorite[aria-pressed="true"] {
+  color: var(--favorite-ink);
+  border-color: transparent;
+  background: var(--favorite-solid);
 }
 
 .prompt-registry-media-card img {
