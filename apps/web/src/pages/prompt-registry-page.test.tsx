@@ -97,6 +97,28 @@ afterEach(() => {
 });
 
 describe("PromptRegistryPage structured lookup", () => {
+  it("seeks beside the resolved prompt without opening Locate and retains character context", async () => {
+    renderPromptRegistry("/registries/prompts?prompt_id=xanta-utils%20-%200007&preferred_character_lora=Alice&character_lora=Alice&usage_offset=48&return_media=old-card");
+    const next = await screen.findByRole("button", { name: "Next prompt index" });
+    expect(screen.getByTestId("prompt-registry-locate")).not.toHaveAttribute("open");
+    expect(next.closest(".prompt-registry-detail-header")).not.toBeNull();
+    fireEvent.click(next);
+    await waitFor(() => {
+      const query = new URLSearchParams(screen.getByTestId("location-search").textContent ?? "");
+      expect(query.get("prompt_id")).toBe("xanta-utils - 0008");
+      expect(query.get("preferred_character_lora")).toBe("Alice");
+      expect(query.get("character_lora")).toBe("Alice");
+      expect(query.has("usage_offset")).toBe(false);
+      expect(query.has("return_media")).toBe(false);
+    });
+  });
+
+  it("disables the visible previous index control at zero", async () => {
+    renderPromptRegistry("/registries/prompts?prompt_id=xanta-utils%20-%200000");
+    expect(await screen.findByRole("button", { name: "Previous prompt index" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Next prompt index" })).toBeEnabled();
+  });
+
   it("uses registered sources as a select instead of requiring source text input", async () => {
     renderPromptRegistry();
     openLocate();

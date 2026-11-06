@@ -114,7 +114,7 @@ export function PromptRegistryHeatmap({
       // laid out at 100% of that box, so using the wrapper width would draw
       // cells for a wider coordinate space than the browser actually shows.
       const width = canvasRef.current?.clientWidth ?? 0;
-      setContainerWidth(Math.max(width || element.clientWidth, 320));
+      setContainerWidth(Math.max(width || element.clientWidth, 1));
     };
     updateWidth();
     if (typeof ResizeObserver === "undefined") return;

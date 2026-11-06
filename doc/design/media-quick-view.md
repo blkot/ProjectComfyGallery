@@ -1,6 +1,7 @@
 # Source-preserving media quick view
 
-**Status:** Implemented locally; requires coordinated API + web deployment.
+**Status:** Core quick view implemented in rc.43. Responsive and frame-stability
+refinements are frontend-only changes; deploy them after local verification.
 
 ## Interaction
 
@@ -9,9 +10,16 @@
   intact. Modified clicks still open the full record in a new tab.
 - The modal displays original images or normal video playback with sound controls,
   not a thumbnail as the final asset. It preloads the immediate neighbors only.
+  Image switching retains the last loaded frame until the requested original is
+  decoded; a visible loading/error notice and disabled actions prevent editing an
+  asset that does not yet match the displayed frame. Warming is bounded rather
+  than expanding downloads to the entire filtered scope.
 - Its toolbar is shared with full detail: Favorite star, N/R rating, Vision Pro
   spatial preference, download original, slideshow from here, Civitai, Trash/Restore.
   Permanent deletion is not added. Icons retain labels and tooltips.
+  Selected Favorite/Rating use solid muted fills. Trash is a neutral outline command
+  with a danger hover, not a selected toggle; trashed media offers a labeled Restore
+  command. Pending/error/focus states remain distinct.
 - Prompt ID and Character LoRA are prominent. The formatted LoRA list is collapsed
   by default. Positive Prompt comes exclusively from the corresponding Registry
   entry and has a copy button. Missing ID, unregistered ID, empty prompt and request
@@ -21,6 +29,10 @@
   the media stage; inputs, buttons, links and native video controls retain their
   own behavior. Native dialog focus trapping, background scroll lock and reduced
   motion are supported.
+- Modal and information-column sizing follow the available CSS viewport. A wide
+  desktop gets a larger media canvas and text column; Mac HiDPI logical viewports
+  retain compact proportions. Metadata sections distinguish their small labels,
+  prominent identifiers and readable prompt body without nested input-like boxes.
 
 ## URL and source scope
 
@@ -85,3 +97,6 @@ Chrome visual/interaction QA uses isolated synthetic API fixtures: desktop and
 390px-wide layouts, native dialog, Library 48→49 page transition and focus return,
 Prompt usage Back/close and focus outline, consistent separate card badges.
 Production/NAS verification is a separate deployment step.
+
+For repeatable responsive and wheel-seek checks, see
+[Frontend browser regressions](../development/frontend-visual-regressions.md).

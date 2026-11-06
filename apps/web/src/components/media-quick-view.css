@@ -1,7 +1,7 @@
 .media-quick-view {
-  width: min(1440px, 94vw);
+  width: min(3200px, 94vw);
   max-width: 94vw;
-  height: min(1020px, 92dvh);
+  height: 92dvh;
   max-height: 92dvh;
   margin: auto;
   padding: 0;
@@ -52,8 +52,17 @@
 }
 
 .media-quick-view-toolbar .media-action-toolbar,
+.media-quick-view-toolbar .media-quick-view-actions,
 .media-quick-view-toolbar-space {
   margin-left: auto;
+}
+
+.media-quick-view-actions {
+  margin: 0 0 0 auto;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  min-inline-size: 0;
 }
 
 .media-quick-view-navigation button,
@@ -104,7 +113,7 @@
 
 .media-quick-view-body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  grid-template-columns: minmax(0, 1fr) clamp(340px, 25vw, 720px);
   flex: 1;
   min-height: 0;
 }
@@ -134,21 +143,6 @@
   object-fit: contain;
 }
 
-.media-quick-view-stage > .media-quick-view-placeholder {
-  position: absolute;
-  inset: 0;
-  opacity: 0.75;
-}
-
-.media-quick-view-original[data-loaded="false"] {
-  opacity: 0;
-}
-
-.media-quick-view-original[data-loaded="true"] {
-  position: relative;
-  opacity: 1;
-}
-
 .media-quick-view-error {
   padding: 2rem;
   text-align: center;
@@ -166,17 +160,21 @@
 .media-quick-view-information {
   min-width: 0;
   min-height: 0;
-  padding: 1.5rem;
+  padding: clamp(1.25rem, 1.65vw, 2.75rem);
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
   border-left: 1px solid var(--line-soft);
+  background: #1b1c17;
 }
 
 .media-quick-view-filename {
   margin: 0 0 1.75rem;
-  color: var(--muted);
-  font-size: 0.8rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgb(196 198 181 / 16%);
+  color: #a9ad9e;
+  font-family: inherit;
+  font-size: clamp(0.78rem, 0.85vw, 0.95rem);
   font-weight: 500;
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -184,16 +182,39 @@
 
 .media-quick-view-field,
 .media-quick-view-loras {
-  margin-bottom: 1.5rem;
+  margin: 0 0 1.4rem;
+  padding-bottom: 1.4rem;
+  border-bottom: 1px solid rgb(196 198 181 / 12%);
+}
+
+.media-quick-view-field:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
 }
 
 .media-quick-view-field h3,
 .media-quick-view-loras > summary {
-  margin: 0 0 0.65rem;
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 650;
-  letter-spacing: 0.04em;
+  margin: 0 0 0.8rem;
+  color: #a9ae9c;
+  font-size: clamp(0.75rem, 0.85vw, 0.9rem);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.media-quick-view-field h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.media-quick-view-field h3::before {
+  content: "";
+  flex: 0 0 3px;
+  height: 0.9em;
+  border-radius: 2px;
+  background: #8c9870;
 }
 
 .media-quick-view-field p {
@@ -202,14 +223,16 @@
 
 .media-quick-view-prompt-id,
 .media-quick-view-character {
-  font-size: 1rem;
-  font-weight: 550;
-  line-height: 1.6;
+  font-size: clamp(1.1rem, 1.2vw, 1.45rem);
+  font-weight: 600;
+  line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
 .media-quick-view-prompt-id {
-  color: #d9e1b6;
+  color: #e0e8bd;
+  font-size: clamp(1.2rem, 1.3vw, 1.6rem);
+  font-weight: 650;
   text-decoration: none;
 }
 
@@ -233,6 +256,14 @@
 .media-quick-view-loras > summary {
   cursor: pointer;
   padding-block: 0.35rem;
+}
+
+.media-quick-view-loras:not([open]) > summary {
+  margin-bottom: 0;
+}
+
+.media-quick-view-loras > summary:hover {
+  color: #d7ddc9;
 }
 
 .media-quick-view-loras .workflow-display-lora-item {
@@ -275,7 +306,7 @@
 .media-quick-view-prompt-source {
   display: block;
   margin-bottom: 0.75rem;
-  color: var(--muted);
+  color: #919783;
   font-size: 0.65rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -287,8 +318,9 @@
   border: 0;
   background: transparent;
   font: inherit;
-  font-size: 1rem;
-  line-height: 1.75;
+  color: #eceee4;
+  font-size: clamp(1rem, 1vw, 1.2rem);
+  line-height: 1.8;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -315,9 +347,13 @@
     padding: 0.625rem;
   }
 
-  .media-quick-view-toolbar .media-action-toolbar {
+  .media-quick-view-toolbar .media-quick-view-actions {
     order: 1;
     width: 100%;
+    margin-left: 0;
+  }
+
+  .media-quick-view-toolbar .media-action-toolbar {
     margin-left: 0;
   }
 

@@ -43,7 +43,7 @@ export function MediaActionIcon({
       {name === "download" ? <><path d="M12 3v12m-5-5 5 5 5-5" /><path d="M4 15v5h16v-5" /></> : null}
       {name === "slideshow" ? <><rect x="3" y="3" width="18" height="13" rx="2" /><path d="m10 7 5 3-5 3Z" fill="currentColor" stroke="none" /><path d="M12 16v5m-4 0 4-3 4 3" /></> : null}
       {name === "trash" ? <><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7" /></> : null}
-      {name === "restore" ? <><path d="M4 11a8 8 0 1 1 1.5 6M4 4v7h7" /><path d="M12 8v5l3 2" /></> : null}
+      {name === "restore" ? <path d="m9 5-6 6 6 6M3 11h12a6 6 0 0 1 0 12" transform="translate(0 -2)" /> : null}
     </svg>
   );
 }

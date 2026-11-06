@@ -23,6 +23,7 @@ import { hasShortcutModifier, isShortcutBlockedTarget } from "../lib/keyboard";
 import { mediaDetailQuery, preloadMediaAsset } from "../lib/media-detail-query";
 import { LoraListValue } from "./lora-list-value";
 import { MediaActionToolbar } from "./media-action-toolbar";
+import { MediaImageStage } from "./media-image-stage";
 import "./media-quick-view.css";
 
 export type MediaQuickViewProps = {
@@ -60,6 +61,8 @@ export function MediaQuickView({
   const lastWheelAt = useRef(0);
   const queryClient = useQueryClient();
   const media = useQuery(mediaDetailQuery(mediaId));
+  const [readyImageId, setReadyImageId] = useState<string | null>(null);
+  const frameReady = media.data?.id === mediaId && (media.data.kind === "video" || readyImageId === mediaId);
   const currentNavigation = navigation?.media_id === mediaId ? navigation : undefined;
   const navigationBlocked = navigationPending || (navigationError && !navigationOutsideScope);
   const previousId = navigationBlocked ? null : currentNavigation?.previous_id;
@@ -114,10 +117,12 @@ export function MediaQuickView({
         event.stopPropagation();
         onSeek(nextId, currentNavigation?.next_position ?? null);
       } else if (event.key.toLowerCase() === "f") {
+        if (!frameReady) return;
         event.preventDefault();
         event.stopPropagation();
         favoriteButtonRef.current?.click();
       } else if (event.key.toLowerCase() === "n") {
+        if (!frameReady) return;
         event.preventDefault();
         event.stopPropagation();
         ratingButtonRef.current?.click();
@@ -130,7 +135,7 @@ export function MediaQuickView({
     }
     dialog.addEventListener("keydown", onKeyDown);
     return () => dialog.removeEventListener("keydown", onKeyDown);
-  }, [currentNavigation, previousId, nextId, onSeek]);
+  }, [currentNavigation, previousId, nextId, onSeek, frameReady]);
 
   useEffect(() => {
     const stage = stageRef.current;
@@ -197,9 +202,12 @@ export function MediaQuickView({
           </button>
         </nav>
         {media.data ? (
-          <MediaActionToolbar media={media.data} slideshowHref={slideshowHref}
+          <fieldset className="media-quick-view-actions" disabled={!frameReady} inert={!frameReady || undefined}
+            aria-busy={!frameReady} aria-label={!frameReady ? "Media actions unavailable while image loads" : undefined}>
+            <MediaActionToolbar media={media.data} slideshowHref={slideshowHref}
             civitaiHref={civitaiHref} favoriteButtonRef={favoriteButtonRef}
             contentRatingShortcutRef={ratingButtonRef} />
+          </fieldset>
         ) : <span className="media-quick-view-toolbar-space" />}
         <div className="media-quick-view-exit-actions">
           <Link to={fullDetailHref} aria-label="Open full details" title="Open full details">
@@ -218,15 +226,13 @@ export function MediaQuickView({
           onAuxClick={(event) => {
             if (event.button !== 1 || isQuickViewInteractiveTarget(event.target)) return;
             event.preventDefault();
+            if (!frameReady) return;
             favoriteButtonRef.current?.click();
           }}>
-          {media.isPending ? <span className="muted" role="status">Loading media…</span>
-            : media.isError ? (
-              <div className="media-quick-view-error" role="alert">
-                <p>Media could not be loaded.</p>
-                <button type="button" onClick={() => void media.refetch()}>Retry</button>
-              </div>
-            ) : media.data ? <QuickViewMedia key={mediaId} media={media.data} videoRef={videoRef} /> : null}
+          {media.data?.kind === "video"
+            ? <QuickViewVideo key={mediaId} media={media.data} videoRef={videoRef} />
+            : <MediaImageStage mediaId={mediaId} media={media.data} failed={media.isError} onReady={setReadyImageId}
+              onRetry={() => void media.refetch()} />}
         </div>
         <aside className="media-quick-view-information" aria-label="Media information" key={mediaId}>
           <h2 id={titleId} className="media-quick-view-filename">{media.data?.original_filename ?? "Media preview"}</h2>
@@ -255,11 +261,10 @@ function isQuickViewInteractiveTarget(target: EventTarget | null): boolean {
   ));
 }
 
-function QuickViewMedia({ media, videoRef }: {
+function QuickViewVideo({ media, videoRef }: {
   media: MediaDetail;
   videoRef: RefObject<HTMLVideoElement | null>;
 }) {
-  const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     const video = videoRef.current;
@@ -271,18 +276,8 @@ function QuickViewMedia({ media, videoRef }: {
     };
   }, [videoRef]);
   return <>
-    {media.kind === "video" ? (
-      <video ref={videoRef} src={media.playback_url} controls playsInline preload="metadata"
+    <video ref={videoRef} src={media.playback_url} controls playsInline preload="metadata"
         poster={media.preview_url} aria-label={media.original_filename} onError={() => setFailed(true)} />
-    ) : (
-      <>
-        {!loaded && !failed ? <img className="media-quick-view-placeholder" src={media.preview_url}
-          alt="" aria-hidden="true" /> : null}
-        <img className="media-quick-view-original" src={media.original_url}
-          alt={media.original_filename} decoding="async" data-loaded={loaded}
-          onLoad={() => setLoaded(true)} onError={() => setFailed(true)} />
-      </>
-    )}
     {failed ? <p className="media-quick-view-asset-error" role="alert">
       The original media could not be loaded. <a href={media.original_url}>Open original</a>
     </p> : null}
