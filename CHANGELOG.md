@@ -4,6 +4,8 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.44 — 2026-11-07
+
 - Add the native iOS Photos-style Library, Viewer, and Prompt Registry flows, and
   add an exact Character LoRA filter to Library list and navigation APIs.
 - Add Favorite and NSFW cues to Prompt Registry usage cards, keep Trash labels
