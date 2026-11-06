@@ -295,5 +295,6 @@ describe("media view context", () => {
       "checkpoint-b",
     ]);
     expect(playlist.has("start_media")).toBe(false);
+    expect(playlist.get("start_media_id")).toBe("media-2");
   });
 });

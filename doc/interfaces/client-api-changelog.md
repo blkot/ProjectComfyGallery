@@ -4,6 +4,68 @@ This file is the cross-agent handoff for backend contract changes. Consumers sho
 also use the committed [OpenAPI snapshot](openapi.json); prose here explains
 semantics and compatibility that a schema alone cannot express.
 
+## Unreleased: Library slideshow start window
+
+`GET /api/v1/media/slideshow` adds optional `start_media_id=<uuid>`. The server
+locates that media in the same filtered/collection scope and complete requested
+sort order, including existing tie-breakers, before applying the playlist limit.
+The chosen media is therefore the first item even if it lies beyond the first
+2,000 results. The window contains it and subsequent items only, with no
+wraparound. A missing or out-of-scope start returns `404 MEDIA_NOT_IN_VIEW`.
+
+When combined with `shuffle=true`, the start remains pinned first and the rest
+of the bounded window is shuffled using the existing random-seed contract.
+Requests without `start_media_id` retain their previous behavior. Response
+`total` remains the size of the whole matching scope; `truncated` is true when
+any scope records are omitted, including those before the requested start.
+Clients must include the start ID in their playlist request/cache key, rather
+than locating it only within the first returned 2,000 items.
+
+## Unreleased: context-preserving Prompt Usage browsing
+
+**Database migration:** none.
+
+```http
+GET /api/v1/prompt-registry/lookup?prompt_id=<id>&group_by_character=true&preferred_character_lora=<name>
+GET /api/v1/prompt-registry/usage/navigation?prompt_id=<id>&media_id=<uuid>&preferred_character_lora=<name>
+GET /api/v1/prompt-registry/usage/slideshow?prompt_id=<id>&start_media_id=<uuid>&preferred_character_lora=<name>&limit=2000
+```
+
+- Lookup (including `GET /prompt-registry/{entry_id}`) adds optional
+  `group_by_character=false` and `preferred_character_lora` parameters. The
+  existing default remains `created_at DESC, id DESC`. Grouped lookup, Usage
+  navigation, and Usage slideshow all share the same deterministic order:
+  preferred character first, remaining character names alphabetically using
+  trimmed/lowercase keys, undefined character last, then
+  `created_at DESC, id DESC` inside each group. Clients must retain server order
+  rather than re-sorting groups with a different locale comparator.
+- `preferred_character_lora` changes ordering only; it does not discard any
+  media. All three routes also accept the existing `character_lora` **filter**,
+  matched case-insensitively with surrounding whitespace ignored. Prompt ID
+  parsing and numeric-index equivalence are unchanged.
+- Scope is the exact Prompt Usage history, including non-favorites and Trash,
+  not the broader Library or favorite-only heatmap count. Usage still works
+  when the Prompt ID has not been registered. Registration is needed for prompt
+  text, not for media navigation.
+- Navigation returns the existing `MediaNavigationResponse`: one-based
+  `position` and `total`, plus neighboring IDs/positions or `null` at boundaries.
+  A current media outside the prompt/character scope returns
+  `404 MEDIA_NOT_IN_VIEW`; invalid Prompt IDs return `422 PROMPT_ID_INVALID`.
+- Slideshow returns the existing `SlideshowPlaylistResponse`, with preview and
+  raw playback routes for each media. `limit` defaults to 2,000 and must be
+  between 1 and 2,000. `start_media_id`, when provided, is the first playlist
+  item; the limit is applied **after** locating it, even when it lies beyond the
+  initial playlist window. Out-of-scope starts return `404 MEDIA_NOT_IN_VIEW`.
+  There is no wraparound: only the requested media and following items are
+  returned. `total` is the whole matching scope; `truncated` indicates that the
+  response omits any scope records (including records before the requested
+  start). `shuffle` is false and `random_seed` is null; clients may shuffle the
+  returned playlist. An empty scope without a requested start returns `items: []`.
+
+The indexed path performs counting, ordering, pagination, and navigation in SQL,
+without loading workflow graphs. The existing trusted-evidence fallback is
+retained for installations whose materialized Prompt ID index is incomplete.
+
 ## Unreleased: Prompt Registry character-LoRA filter
 
 **Database migration:** `0021_prompt_index_character_lora`

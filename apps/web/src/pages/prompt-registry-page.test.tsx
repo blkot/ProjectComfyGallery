@@ -222,7 +222,7 @@ describe("PromptRegistryPage structured lookup", () => {
             preview_url: "/api/v1/media/m-a/preview",
             created_at: "2026-01-01T00:00:00Z",
           },
-        ],
+        ].sort((left, right) => (left.character_lora ?? "\uffff").localeCompare(right.character_lora ?? "\uffff")),
         total_media: 3,
         limit: 48,
         offset: 0,

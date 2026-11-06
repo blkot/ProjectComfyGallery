@@ -7,7 +7,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 
 import { SlideshowPage } from "./slideshow-page";
 
@@ -63,6 +63,29 @@ afterEach(() => {
 });
 
 describe("SlideshowPage", () => {
+  it("ignores malformed return URLs without crashing playback", async () => {
+    renderSlideshow("/slideshow?return_to=%2F%5C%5B");
+    expect(await screen.findByText("one.png")).toBeInTheDocument();
+  });
+
+  it("uses the prompt usage playlist and returns to its overlay at the last slide", async () => {
+    function ReturnLocation() { const location = useLocation(); return <output data-testid="return-location">{location.pathname}{location.search}</output>; }
+    const returnTo = "/registries/prompts?prompt_id=demo-7&preferred_character_lora=Alice&view_media=image-1";
+    const params = new URLSearchParams({ source: "prompt", prompt_id: "demo-7", preferred_character_lora: "Alice", start_media: "image-1", return_to: returnTo });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/slideshow?${params}`]}>
+      <Routes><Route path="/slideshow" element={<SlideshowPage />} /><Route path="/registries/prompts" element={<ReturnLocation />} /></Routes>
+    </MemoryRouter></QueryClientProvider>);
+    await screen.findByText("one.png");
+    expect(apiRequestMock).toHaveBeenCalledWith("/api/v1/prompt-registry/usage/slideshow?prompt_id=demo-7&preferred_character_lora=Alice&limit=2000&start_media_id=image-1");
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Exit" }));
+    const target = new URL((await screen.findByTestId("return-location")).textContent!, "http://gallery.test");
+    expect(target.pathname).toBe("/registries/prompts");
+    expect(target.searchParams.get("view_media")).toBe("video-1");
+    expect(target.searchParams.get("preferred_character_lora")).toBe("Alice");
+  });
+
   it("uses full-quality media for displayed and preloaded image slides", async () => {
     const secondImage = {
       id: "image-2",
@@ -143,7 +166,7 @@ describe("SlideshowPage", () => {
     expect(await screen.findByText("two.mp4")).toBeInTheDocument();
     expect(view.container.querySelector("video.slideshow-media")).not.toBeNull();
     expect(apiRequestMock).toHaveBeenCalledWith(
-      "/api/v1/media/slideshow?trash=false&limit=2000",
+      "/api/v1/media/slideshow?start_media_id=video-1&trash=false&limit=2000",
     );
   });
 

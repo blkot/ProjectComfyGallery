@@ -5,7 +5,7 @@ import {
   useQueryClient,
   type UseQueryResult,
 } from "@tanstack/react-query";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router";
 
 import {
@@ -18,6 +18,10 @@ import {
 } from "../lib/api";
 import { PromptRegistryHeatmap as PromptRegistryHeatmapView } from "../components/prompt-registry-heatmap";
 import { usePersistedState } from "../lib/use-persisted-state";
+import { useMediaOverlay } from "../lib/use-media-overlay";
+import { MediaOverlayHost } from "../components/media-overlay-host";
+import { browseDetailHref, browsePageQuery } from "../lib/media-browse";
+import { mediaPageSize, parseOffset } from "../lib/media-view";
 
 type PromptIdParts = {
   source: string;
@@ -61,7 +65,6 @@ function characterLoraLabel(value: string | null): string {
 
 function groupMediaByCharacterLora(
   media: PromptRegistryMedia[],
-  preferredCharacterLora: string | null,
 ): PromptRegistryMediaGroup[] {
   const groups = new Map<string, PromptRegistryMediaGroup>();
   for (const item of media) {
@@ -77,16 +80,8 @@ function groupMediaByCharacterLora(
       });
     }
   }
-  const preferredKey = preferredCharacterLora
-    ? characterLoraKey(preferredCharacterLora)
-    : null;
-  return [...groups.values()].sort((left, right) => {
-    if (preferredKey && left.key === preferredKey) return -1;
-    if (preferredKey && right.key === preferredKey) return 1;
-    if (left.key === UNDEFINED_CHARACTER_LORA_KEY) return 1;
-    if (right.key === UNDEFINED_CHARACTER_LORA_KEY) return -1;
-    return left.label.localeCompare(right.label);
-  });
+  // The server globally groups before pagination; preserve its navigation order.
+  return [...groups.values()];
 }
 
 function parsePromptId(value: string): PromptIdParts | null {
@@ -115,9 +110,12 @@ export function PromptRegistryPage() {
   const [prompt, setPrompt] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
   const [showRegister, setShowRegister] = useState(false);
-  const [promptSelectionContext, setPromptSelectionContext] =
-    useState<PromptSelectionContext | null>(null);
-  const [heatmapSource, setHeatmapSource] = useState("");
+  const preferredCharacterLora = searchParams.get("preferred_character_lora");
+  const usageOffset = parseOffset(searchParams.get("usage_offset"));
+  const returnMediaId = searchParams.get("return_media");
+  const restoredReturnRef = useRef("");
+  const overlay = useMediaOverlay("prompt");
+  const [heatmapSource, setHeatmapSource] = usePersistedState("comfy-gallery.prompt-heatmap.source", "", isStringPreference);
   const [heatmapCharacterLora, setHeatmapCharacterLora] = usePersistedState(
     heatmapCharacterLoraKey,
     "",
@@ -147,14 +145,28 @@ export function PromptRegistryPage() {
       ),
     staleTime: 60_000,
   });
+  const usageSearch = browsePageQuery("prompt", searchParams).toString();
   const lookup = useQuery({
-    queryKey: ["prompt-registry-lookup", promptId],
+    queryKey: ["prompt-registry-usage", usageSearch],
     queryFn: () =>
       apiRequest<PromptRegistryLookup>(
-        `/api/v1/prompt-registry/lookup?prompt_id=${encodeURIComponent(promptId)}`,
+        `/api/v1/prompt-registry/lookup?${usageSearch}`,
       ),
     enabled: Boolean(promptId.trim()),
+    staleTime: 30_000,
   });
+  useLayoutEffect(() => {
+    if (overlay.mediaId) { restoredReturnRef.current = ""; return; }
+    if (overlay.restoring || !returnMediaId || !lookup.data) return;
+    const key = `${usageSearch}:${returnMediaId}`;
+    if (restoredReturnRef.current === key) return;
+    const card = document.getElementById(`prompt-media-${returnMediaId}`);
+    if (!card) return;
+    restoredReturnRef.current = key;
+    const bounds = card.getBoundingClientRect();
+    if (bounds.top < 0 || bounds.bottom > window.innerHeight) card.scrollIntoView({ block: "center" });
+    card.focus({ preventScroll: true });
+  }, [lookup.data, usageSearch, returnMediaId, overlay.mediaId, overlay.restoring]);
   const heatmap = useQuery({
     queryKey: [
       "prompt-registry-heatmap",
@@ -220,6 +232,7 @@ export function PromptRegistryPage() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["prompt-registry-source-options"] }),
         queryClient.invalidateQueries({ queryKey: ["prompt-registry-lookup"] }),
+        queryClient.invalidateQueries({ queryKey: ["prompt-registry-usage"] }),
       ]);
     },
   });
@@ -230,23 +243,21 @@ export function PromptRegistryPage() {
   ) {
     const normalized = nextPromptId.trim();
     if (!normalized) return;
-    setPromptSelectionContext({
-      source,
-      characterLora: source === "heatmap" ? heatmapCharacterLora || null : null,
-    });
     setSearchParams((current) => {
       const next = new URLSearchParams(current);
       next.set("prompt_id", normalized);
       next.delete("q");
+      for (const key of ["usage_offset", "return_media", "view_media", "preferred_character_lora"]) next.delete(key);
+      if (source === "heatmap" && heatmapCharacterLora) next.set("preferred_character_lora", heatmapCharacterLora);
       return next;
     });
   }
 
   function clearPrompt() {
-    setPromptSelectionContext(null);
     setSearchParams((current) => {
       const next = new URLSearchParams(current);
       next.delete("prompt_id");
+      for (const key of ["usage_offset", "return_media", "view_media", "preferred_character_lora"]) next.delete(key);
       return next;
     });
   }
@@ -541,16 +552,24 @@ export function PromptRegistryPage() {
             <PromptRegistryDetail
               lookup={lookup}
               promptId={promptId}
-              preferredCharacterLora={
-                promptSelectionContext?.source === "heatmap"
-                  ? promptSelectionContext.characterLora
-                  : null
-              }
+              preferredCharacterLora={preferredCharacterLora}
               onClear={clearPrompt}
+              searchParams={searchParams}
+              onOpenMedia={overlay.open}
             />
+            {lookup.data && lookup.data.total_media > mediaPageSize ? <nav className="prompt-usage-pagination" aria-label="Prompt usage pages">
+              <button type="button" disabled={usageOffset === 0 || lookup.isFetching} onClick={() => setSearchParams((current) => {
+                const next = new URLSearchParams(current); next.set("usage_offset", String(Math.max(0, usageOffset - mediaPageSize))); next.delete("return_media"); return next;
+              })}>← Previous page</button>
+              <span>{Math.floor(usageOffset / mediaPageSize) + 1} / {Math.ceil(lookup.data.total_media / mediaPageSize)}</span>
+              <button type="button" disabled={usageOffset + mediaPageSize >= lookup.data.total_media || lookup.isFetching} onClick={() => setSearchParams((current) => {
+                const next = new URLSearchParams(current); next.set("usage_offset", String(usageOffset + mediaPageSize)); next.delete("return_media"); return next;
+              })}>Next page →</button>
+            </nav> : null}
           </div>
         </div>
       </div>
+      <MediaOverlayHost overlay={overlay} />
     </main>
   );
 }
@@ -560,11 +579,15 @@ function PromptRegistryDetail({
   promptId,
   preferredCharacterLora,
   onClear,
+  searchParams,
+  onOpenMedia,
 }: {
   lookup: UseQueryResult<PromptRegistryLookup>;
   promptId: string;
   preferredCharacterLora: string | null;
   onClear: () => void;
+  searchParams: URLSearchParams;
+  onOpenMedia: (id: string) => void;
 }) {
   if (!promptId.trim()) {
     return (
@@ -631,7 +654,7 @@ function PromptRegistryDetail({
       </div>
       {data.media.length ? (
         <div className="prompt-registry-usage-groups" data-testid="prompt-registry-usage-groups">
-          {groupMediaByCharacterLora(data.media, preferredCharacterLora).map((group) => {
+          {groupMediaByCharacterLora(data.media).map((group) => {
             const isPriority =
               Boolean(preferredCharacterLora) &&
               group.key === characterLoraKey(preferredCharacterLora);
@@ -660,8 +683,15 @@ function PromptRegistryDetail({
                           ? "prompt-registry-media-card is-trash"
                           : "prompt-registry-media-card"
                       }
-                      to={`/library/${media.id}`}
+                      to={browseDetailHref("prompt", searchParams, media.id)}
                       key={media.id}
+                      id={`prompt-media-${media.id}`}
+                      data-return-target={searchParams.get("return_media") === media.id || undefined}
+                      onClick={(event) => {
+                        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                        event.preventDefault();
+                        onOpenMedia(media.id);
+                      }}
                     >
                       <img src={media.preview_url} alt="" loading="lazy" />
                       <span>

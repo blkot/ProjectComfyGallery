@@ -12597,6 +12597,23 @@
           },
           {
             "in": "query",
+            "name": "start_media_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start Media Id"
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
@@ -15301,6 +15318,32 @@
           },
           {
             "in": "query",
+            "name": "group_by_character",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Group By Character",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "preferred_character_lora",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Preferred Character Lora"
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
@@ -15634,6 +15677,198 @@
         ]
       }
     },
+    "/api/v1/prompt-registry/usage/navigation": {
+      "get": {
+        "description": "Navigate the same grouped scope as lookup, not the complete Library.",
+        "operationId": "prompt_usage_navigation_api_v1_prompt_registry_usage_navigation_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Media Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "prompt_id",
+            "required": true,
+            "schema": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Prompt Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "character_lora",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Character Lora"
+            }
+          },
+          {
+            "in": "query",
+            "name": "preferred_character_lora",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Preferred Character Lora"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaNavigationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prompt Usage Navigation",
+        "tags": [
+          "prompt-registry"
+        ]
+      }
+    },
+    "/api/v1/prompt-registry/usage/slideshow": {
+      "get": {
+        "operationId": "prompt_usage_slideshow_api_v1_prompt_registry_usage_slideshow_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "prompt_id",
+            "required": true,
+            "schema": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Prompt Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "character_lora",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Character Lora"
+            }
+          },
+          {
+            "in": "query",
+            "name": "preferred_character_lora",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Preferred Character Lora"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start_media_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start Media Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 2000,
+              "maximum": 2000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlideshowPlaylistResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prompt Usage Slideshow",
+        "tags": [
+          "prompt-registry"
+        ]
+      }
+    },
     "/api/v1/prompt-registry/{entry_id}": {
       "get": {
         "operationId": "get_prompt_registry_entry_api_v1_prompt_registry__entry_id__get",
@@ -15662,6 +15897,32 @@
                 }
               ],
               "title": "Character Lora"
+            }
+          },
+          {
+            "in": "query",
+            "name": "group_by_character",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Group By Character",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "preferred_character_lora",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Preferred Character Lora"
             }
           },
           {

@@ -871,7 +871,146 @@ async def test_slideshow_playlist_resolves_collections_and_seeded_shuffle() -> N
         assert [item.id for item in videos.items] == [outside.id]
         assert videos.random_seed is None
 
+        from_here = await _slideshow_playlist(
+            session,
+            collection_id=collection.id,
+            sort="filename_asc",
+            start_media_id=images[0].id,
+            shuffle=True,
+            random_seed=42,
+        )
+        from_here_again = await _slideshow_playlist(
+            session,
+            collection_id=collection.id,
+            sort="filename_asc",
+            start_media_id=images[0].id,
+            shuffle=True,
+            random_seed=42,
+        )
+        assert from_here.items[0].id == images[0].id
+        assert {item.id for item in from_here.items[1:]} == {images[1].id, images[2].id}
+        assert from_here.random_seed == 42
+        assert [item.id for item in from_here.items] == [item.id for item in from_here_again.items]
+        assert from_here.total == 3 and from_here.truncated is False
+
+        for outside_id in [outside.id, uuid4()]:
+            with pytest.raises(ApiError) as error:
+                await _slideshow_playlist(
+                    session,
+                    collection_id=collection.id,
+                    start_media_id=outside_id,
+                )
+            assert error.value.status_code == 404
+            assert error.value.code == "MEDIA_NOT_IN_VIEW"
+        with pytest.raises(ApiError) as error:
+            await _slideshow_playlist(session, kind="video", start_media_id=images[0].id)
+        assert error.value.code == "MEDIA_NOT_IN_VIEW"
+
     await engine.dispose()
+
+
+@pytest.mark.parametrize(
+    "sort",
+    [
+        "file_created_desc",
+        "file_created_asc",
+        "imported_desc",
+        "imported_asc",
+        "filename_asc",
+        "filename_desc",
+        "size_desc",
+        "size_asc",
+    ],
+)
+async def test_slideshow_start_uses_the_full_sort_tie_breaker(sort: MediaSort) -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    try:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+            for index in range(1, 7):
+                session.add(
+                    Media(
+                        id=UUID(int=index),
+                        kind="image",
+                        status="ready",
+                        created_at=datetime(2026, 1, 1, tzinfo=UTC),
+                    )
+                )
+                session.add(
+                    MediaAsset(
+                        media_id=UUID(int=index),
+                        sha256=f"{index:064x}",
+                        byte_size=100,
+                        original_filename="same.png",
+                        managed_path=f"managed/{index}.png",
+                    )
+                )
+            await session.commit()
+            ordered = (
+                list(range(1, 7))
+                if sort in {"file_created_asc", "imported_asc"}
+                else list(range(6, 0, -1))
+            )
+            result = await _slideshow_playlist(
+                session,
+                sort=sort,
+                start_media_id=UUID(int=ordered[2]),
+                limit=2,
+            )
+            assert [item.id for item in result.items] == [UUID(int=index) for index in ordered[2:4]]
+            assert result.total == 6
+            assert result.truncated is True
+    finally:
+        await engine.dispose()
+
+
+async def test_slideshow_start_beyond_2000_is_first_item_without_wrapping() -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    try:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+            session.add_all(
+                [
+                    Media(
+                        id=UUID(int=index),
+                        kind="image",
+                        status="ready",
+                        created_at=datetime(2026, 1, 1, tzinfo=UTC),
+                    )
+                    for index in range(1, 2006)
+                ]
+            )
+            await session.flush()
+            session.add_all(
+                [
+                    MediaAsset(
+                        media_id=UUID(int=index),
+                        sha256=f"{index:064x}",
+                        byte_size=100,
+                        original_filename="same.png",
+                        managed_path=f"managed/{index}.png",
+                    )
+                    for index in range(1, 2006)
+                ]
+            )
+            await session.commit()
+            initial = await _slideshow_playlist(session, sort="imported_desc")
+            assert len(initial.items) == 2000
+            assert UUID(int=3) not in {item.id for item in initial.items}
+            result = await _slideshow_playlist(
+                session,
+                sort="imported_desc",
+                start_media_id=UUID(int=3),
+            )
+            assert [item.id for item in result.items] == [UUID(int=3), UUID(int=2), UUID(int=1)]
+            assert result.total == 2005
+            assert result.limit == 2000
+            assert result.truncated is True
+            assert all(item.playback_url.endswith("/playback") for item in result.items)
+    finally:
+        await engine.dispose()
 
 
 async def _slideshow_playlist(

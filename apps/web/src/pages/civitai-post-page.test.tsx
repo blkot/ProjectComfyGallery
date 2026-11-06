@@ -43,6 +43,13 @@ function setResponses(detail: MediaDetail = imageDetail, workflowData: WorkflowD
 }
 
 describe("CivitaiPostPage", () => {
+  it("returns to the originating Registry overlay without routing through full detail", async () => {
+    setResponses();
+    const returnTo = "/registries/prompts?prompt_id=source-0007&preferred_character_lora=Alice&view_media=media-1";
+    renderPage(`/library/media-1/civitai-post?return_to=${encodeURIComponent(returnTo)}`);
+    expect(await screen.findByRole("link", { name: "Back to media" })).toHaveAttribute("href", returnTo);
+  });
+
   it("uses only the two local record paths and prepares editable evidence", async () => {
     setResponses();
     renderPage();

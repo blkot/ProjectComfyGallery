@@ -8,6 +8,7 @@ import {
   type MediaDetail,
   type MediaPage,
 } from "../lib/api";
+import { refreshMediaMutationCaches } from "../lib/media-mutation-cache";
 
 const ratingOptions: ReadonlyArray<{
   value: ContentRating;
@@ -22,11 +23,13 @@ export function MediaContentRatingControl({
   rating,
   className = "",
   shortcutButtonRef,
+  compact = false,
 }: {
   mediaId: string;
   rating: ContentRating;
   className?: string;
   shortcutButtonRef?: RefObject<HTMLButtonElement | null>;
+  compact?: boolean;
 }) {
   const queryClient = useQueryClient();
   const mutation = useMutation({
@@ -67,7 +70,7 @@ export function MediaContentRatingControl({
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["media"] }),
         queryClient.invalidateQueries({ queryKey: ["media-navigation"] }),
-        queryClient.invalidateQueries({ queryKey: ["photo-wall"] }),
+        refreshMediaMutationCaches(queryClient, mediaId, { content_rating: response.content_rating }),
       ]);
     },
   });
@@ -78,11 +81,12 @@ export function MediaContentRatingControl({
       role="group"
       aria-label="Content safety rating"
       data-rating={rating}
+      data-compact={compact || undefined}
     >
       {ratingOptions.map((option) => (
         <button
           ref={
-            option.value === "nsfw" && rating !== "nsfw"
+            option.value !== rating
               ? shortcutButtonRef
               : undefined
           }
@@ -91,13 +95,13 @@ export function MediaContentRatingControl({
           type="button"
           aria-pressed={rating === option.value}
           aria-label={option.label}
-          aria-keyshortcuts={option.value === "nsfw" ? "N" : undefined}
+          aria-keyshortcuts={option.value !== rating ? "N" : undefined}
           disabled={mutation.isPending}
           key={option.value}
-          title={option.value === "nsfw" ? "Mark NSFW (N)" : option.label}
+          title={`${option.value === "nsfw" ? "Restricted (NSFW)" : "Normal (SFW)"}${option.value !== rating ? " · N" : ""}`}
           onClick={() => mutation.mutate(option.value)}
         >
-          {option.label}
+          {compact ? (option.value === "sfw" ? "N" : "R") : option.label}
         </button>
       ))}
       {mutation.isError ? (

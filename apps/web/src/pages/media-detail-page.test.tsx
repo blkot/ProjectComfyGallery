@@ -109,6 +109,41 @@ describe("MediaDetailPage spatial variant action", () => {
 });
 
 describe("MediaDetailPage image viewer", () => {
+  it("keeps full-detail seek, slideshow and return inside the originating prompt usage", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      const url = new URL(path, "http://gallery.test");
+      if (url.pathname === "/api/v1/prompt-registry/usage/navigation") {
+        const second = url.searchParams.get("media_id") === "media-2";
+        return Promise.resolve({ media_id: second ? "media-2" : "media-1", position: second ? 49 : 48, total: 49,
+          previous_id: second ? "media-1" : null, previous_position: second ? 48 : null,
+          next_id: second ? null : "media-2", next_position: second ? null : 49 });
+      }
+      if (url.pathname.endsWith("workflow-inputs")) return Promise.resolve(emptyWorkflowInputs);
+      if (url.pathname.endsWith("/workflow")) return Promise.resolve({});
+      if (/\/media\/media-[12]$/.test(url.pathname)) return Promise.resolve({ ...imageDetail, id: url.pathname.split("/").at(-1) });
+      throw new Error(`Unexpected request ${path}`);
+    });
+    const returnTo = "/registries/prompts?prompt_id=source-0007&preferred_character_lora=Alice&usage_offset=0";
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/library/media-1?return_to=${encodeURIComponent(returnTo)}`]}>
+      <Routes><Route path="/library/:mediaId" element={<MediaDetailPage />} /></Routes>
+    </MemoryRouter></QueryClientProvider>);
+    await screen.findByText("48 / 49");
+    fireEvent.click(screen.getByRole("button", { name: "Next media" }));
+    await screen.findByText("49 / 49");
+    const back = new URL(screen.getByRole("link", { name: "← Prompt usage" }).getAttribute("href")!, "http://gallery.test");
+    expect(back.pathname).toBe("/registries/prompts");
+    expect(back.searchParams.get("prompt_id")).toBe("source-0007");
+    expect(back.searchParams.get("preferred_character_lora")).toBe("Alice");
+    expect(back.searchParams.get("usage_offset")).toBe("48");
+    expect(back.searchParams.get("return_media")).toBe("media-2");
+    const slides = new URL(screen.getByRole("link", { name: "Start slideshow from here" }).getAttribute("href")!, "http://gallery.test");
+    expect(slides.searchParams.get("source")).toBe("prompt");
+    expect(slides.searchParams.get("prompt_id")).toBe("source-0007");
+    expect(slides.searchParams.get("start_media")).toBe("media-2");
+    expect(apiRequestMock.mock.calls.some(([path]) => /\/media\/[^/]+\/navigation/.test(path))).toBe(false);
+  });
+
   it("prefetches adjacent media details and image bytes without hover", async () => {
     const previousImage = {
       ...imageDetail,
@@ -222,9 +257,9 @@ describe("MediaDetailPage image viewer", () => {
     expect(
       actions.getByRole("group", { name: "Content safety rating" }),
     ).toBeInTheDocument();
-    expect(actions.getByRole("link", { name: "Download" })).toBeInTheDocument();
+    expect(actions.getByRole("link", { name: "Download original" })).toBeInTheDocument();
     expect(
-      actions.getByRole("link", { name: "Post To Civitai" }),
+      actions.getByRole("link", { name: "Post to Civitai" }),
     ).toHaveAttribute("href", "/library/media-1/civitai-post");
     expect(
       actions.getByRole("button", { name: "Move to Trash" }),
@@ -473,6 +508,7 @@ describe("MediaDetailPage image viewer", () => {
       if (path.startsWith("/api/v1/media/media-1/navigation?")) {
         return Promise.resolve({ media_id: "media-1", position: 1, total: 1, previous_id: null, previous_position: null, next_id: null, next_position: null });
       }
+      if (path.startsWith("/api/v1/media/media-1/workflow-inputs")) return Promise.resolve(emptyWorkflowInputs);
       if (path.startsWith("/api/v1/media/media-1/")) return Promise.resolve({});
       throw new Error(`Unexpected request: ${path}`);
     });
@@ -484,7 +520,7 @@ describe("MediaDetailPage image viewer", () => {
         </MemoryRouter>
       </QueryClientProvider>,
     );
-    expect(await screen.findByRole("link", { name: "Post To Civitai" })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: "Post to Civitai" })).toHaveAttribute(
       "href",
       "/library/media-1/civitai-post?q=portrait&sort=size_desc",
     );

@@ -46,4 +46,34 @@ describe("copyText", () => {
     expect(execCommand).toHaveBeenCalledWith("copy");
     expect(document.querySelector("textarea")).not.toBeInTheDocument();
   });
+
+  it("keeps the HTTP fallback inside an active modal and restores focus", async () => {
+    const dialog = document.createElement("dialog");
+    const button = document.createElement("button");
+    dialog.append(button);
+    dialog.setAttribute("open", "");
+    document.body.append(dialog);
+    button.focus();
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: undefined,
+    });
+    const execCommand = vi.fn(() => {
+      expect(dialog.querySelector("textarea")).not.toBeNull();
+      return true;
+    });
+    Object.defineProperty(document, "execCommand", {
+      configurable: true,
+      value: execCommand,
+    });
+
+    try {
+      await copyText("prompt from registry", dialog);
+      expect(execCommand).toHaveBeenCalledWith("copy");
+      expect(document.activeElement).toBe(button);
+      expect(dialog.querySelector("textarea")).toBeNull();
+    } finally {
+      dialog.remove();
+    }
+  });
 });
