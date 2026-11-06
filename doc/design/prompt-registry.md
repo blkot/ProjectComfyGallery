@@ -222,8 +222,10 @@ that have media, ordered by media count, so the client can offer a selector.
 The frontend provides a Prompt Registry page under **System → Prompt Registry**.
 Prompt IDs in Media Detail are links to that page, where the definition and all
 matching media can be inspected. The lookup response marks each media record with
-`is_trash` so the client can present Trash distinctly; Trash outranks Favorite in
-that presentation as well.
+`is_trash` so the client can present Trash distinctly, including when a trashed
+record is still favorited. Usage cards keep the filename as text, expose Favorite
+as an icon button, and show the compact `R` badge for NSFW media. Media type and
+Favorite state are not repeated as descriptive text; Trash remains labeled.
 
 ## Adapter mapping example
 

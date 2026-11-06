@@ -707,10 +707,6 @@ export function LibraryPage() {
         <div>
           <p className="kicker">Managed originals</p>
           <h1>Media library</h1>
-          <p className="muted">
-            Every card represents one content identity. Duplicate paths and
-            filenames remain source history, not duplicate media records.
-          </p>
         </div>
         <div className="page-header-actions">
           <button
