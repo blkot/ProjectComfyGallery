@@ -14,18 +14,14 @@ import {
   useSearchParams,
 } from "react-router";
 
-import { MediaFavoriteButton } from "../components/media-favorite-button";
-import { MediaContentRatingControl } from "../components/media-content-rating-control";
+import { MediaActionToolbar } from "../components/media-action-toolbar";
 import { MediaEvaluationPanel } from "../components/media-evaluation-panel";
-import { MediaSpatialPreferenceButton } from "../components/media-spatial-preference-button";
-import { MediaTrashButton } from "../components/media-trash-button";
 import { SpatialVariantAttachment } from "../components/spatial-variant-attachment";
 import { SpatialConversionPanel } from "../components/spatial-conversion-panel";
 import { WorkflowInspector } from "../components/workflow-inspector";
 import { WorkflowInputMedia } from "../components/workflow-input-media";
 import {
   apiRequest,
-  type MediaDetail,
   type MediaNavigation,
 } from "../lib/api";
 import { formatBytes, formatDate, formatDuration, titleCase } from "../lib/format";
@@ -34,8 +30,9 @@ import {
   mediaDetailHref,
   mediaLibraryHref,
   mediaNavigationQuery,
-  slideshowHref,
 } from "../lib/media-view";
+import { mediaDetailQuery, preloadMediaAsset } from "../lib/media-detail-query";
+import { browseDetailHref, browseNavigationPath, browseReturnHref, browseScope, browseSlideshowHref, safeBrowseHref } from "../lib/media-browse";
 
 export function MediaDetailPage() {
   const { mediaId = "" } = useParams();
@@ -49,31 +46,41 @@ export function MediaDetailPage() {
   const lastWheelNavigationAtRef = useRef(0);
   const activePanel =
     searchParams.get("panel") === "evaluation" ? "evaluation" : "information";
-  const navigationSearch = mediaNavigationQuery(searchParams).toString();
-  const libraryHref = mediaLibraryHref(searchParams);
+  const sourceHref = safeBrowseHref(searchParams.get("return_to"));
+  const sourceUrl = sourceHref ? new URL(sourceHref, "http://gallery.local") : null;
+  const browseKind = sourceUrl?.pathname === "/registries/prompts" ? "prompt" : "library";
+  const sourceParams = sourceUrl?.searchParams ?? searchParams;
+  const navigationSearch = (sourceUrl ? browseScope(browseKind, sourceParams) : mediaNavigationQuery(searchParams)).toString();
   const media = useQuery({
     ...mediaDetailQuery(mediaId),
     enabled: Boolean(mediaId),
   });
   const navigation = useQuery({
-    queryKey: ["media-navigation", mediaId, navigationSearch],
+    queryKey: [browseKind === "prompt" ? "prompt-registry-usage-navigation" : "media-navigation", mediaId, navigationSearch],
     queryFn: () =>
       apiRequest<MediaNavigation>(
-        `/api/v1/media/${mediaId}/navigation?${navigationSearch}`,
+        browseNavigationPath(browseKind, mediaId, new URLSearchParams(navigationSearch)),
       ),
     enabled: Boolean(mediaId),
   });
+  const libraryHref = sourceUrl
+    ? browseReturnHref(browseKind, sourceParams, mediaId, navigation.data?.position)
+    : mediaLibraryHref(searchParams);
+  function detailHref(id: string, position: number | null) {
+    if (!sourceUrl) return mediaDetailHref(id, searchParams, position);
+    const href = new URL(browseDetailHref(browseKind, sourceParams, id, position), "http://gallery.local");
+    if (activePanel === "evaluation") href.searchParams.set("panel", "evaluation");
+    return `${href.pathname}${href.search}`;
+  }
   const previousHref = navigation.data?.previous_id
-    ? mediaDetailHref(
+    ? detailHref(
         navigation.data.previous_id,
-        searchParams,
         navigation.data.previous_position,
       )
     : null;
   const nextHref = navigation.data?.next_id
-    ? mediaDetailHref(
+    ? detailHref(
         navigation.data.next_id,
-        searchParams,
         navigation.data.next_position,
       )
     : null;
@@ -212,21 +219,14 @@ export function MediaDetailPage() {
       <main className="page">
         <p className="notice error-notice">The media record could not be loaded.</p>
         <Link className="secondary-button link-button" to={libraryHref}>
-          Back to library
+          Back to {browseKind === "prompt" ? "prompt usage" : "library"}
         </Link>
       </main>
     );
   }
 
   const item = media.data;
-  const mediaSlideshowHref = slideshowHref(searchParams, {
-    source: "filter",
-    collectionId: "",
-    shuffle: false,
-    intervalSeconds: 8,
-    startMediaId: item.id,
-    returnTo: `${location.pathname}${location.search}`,
-  });
+  const mediaSlideshowHref = browseSlideshowHref(browseKind, sourceParams, item.id, `${location.pathname}${location.search}`);
   return (
     <main
       className="media-record-workspace"
@@ -235,7 +235,7 @@ export function MediaDetailPage() {
       <section className="media-record-preview" aria-label="Media preview">
         <header className="media-record-toolbar">
           <Link className="media-record-back" to={libraryHref}>
-            ← Library
+            ← {browseKind === "prompt" ? "Prompt usage" : "Library"}
           </Link>
           <nav
             className="media-view-navigation"
@@ -281,46 +281,9 @@ export function MediaDetailPage() {
               →
             </button>
           </nav>
-          <div
-            className="media-record-actions"
-            role="group"
-            aria-label="Media actions"
-          >
-            <MediaFavoriteButton
-              buttonRef={favoriteButtonRef}
-              mediaId={item.id}
-              favorite={item.favorite}
-              className="media-record-favorite"
-              showLabel
-            />
-            <MediaContentRatingControl
-              mediaId={item.id}
-              rating={item.content_rating}
-              className="media-record-content-rating"
-              shortcutButtonRef={contentRatingShortcutRef}
-            />
-            <MediaSpatialPreferenceButton
-              mediaId={item.id}
-              preferred={item.prefer_spatial_playback}
-              className="media-record-spatial"
-            />
-            <a
-              className="media-record-download"
-              href={`${item.original_url}?download=true`}
-            >
-              Download
-            </a>
-            <Link className="media-record-download" to={mediaSlideshowHref}>
-              Start slideshow from here
-            </Link>
-            <Link
-              className="media-record-download"
-              to={`/library/${item.id}/civitai-post${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
-            >
-              Post To Civitai
-            </Link>
-            <MediaTrashButton mediaId={item.id} isTrash={item.is_trash} />
-          </div>
+          <MediaActionToolbar media={item} favoriteButtonRef={favoriteButtonRef} contentRatingShortcutRef={contentRatingShortcutRef}
+            slideshowHref={mediaSlideshowHref}
+            civitaiHref={`/library/${item.id}/civitai-post${searchParams.toString() ? `?${searchParams.toString()}` : ""}`} />
         </header>
         <div
           className="media-record-stage"
@@ -589,33 +552,4 @@ export function MediaDetailPage() {
       </aside>
     </main>
   );
-}
-
-const mediaDetailStaleTime = 30_000;
-
-function mediaDetailQuery(mediaId: string) {
-  return {
-    queryKey: ["media-detail", mediaId] as const,
-    queryFn: () => apiRequest<MediaDetail>(`/api/v1/media/${mediaId}`),
-    staleTime: mediaDetailStaleTime,
-  };
-}
-
-function preloadMediaAsset(item: MediaDetail): void {
-  if (typeof document === "undefined") return;
-  if (item.kind === "image") {
-    const image = new Image();
-    image.decoding = "async";
-    image.src = item.original_url;
-    return;
-  }
-
-  const video = document.createElement("video");
-  video.preload = "metadata";
-  video.src = item.playback_url;
-  try {
-    video.load();
-  } catch {
-    // jsdom and older browsers may not implement detached media loading.
-  }
 }

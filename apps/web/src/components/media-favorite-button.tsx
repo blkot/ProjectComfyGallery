@@ -7,6 +7,8 @@ import {
   type MediaFavorite,
   type MediaPage,
 } from "../lib/api";
+import { refreshMediaMutationCaches } from "../lib/media-mutation-cache";
+import { MediaActionIcon } from "./media-action-icon";
 
 export function MediaFavoriteButton({
   mediaId,
@@ -14,12 +16,14 @@ export function MediaFavoriteButton({
   className = "",
   buttonRef,
   showLabel = false,
+  compact = false,
 }: {
   mediaId: string;
   favorite: boolean;
   className?: string;
   buttonRef?: RefObject<HTMLButtonElement | null>;
   showLabel?: boolean;
+  compact?: boolean;
 }) {
   const queryClient = useQueryClient();
   const mutation = useMutation({
@@ -57,6 +61,7 @@ export function MediaFavoriteButton({
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["media"] }),
         queryClient.invalidateQueries({ queryKey: ["media-navigation"] }),
+        refreshMediaMutationCaches(queryClient, mediaId, { favorite: response.favorite }),
       ]);
     },
   });
@@ -70,14 +75,18 @@ export function MediaFavoriteButton({
       aria-label={label}
       aria-pressed={favorite}
       data-labeled={showLabel || undefined}
+      data-compact={compact || undefined}
+      aria-keyshortcuts={buttonRef ? "F" : undefined}
       disabled={mutation.isPending}
       data-error={mutation.isError || undefined}
       title={mutation.isError ? `${label} — update failed` : label}
       onClick={() => mutation.mutate(!favorite)}
     >
-      <span className="media-favorite-glyph" aria-hidden="true">
-        {favorite ? "★" : "☆"}
-      </span>
+      {compact ? <MediaActionIcon name="favorite" filled={favorite} /> : (
+        <span className="media-favorite-glyph" aria-hidden="true">
+          {favorite ? "★" : "☆"}
+        </span>
+      )}
       {showLabel ? (
         <span className="media-favorite-text" aria-hidden="true">
           {favorite ? "Favorited" : "Favorite"}

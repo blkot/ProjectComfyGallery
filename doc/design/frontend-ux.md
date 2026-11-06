@@ -69,6 +69,10 @@ visualizations, and media drill-down.
 
 ### Gallery view
 
+Library and Prompt Registry usage now share a source-preserving quick-view modal.
+See [Media quick view](media-quick-view.md) for scope, URL/history, close-position,
+shared actions and deployment contracts. Full record routes remain available.
+
 - Server-paginated grid (48 records per page in Phase 1; virtualization remains an
   option if measured gallery behavior requires it). Previous/Next and direct
   one-based page navigation are duplicated above and below the grid. A page change

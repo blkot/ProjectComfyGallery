@@ -6,15 +6,19 @@ import {
   type MediaPage,
   type MediaPlaybackPreference,
 } from "../lib/api";
+import { refreshMediaMutationCaches } from "../lib/media-mutation-cache";
+import { MediaActionIcon } from "./media-action-icon";
 
 export function MediaSpatialPreferenceButton({
   mediaId,
   preferred,
   className = "",
+  compact = false,
 }: {
   mediaId: string;
   preferred: boolean;
   className?: string;
+  compact?: boolean;
 }) {
   const queryClient = useQueryClient();
   const mutation = useMutation({
@@ -64,6 +68,7 @@ export function MediaSpatialPreferenceButton({
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["media"] }),
         queryClient.invalidateQueries({ queryKey: ["media-navigation"] }),
+        refreshMediaMutationCaches(queryClient, mediaId),
       ]);
     },
   });
@@ -78,13 +83,15 @@ export function MediaSpatialPreferenceButton({
       aria-label={action}
       aria-pressed={preferred}
       data-preference={preferred ? "spatial" : "standard"}
+      data-compact={compact || undefined}
       disabled={mutation.isPending}
       data-error={mutation.isError || undefined}
       title={mutation.isError ? `${action} — update failed` : action}
       onClick={() => mutation.mutate(!preferred)}
     >
-      <span aria-hidden="true">◉</span>
-      {preferred ? "Spatial preferred" : "Standard preferred"}
+      {compact ? <MediaActionIcon name="vision-pro" /> : (
+        <><span aria-hidden="true">◉</span>{preferred ? "Spatial preferred" : "Standard preferred"}</>
+      )}
     </button>
   );
 }

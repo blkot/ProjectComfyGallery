@@ -34,6 +34,7 @@ export type LibraryFilterExpression = {
 
 export function mediaListQuery(search: URLSearchParams): URLSearchParams {
   const result = new URLSearchParams(search);
+  for (const key of ["view_media", "return_to", "usage_offset", "preferred_character_lora", "character_lora", "prompt_id", "heatmap_source", "heatmap_character", "heatmap_not_faved", "heatmap_trash"]) result.delete(key);
   if (
     !result.has("prefer_spatial_playback") &&
     result.has("spatial_view_preferred")
@@ -162,6 +163,8 @@ export function slideshowPlaylistQuery(
   copySingle(slideshowSearch, result, "sort");
   copySingle(slideshowSearch, result, "shuffle");
   copySingle(slideshowSearch, result, "random_seed");
+  const startMediaId = slideshowSearch.get("start_media");
+  if (startMediaId) result.set("start_media_id", startMediaId);
   normalizeTrashQuery(result);
   result.set("limit", "2000");
   return result;
@@ -173,6 +176,7 @@ export function mediaDetailHref(
   position?: number | null,
 ): string {
   const result = mediaListQuery(search);
+  if (search.has("return_to")) result.set("return_to", search.get("return_to")!);
   preserveTrashContext(search, result);
   result.set(mediaReturnParam, mediaId);
   if (position && position > 0) {

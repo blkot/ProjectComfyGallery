@@ -4,6 +4,9 @@ import type { CSSProperties } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 
 import { MediaFavoriteButton } from "../components/media-favorite-button";
+import { MediaOverlayHost } from "../components/media-overlay-host";
+import { useMediaOverlay } from "../lib/use-media-overlay";
+import { browseDetailHref } from "../lib/media-browse";
 import {
   apiRequest,
   type ContentRatingFilter,
@@ -37,7 +40,6 @@ import { hasShortcutModifier, isShortcutBlockedTarget } from "../lib/keyboard";
 import {
   defaultMediaSort,
   libraryFilterExpression,
-  mediaDetailHref,
   mediaListQuery,
   mediaPageSize,
   mediaReturnParam,
@@ -321,12 +323,14 @@ export function LibraryPage() {
   const offset = parseOffset(searchParams.get("offset"));
   const returnMediaId = searchParams.get(mediaReturnParam) ?? "";
   const requestSearch = mediaListQuery(searchParams).toString();
+  const overlay = useMediaOverlay("library");
   const selectedCount = selectionCount(selection);
   const selectionActive = isSelectionActive(selection);
 
   const media = useQuery({
     queryKey: ["media", requestSearch],
     queryFn: () => apiRequest<MediaPage>(`/api/v1/media?${requestSearch}`),
+    staleTime: 30_000,
   });
   const libraryPageCount = Math.max(
     1,
@@ -525,7 +529,7 @@ export function LibraryPage() {
   });
 
   useLayoutEffect(() => {
-    if (!returnMediaId || !media.data?.items.length) return;
+    if (overlay.mediaId || overlay.restoring || !returnMediaId || !media.data?.items.length) return;
     const restorationKey = `${requestSearch}:${returnMediaId}`;
     if (restoredReturnRef.current === restorationKey) return;
 
@@ -533,9 +537,14 @@ export function LibraryPage() {
     if (!card) return;
 
     restoredReturnRef.current = restorationKey;
-    card.scrollIntoView({ block: "center" });
+    const bounds = card.getBoundingClientRect();
+    if (bounds.top < 0 || bounds.bottom > window.innerHeight) card.scrollIntoView({ block: "center" });
     card.focus({ preventScroll: true });
-  }, [media.data?.items, requestSearch, returnMediaId]);
+  }, [media.data?.items, requestSearch, returnMediaId, overlay.mediaId, overlay.restoring]);
+
+  useEffect(() => {
+    if (overlay.mediaId) restoredReturnRef.current = null;
+  }, [overlay.mediaId]);
 
   useEffect(() => {
     try {
@@ -590,8 +599,10 @@ export function LibraryPage() {
     function handleKeyboardPageNavigation(event: KeyboardEvent) {
       if (
         event.repeat ||
+        event.defaultPrevented ||
         hasShortcutModifier(event) ||
         slideshowOpen ||
+        overlay.mediaId ||
         isShortcutBlockedTarget(event.target)
       ) {
         return;
@@ -613,6 +624,7 @@ export function LibraryPage() {
     currentLibraryPage,
     libraryPageCount,
     slideshowOpen,
+    overlay.mediaId,
   ]);
 
   function changeLibraryParameter(name: string, value: string) {
@@ -1489,14 +1501,14 @@ export function LibraryPage() {
                               : "Spatial preferred"}
                         </span>
                       ) : null}
-                      <span
+                      {item.is_trash || item.evaluation_state !== "not_started" ? <span
                         className="evaluation-badge"
                         data-status={item.evaluation_state}
                       >
                         {item.is_trash
                           ? "Trash"
                           : titleCase(item.evaluation_state)}
-                      </span>
+                      </span> : null}
                     </div>
                   </div>
                   <div className="media-card-body">
@@ -1606,8 +1618,13 @@ export function LibraryPage() {
                     </button>
                   ) : (
                     <Link
-                      to={mediaDetailHref(item.id, searchParams)}
+                      to={browseDetailHref("library", searchParams, item.id)}
                       aria-label="Open media record"
+                      onClick={(event) => {
+                        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                        event.preventDefault();
+                        overlay.open(item.id);
+                      }}
                     >
                       {cardContent}
                     </Link>
@@ -1627,6 +1644,7 @@ export function LibraryPage() {
           ) : null}
         </div>
       </div>
+      <MediaOverlayHost overlay={overlay} />
     </main>
   );
 }

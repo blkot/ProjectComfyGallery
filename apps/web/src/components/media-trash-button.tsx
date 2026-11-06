@@ -7,13 +7,19 @@ import {
   type MediaEvaluationContext,
   type MediaPage,
 } from "../lib/api";
+import { refreshMediaMutationCaches } from "../lib/media-mutation-cache";
+import { MediaActionIcon } from "./media-action-icon";
 
 export function MediaTrashButton({
   mediaId,
   isTrash,
+  compact = false,
+  className = "",
 }: {
   mediaId: string;
   isTrash: boolean;
+  compact?: boolean;
+  className?: string;
 }) {
   const queryClient = useQueryClient();
   const contextKey = ["media-evaluation-context", mediaId] as const;
@@ -75,6 +81,7 @@ export function MediaTrashButton({
         queryClient.invalidateQueries({ queryKey: ["review-summary"] }),
         queryClient.invalidateQueries({ queryKey: ["review-sessions"] }),
         queryClient.invalidateQueries({ queryKey: ["review-item"] }),
+        refreshMediaMutationCaches(queryClient, mediaId, { is_trash: updated.is_trash }),
       ]);
     },
   });
@@ -83,15 +90,16 @@ export function MediaTrashButton({
   return (
     <span className="media-trash-action">
       <button
-        className="media-trash-button"
+        className={`media-trash-button ${className}`.trim()}
         type="button"
         aria-label={label}
         data-trashed={isTrash || undefined}
+        data-compact={compact || undefined}
         disabled={mutation.isPending}
         title={mutation.isError ? `${label} — update failed` : label}
         onClick={() => mutation.mutate(isTrash)}
       >
-        {mutation.isPending ? "Updating…" : isTrash ? "Restore" : "Trash"}
+        {compact ? <MediaActionIcon name={isTrash ? "restore" : "trash"} /> : mutation.isPending ? "Updating…" : isTrash ? "Restore" : "Trash"}
       </button>
       {mutation.isError ? (
         <span className="sr-only" role="alert">

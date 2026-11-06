@@ -1,4 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
   act,
   cleanup,
@@ -12,6 +14,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router";
 
 import { LibraryPage } from "./library-page";
+
+const libraryStylesheet = readFileSync(
+  resolve(process.cwd(), "src/styles.css"),
+  "utf8",
+);
 
 const { apiRequestMock } = vi.hoisted(() => ({
   apiRequestMock: vi.fn(),
@@ -581,12 +588,40 @@ describe("LibraryPage controls sidebar", () => {
       }),
     ).toHaveTextContent("R");
     expect(within(card as HTMLElement).queryByText(/WF/)).not.toBeInTheDocument();
+    expect(within(card as HTMLElement).queryByText("Not started")).not.toBeInTheDocument();
     expect(
       within(card as HTMLElement).queryByText("Warning"),
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Remove from favorites" }),
     ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("keeps the rating badge in the action row beside the favorite badge", async () => {
+    const item = mediaFixture({
+      id: "media-card-badge-layout",
+      content_rating: "nsfw",
+      favorite: true,
+    });
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path.startsWith("/api/v1/media?")) {
+        return Promise.resolve({ items: [item], total: 1, limit: 48, offset: 0 });
+      }
+      return Promise.resolve([]);
+    });
+
+    renderLibrary();
+
+    const card = (await screen.findByRole("link", { name: "Open media record" }))
+      .closest("article");
+    expect(card).not.toBeNull();
+    const actions = card?.querySelector(".media-card-actions");
+    const rating = actions?.querySelector(".content-rating-badge");
+    expect(actions).not.toBeNull();
+    expect(rating).not.toBeNull();
+    expect(libraryStylesheet).toMatch(
+      /\.media-card-actions\s+\.content-rating-badge\s*\{[^}]*position:\s*static;/s,
+    );
   });
 
   it("keeps filter selection exceptions in the bulk payload", async () => {

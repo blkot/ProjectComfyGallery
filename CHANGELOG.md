@@ -4,6 +4,12 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.43 — 2026-11-06
+
+- Add a source-preserving media quick view for Library and Prompt Registry, with
+  shared media actions, context-aware navigation and slideshows, and grouped
+  Prompt Registry usage APIs.
+
 ## 0.1.0-rc.42 — 2026-11-06
 
 - Make persisted media content ratings default to SFW, remove the unmarked/clear

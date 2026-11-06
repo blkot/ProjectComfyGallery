@@ -5,12 +5,18 @@ from typing import cast as typing_cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import and_, exists, func, or_, select, tuple_
+from sqlalchemy import Select, and_, case, exists, func, or_, select, tuple_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.sql.elements import ColumnElement
 
 from comfy_gallery_api.dependencies import CsrfPrincipalDep, DbSessionDep, PrincipalDep
 from comfy_gallery_api.errors import ApiError
+from comfy_gallery_api.media_schemas import (
+    MediaNavigationResponse,
+    SlideshowItemResponse,
+    SlideshowPlaylistResponse,
+)
 from comfy_gallery_api.prompt_registry_schemas import (
     PromptRegistryCharacterLoraResponse,
     PromptRegistryEntryRequest,
@@ -416,23 +422,22 @@ async def lookup_prompt_registry_entry(
     session: DbSessionDep,
     prompt_id: str = Query(min_length=1, max_length=512),
     character_lora: str | None = None,
+    group_by_character: bool = False,
+    preferred_character_lora: str | None = None,
     limit: int = Query(default=48, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> PromptRegistryLookupResponse:
-    identifier = parse_prompt_id(prompt_id)
-    if identifier is None:
-        raise ApiError(
-            status_code=422,
-            code="PROMPT_ID_INVALID",
-            message="Prompt ID must use the form 'source - index'.",
-        )
+    identifier = _usage_identifier(prompt_id)
     entry = await _find_entry(session, identifier)
-    matching_media = await _filter_media_by_character(
+    query = await _usage_query(session, identifier, character_lora)
+    total, media = await _usage_page(
         session,
-        await _matching_media(session, identifier),
-        _normalized_character_lora(character_lora),
+        query,
+        limit=limit,
+        offset=offset,
+        group_by_character=group_by_character,
+        preferred_character_lora=preferred_character_lora,
     )
-    media = matching_media[offset : offset + limit]
     display_identifier = (
         PromptIdentifier(source=entry.source, index=entry.entry_index)
         if entry is not None
@@ -446,7 +451,7 @@ async def lookup_prompt_registry_entry(
         prompt_id=display_identifier.display,
         source=display_identifier.source,
         index=display_identifier.index,
-        entry=_entry_response(entry, media_count=len(matching_media)) if entry else None,
+        entry=_entry_response(entry, media_count=total) if entry else None,
         media=[
             _media_response(
                 row,
@@ -455,9 +460,96 @@ async def lookup_prompt_registry_entry(
             )
             for row in media
         ],
-        total_media=len(matching_media),
+        total_media=total,
         limit=limit,
         offset=offset,
+    )
+
+
+@router.get("/usage/navigation", response_model=MediaNavigationResponse)
+async def prompt_usage_navigation(
+    _principal: PrincipalDep,
+    session: DbSessionDep,
+    media_id: UUID,
+    prompt_id: str = Query(min_length=1, max_length=512),
+    character_lora: str | None = None,
+    preferred_character_lora: str | None = None,
+) -> MediaNavigationResponse:
+    """Navigate the same grouped scope as lookup, not the complete Library."""
+
+    query = await _usage_query(session, _usage_identifier(prompt_id), character_lora)
+    return await _usage_navigation(session, query, media_id, preferred_character_lora)
+
+
+@router.get("/usage/slideshow", response_model=SlideshowPlaylistResponse)
+async def prompt_usage_slideshow(
+    _principal: PrincipalDep,
+    session: DbSessionDep,
+    prompt_id: str = Query(min_length=1, max_length=512),
+    character_lora: str | None = None,
+    preferred_character_lora: str | None = None,
+    start_media_id: UUID | None = None,
+    limit: int = Query(default=2_000, ge=1, le=2_000),
+) -> SlideshowPlaylistResponse:
+    query = await _usage_query(session, _usage_identifier(prompt_id), character_lora)
+    if start_media_id is not None:
+        order = _usage_order(True, preferred_character_lora)
+        ranked = query.with_only_columns(
+            Media.id,
+            func.row_number().over(order_by=order).label("position"),
+            func.count().over().label("total"),
+        ).cte("ranked_prompt_usage")
+        start_position = (
+            select(ranked.c.position).where(ranked.c.id == start_media_id).scalar_subquery()
+        )
+        # Keep start resolution and page selection in one database snapshot.
+        window = (
+            await session.execute(
+                select(Media, MediaAsset, ranked.c.total)
+                .join(MediaAsset, MediaAsset.media_id == Media.id)
+                .join(ranked, ranked.c.id == Media.id)
+                .where(ranked.c.position >= start_position)
+                .order_by(ranked.c.position)
+                .limit(limit)
+            )
+        ).all()
+        if not window:
+            raise ApiError(
+                status_code=404,
+                code="MEDIA_NOT_IN_VIEW",
+                message="The starting media is not part of this prompt usage view.",
+            )
+        total = int(window[0][2])
+        rows = [(media, asset) for media, asset, _total in window]
+    else:
+        total, rows = await _usage_page(
+            session,
+            query,
+            limit=limit,
+            offset=0,
+            group_by_character=True,
+            preferred_character_lora=preferred_character_lora,
+        )
+    return SlideshowPlaylistResponse(
+        items=[
+            SlideshowItemResponse(
+                id=media.id,
+                kind=media.kind,
+                status=media.status,
+                original_filename=asset.original_filename,
+                width=media.width,
+                height=media.height,
+                duration_seconds=media.duration_seconds,
+                preview_url=f"/api/v1/media/{media.id}/preview",
+                playback_url=f"/api/v1/media/{media.id}/playback",
+            )
+            for media, asset in rows
+        ],
+        total=total,
+        limit=limit,
+        truncated=total > len(rows),
+        shuffle=False,
+        random_seed=None,
     )
 
 
@@ -467,6 +559,8 @@ async def get_prompt_registry_entry(
     _principal: PrincipalDep,
     session: DbSessionDep,
     character_lora: str | None = None,
+    group_by_character: bool = False,
+    preferred_character_lora: str | None = None,
     limit: int = Query(default=48, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> PromptRegistryLookupResponse:
@@ -478,12 +572,15 @@ async def get_prompt_registry_entry(
             message="The prompt registry entry was not found.",
         )
     identifier = PromptIdentifier(source=entry.source, index=entry.entry_index)
-    matching_media = await _filter_media_by_character(
+    query = await _usage_query(session, identifier, character_lora)
+    total, media = await _usage_page(
         session,
-        await _matching_media(session, identifier),
-        _normalized_character_lora(character_lora),
+        query,
+        limit=limit,
+        offset=offset,
+        group_by_character=group_by_character,
+        preferred_character_lora=preferred_character_lora,
     )
-    media = matching_media[offset : offset + limit]
     trashed_ids = await _trashed_media_ids(session, [media.id for media, _asset in media])
     character_loras = await _character_loras_for_media(
         session, [media.id for media, _asset in media]
@@ -492,7 +589,7 @@ async def get_prompt_registry_entry(
         prompt_id=identifier.display,
         source=identifier.source,
         index=identifier.index,
-        entry=_entry_response(entry, media_count=len(matching_media)),
+        entry=_entry_response(entry, media_count=total),
         media=[
             _media_response(
                 row,
@@ -501,7 +598,7 @@ async def get_prompt_registry_entry(
             )
             for row in media
         ],
-        total_media=len(matching_media),
+        total_media=total,
         limit=limit,
         offset=offset,
     )
@@ -840,38 +937,122 @@ def _prompt_registry_upsert_statement(
     )
 
 
-async def _matching_media(
+def _usage_identifier(prompt_id: str) -> PromptIdentifier:
+    identifier = parse_prompt_id(prompt_id)
+    if identifier is None:
+        raise ApiError(
+            status_code=422,
+            code="PROMPT_ID_INVALID",
+            message="Prompt ID must use the form 'source - index'.",
+        )
+    return identifier
+
+
+async def _usage_query(
     session: DbSessionDep,
     identifier: PromptIdentifier,
-) -> list[tuple[Media, MediaAsset]]:
-    snapshot_count = int(
-        await session.scalar(select(func.count()).select_from(WorkflowSnapshot)) or 0
+    character_lora: str | None,
+) -> Select[tuple[Media, MediaAsset]]:
+    """Use the materialized index; preserve legacy evidence recovery during backfill."""
+
+    query = (
+        select(Media, MediaAsset)
+        .join(MediaAsset, MediaAsset.media_id == Media.id)
+        .outerjoin(MediaPromptIndex, MediaPromptIndex.media_id == Media.id)
     )
-    indexed_count = int(
-        await session.scalar(
-            select(func.count())
-            .select_from(MediaPromptIndex)
-            .join(WorkflowSnapshot, WorkflowSnapshot.media_id == MediaPromptIndex.media_id)
-        )
-        or 0
-    )
-    if snapshot_count == indexed_count:
-        rows = list(
-            (
-                await session.execute(
-                    select(Media, MediaAsset)
-                    .join(MediaAsset, MediaAsset.media_id == Media.id)
-                    .join(MediaPromptIndex, MediaPromptIndex.media_id == Media.id)
-                    .where(
-                        MediaPromptIndex.source_key == identifier.source_key,
-                        MediaPromptIndex.index_key == identifier.index_key,
+    missing_index = await session.scalar(
+        select(
+            exists(
+                select(WorkflowSnapshot.id).where(
+                    ~exists(
+                        select(MediaPromptIndex.media_id).where(
+                            MediaPromptIndex.media_id == WorkflowSnapshot.media_id
+                        )
                     )
-                    .order_by(Media.created_at.desc(), Media.id.desc())
                 )
-            ).all()
+            )
         )
-        return [(media, asset) for media, asset in rows]
-    return await _matching_media_fallback(session, identifier)
+    )
+    if missing_index:
+        recovered = await _matching_media_fallback(session, identifier)
+        query = query.where(Media.id.in_([media.id for media, _asset in recovered]))
+    else:
+        query = query.where(
+            MediaPromptIndex.source_key == identifier.source_key,
+            MediaPromptIndex.index_key == identifier.index_key,
+        )
+    character = _normalized_character_lora(character_lora)
+    if character is not None:
+        query = query.where(func.lower(func.trim(MediaPromptIndex.character_lora)) == character)
+    return query
+
+
+def _usage_order(
+    group_by_character: bool, preferred_character_lora: str | None
+) -> tuple[ColumnElement[Any], ...]:
+    time_order = (Media.created_at.desc(), Media.id.desc())
+    if not group_by_character:
+        return time_order
+    character = func.coalesce(func.lower(func.trim(MediaPromptIndex.character_lora)), "")
+    preferred = _normalized_character_lora(preferred_character_lora)
+    priority_order = (case((character == preferred, 0), else_=1),) if preferred else ()
+    return (
+        *priority_order,
+        case((character == "", 1), else_=0),
+        character.asc(),
+        *time_order,
+    )
+
+
+async def _usage_page(
+    session: DbSessionDep,
+    query: Select[tuple[Media, MediaAsset]],
+    *,
+    limit: int,
+    offset: int,
+    group_by_character: bool,
+    preferred_character_lora: str | None,
+) -> tuple[int, list[tuple[Media, MediaAsset]]]:
+    total = int(await session.scalar(select(func.count()).select_from(query.subquery())) or 0)
+    rows = await session.execute(
+        query.order_by(*_usage_order(group_by_character, preferred_character_lora))
+        .offset(offset)
+        .limit(limit)
+    )
+    return total, [(media, asset) for media, asset in rows]
+
+
+async def _usage_navigation(
+    session: DbSessionDep,
+    query: Select[tuple[Media, MediaAsset]],
+    media_id: UUID,
+    preferred_character_lora: str | None,
+) -> MediaNavigationResponse:
+    order = _usage_order(True, preferred_character_lora)
+    ranked = query.with_only_columns(
+        Media.id,
+        func.row_number().over(order_by=order).label("position"),
+        func.count().over().label("total"),
+        func.lag(Media.id).over(order_by=order).label("previous_id"),
+        func.lead(Media.id).over(order_by=order).label("next_id"),
+    ).subquery()
+    row = (await session.execute(select(ranked).where(ranked.c.id == media_id))).one_or_none()
+    if row is None:
+        raise ApiError(
+            status_code=404,
+            code="MEDIA_NOT_IN_VIEW",
+            message="The media record is not part of this prompt usage view.",
+        )
+    position = int(row.position)
+    return MediaNavigationResponse(
+        media_id=media_id,
+        position=position,
+        total=int(row.total),
+        previous_id=row.previous_id,
+        previous_position=position - 1 if row.previous_id is not None else None,
+        next_id=row.next_id,
+        next_position=position + 1 if row.next_id is not None else None,
+    )
 
 
 async def _filter_media_by_character(

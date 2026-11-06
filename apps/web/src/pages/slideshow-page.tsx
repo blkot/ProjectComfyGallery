@@ -14,21 +14,30 @@ import {
   type SlideshowPlaylist,
 } from "../lib/api";
 import { slideshowPlaylistQuery } from "../lib/media-view";
+import { browseScope, safeBrowseHref } from "../lib/media-browse";
 
 const controlsIdleMilliseconds = 2_500;
 
 export function SlideshowPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const promptScope = searchParams.get("source") === "prompt";
   const playlistSearch = useMemo(
-    () => slideshowPlaylistQuery(searchParams).toString(),
-    [searchParams],
+    () => {
+      if (!promptScope) return slideshowPlaylistQuery(searchParams).toString();
+      const params = browseScope("prompt", searchParams);
+      params.set("limit", "2000");
+      const startId = searchParams.get("start_media");
+      if (startId) params.set("start_media_id", startId);
+      return params.toString();
+    },
+    [searchParams, promptScope],
   );
   const playlist = useQuery({
-    queryKey: ["slideshow", playlistSearch],
+    queryKey: ["slideshow", promptScope ? "prompt" : "library", playlistSearch],
     queryFn: () =>
       apiRequest<SlideshowPlaylist>(
-        `/api/v1/media/slideshow?${playlistSearch}`,
+        `${promptScope ? "/api/v1/prompt-registry/usage/slideshow" : "/api/v1/media/slideshow"}?${playlistSearch}`,
       ),
     staleTime: Number.POSITIVE_INFINITY,
   });
@@ -123,7 +132,9 @@ export function SlideshowPage() {
   }, [next]);
 
   function exitSlideshow() {
-    navigate(returnTo, { replace: true });
+    const target = new URL(returnTo, "http://gallery.local");
+    if (target.searchParams.has("view_media") && current) target.searchParams.set("view_media", current.id);
+    navigate(`${target.pathname}${target.search}`, { replace: true });
   }
 
   const toggleSound = useCallback(() => {
@@ -225,7 +236,7 @@ export function SlideshowPage() {
           <span>
             {currentIndex + 1} / {items.length}
             {playlist.data.truncated
-              ? ` · first ${playlist.data.limit} of ${playlist.data.total}`
+              ? ` · ${items.length} loaded of ${playlist.data.total}`
               : ""}
             {playlist.data.shuffle ? " · shuffled" : ""}
           </span>
@@ -287,9 +298,15 @@ function slideshowInterval(search: URLSearchParams): number {
 }
 
 function safeReturnPath(value: string | null): string {
-  return value?.startsWith("/library") || value?.startsWith("/review/")
-    ? value
-    : "/library";
+  const browse = safeBrowseHref(value);
+  if (browse) return browse;
+  if (value?.startsWith("/") && !value.startsWith("//")) {
+    try {
+      const url = new URL(value, "http://gallery.local");
+      if (url.origin === "http://gallery.local" && /^\/(library|review)\/[^/]+$/.test(url.pathname)) return `${url.pathname}${url.search}`;
+    } catch { /* Malformed return paths must not prevent playback. */ }
+  }
+  return "/library";
 }
 
 function videoFallbackMilliseconds(item: SlideshowItem): number {

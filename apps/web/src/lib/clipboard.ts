@@ -1,4 +1,7 @@
-export async function copyText(text: string): Promise<void> {
+export async function copyText(
+  text: string,
+  container: HTMLElement = document.body,
+): Promise<void> {
   if (navigator.clipboard?.writeText) {
     try {
       await navigator.clipboard.writeText(text);
@@ -13,7 +16,8 @@ export async function copyText(text: string): Promise<void> {
   textarea.setAttribute("readonly", "");
   textarea.style.position = "fixed";
   textarea.style.inset = "0 auto auto -9999px";
-  document.body.append(textarea);
+  const previousFocus = document.activeElement;
+  container.append(textarea);
   textarea.select();
 
   try {
@@ -22,5 +26,8 @@ export async function copyText(text: string): Promise<void> {
     }
   } finally {
     textarea.remove();
+    if (previousFocus instanceof HTMLElement && previousFocus.isConnected) {
+      previousFocus.focus({ preventScroll: true });
+    }
   }
 }

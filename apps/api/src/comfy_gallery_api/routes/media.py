@@ -213,6 +213,7 @@ async def get_slideshow_playlist(
     sort: MediaSort = "file_created_desc",
     shuffle: bool = False,
     random_seed: int | None = Query(default=None, ge=0, le=2_147_483_647),
+    start_media_id: UUID | None = None,
     limit: int = Query(default=2000, ge=1, le=2000),
 ) -> SlideshowPlaylistResponse:
     if collection_id is not None and await session.get(MediaCollection, collection_id) is None:
@@ -244,12 +245,45 @@ async def get_slideshow_playlist(
         lora_reference_ids=lora_reference_id or [],
         lora_reference_match=lora_reference_match,
     )
-    total = int(await session.scalar(select(func.count()).select_from(id_query.subquery())) or 0)
-    media_ids = list(await session.scalars(id_query.order_by(*_media_order(sort)).limit(limit)))
+    order = _media_order(sort)
+    if start_media_id is not None:
+        ranked = id_query.add_columns(
+            func.row_number().over(order_by=order).label("position"),
+            func.count().over().label("total"),
+        ).cte("ranked_slideshow")
+        start_position = (
+            select(ranked.c.position).where(ranked.c.id == start_media_id).scalar_subquery()
+        )
+        # Resolve the start and bounded window in one snapshot; concurrent
+        # uploads must not shift an offset between separate rank/page queries.
+        rows = (
+            await session.execute(
+                select(ranked.c.id, ranked.c.total)
+                .where(ranked.c.position >= start_position)
+                .order_by(ranked.c.position)
+                .limit(limit)
+            )
+        ).all()
+        if not rows:
+            raise ApiError(
+                status_code=404,
+                code="MEDIA_NOT_IN_VIEW",
+                message="The starting media is not part of this slideshow scope.",
+            )
+        total = int(rows[0].total)
+        media_ids = [row.id for row in rows]
+    else:
+        total = int(
+            await session.scalar(select(func.count()).select_from(id_query.subquery())) or 0
+        )
+        media_ids = list(await session.scalars(id_query.order_by(*order).limit(limit)))
     resolved_seed: int | None = None
     if shuffle:
         resolved_seed = random_seed if random_seed is not None else secrets.randbelow(2_147_483_648)
-        random.Random(resolved_seed).shuffle(media_ids)
+        shuffle_offset = 1 if start_media_id is not None else 0
+        shuffled = media_ids[shuffle_offset:]
+        random.Random(resolved_seed).shuffle(shuffled)
+        media_ids[shuffle_offset:] = shuffled
     if not media_ids:
         return SlideshowPlaylistResponse(
             items=[],

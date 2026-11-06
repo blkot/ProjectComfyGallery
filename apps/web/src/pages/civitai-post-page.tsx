@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
+import { safeBrowseHref } from "../lib/media-browse";
 
 import { apiRequest, type MediaDetail, type WorkflowDetail } from "../lib/api";
 import { copyText } from "../lib/clipboard";
@@ -74,7 +75,9 @@ export function CivitaiPostPage() {
     [draft],
   );
   const contextSearch = searchParams.toString();
-  const detailHref = `/library/${mediaId}${contextSearch ? `?${contextSearch}` : ""}`;
+  const overlayReturn = safeBrowseHref(searchParams.get("return_to"));
+  const detailHref = overlayReturn && new URL(overlayReturn, "http://gallery.local").searchParams.has("view_media")
+    ? overlayReturn : `/library/${mediaId}${contextSearch ? `?${contextSearch}` : ""}`;
 
   async function copyPreparedPayload() {
     if (!prepared) return;
