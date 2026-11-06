@@ -1,9 +1,30 @@
 # Project Comfy Gallery Mobile
 
-**Status:** Handoff specification  
+**Status:** Photos-style core rebuild in progress (2026-11-07)
+
 **Target:** Native iPhone application with adaptive iPad layouts  
 **Recommended stack:** Swift 6, SwiftUI, async/await, URLSession, AVKit, SwiftData  
 **Minimum deployment target:** iOS 17
+
+## Current rebuild
+
+The current implementation follows **MediaLibrary behavior with iOS Photos-style
+navigation**, not the older review-first tab layout below. The core tabs are
+图库 / 词库 / 搜索, with a three-column **3:4 portrait** grid, date sections,
+an overlay left filter drawer, interactive snapping media pages, adjacent-media
+preloading, Photos export, swipe-up metadata, and reversible organization.
+Prompt Registry supports direct / source+index lookup and character-filtered Usage
+with the same viewer. Its metadata is outside the separate blind-review flow.
+Existing review code is retained but is not part of the new core navigation yet.
+
+- [Current UX, API compatibility, verification, and remaining device checks](design/photos-v1/UX-ITERATION-2.md)
+- [Archived V1 interactive design](design/photos-v1/README.md)
+- [Initial core implementation record](design/photos-v1/IMPLEMENTATION.md)
+- Portable API/layout checks: `zsh mobile/scripts/check-gallery-contracts.sh` from the repository root.
+
+The older handoff below remains useful for independent blind-review invariants;
+its no-metadata / no-registry scope and old tabs do not govern normal browsing now.
+It is not a claim that all review or persistence capabilities have been shipped.
 
 ## Purpose
 

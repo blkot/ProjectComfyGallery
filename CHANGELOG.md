@@ -4,6 +4,8 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+- Add the native iOS Photos-style Library, Viewer, and Prompt Registry flows, and
+  add an exact Character LoRA filter to Library list and navigation APIs.
 - Add Favorite and NSFW cues to Prompt Registry usage cards, keep Trash labels
   explicit, and simplify the Library page header.
 - Improve Media Quick View responsiveness and keep the current image visible while

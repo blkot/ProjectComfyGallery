@@ -12,11 +12,12 @@ final class AppEnvironment {
 
     var selectedTab: Tab = .library
     var isConnected = false
+    var galleryRevision = 0
     var activeReviewSessionID: String?
     private var didAttemptRestore = false
 
     enum Tab: String, Codable {
-        case library, review, settings
+        case library, registry, search
     }
 
     init(
@@ -63,8 +64,10 @@ final class AppEnvironment {
         guard isConnected else { return }
         do {
             let _: UserSession = try await apiClient.request(.authSession)
-        } catch {
+        } catch let error as APIError where error.requiresReauthentication {
             isConnected = false
+        } catch {
+            // A temporary network failure must not discard the current browsing position.
         }
     }
 
@@ -75,7 +78,7 @@ final class AppEnvironment {
               let baseURL = URL(string: profile.baseURL) else {
             return
         }
-        await apiClient.configure(baseURL: baseURL)
+        await apiClient.configure(baseURL: baseURL, credentialAccount: profile.uuid)
         connectionService.baseURL = baseURL
         do {
             let health: Health = try await apiClient.request(.health)

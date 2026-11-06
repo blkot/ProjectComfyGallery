@@ -51,6 +51,14 @@ This matrix connects product requirements to design, delivery phase, and expecte
 
 ## Critical invariant traceability
 
+### Native mobile UX iteration 2
+
+| Existing requirements | Native implementation / authorized API extension | Verification | Status |
+| --- | --- | --- | --- |
+| LIB-005, LIB-007–009, LIB-015, MEDIA-009, PROMPT-001–006 | [Mobile UX iteration 2](../mobile/design/photos-v1/UX-ITERATION-2.md): 3:4 grid, exact Character LoRA drawer filter, same-scope paging/preload, reversible actions, Photos export, Prompt Registry Usage and metadata deep links; Library list/navigation share the exact materialized-character predicate | 43 portable Swift contract checks; 43 targeted API/core regressions; non-macro iOS core typecheck; 14 native feature tests authored | Implemented locally; full Xcode build, XCTest, simulator/Photos/visual acceptance blocked by environment; backend not deployed |
+
+### System invariants
+
 | Invariant | Requirements | ADR/design | Required regression |
 |---|---|---|---|
 | Embedded ground truth never changes | WF-001, WF-002 | ADR-0004, workflow intelligence | Raw payload hash unchanged after reprocessing |

@@ -244,6 +244,7 @@ class MediaPageResponse(BaseModel):
     total: int
     limit: int
     offset: int
+    character_lora: str | None = None
 
 
 class SlideshowItemResponse(BaseModel):

@@ -1,5 +1,11 @@
 # Mobile API Contract
 
+> The library-first rebuild uses the current routes and additive compatibility
+> requirements in [UX iteration 2](design/photos-v1/UX-ITERATION-2.md#路由与范围)
+> and the [client API changelog](../doc/interfaces/client-api-changelog.md).
+> The older rc.9 handoff below does not include current Prompt Registry Usage,
+> content-rating actions, or the exact Library Character LoRA filter.
+
 **Status:** Based on the implemented `0.1.0-rc.9` backend  
 **Base URL example:** `http://192.168.50.68:8181`
 

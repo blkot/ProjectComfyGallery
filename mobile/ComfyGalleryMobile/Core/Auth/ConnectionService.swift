@@ -68,7 +68,9 @@ final class ConnectionService {
         let tokenToUse: String
         if let token = token {
             tokenToUse = token
-        } else if let saved = await credentialStore.token() {
+        } else if let profile = try? localStore.activeProfile(),
+                  profile.baseURL == normalized.absoluteString,
+                  let saved = credentialStore.token(for: profile.uuid) {
             tokenToUse = saved
         } else {
             connectionState = .authenticationRequired
@@ -87,7 +89,8 @@ final class ConnectionService {
             // Update with real user ID from server
             credentialStore.store(token: token, for: session.user.id)
             if let baseURL = baseURL ?? self.baseURL {
-                persistProfile(baseURL: baseURL, userID: session.user.id, token: token)
+                let profileID = persistProfile(baseURL: baseURL, userID: session.user.id, token: token)
+                await apiClient.configure(baseURL: baseURL, credentialAccount: profileID)
             }
             connectionState = .connected(session)
         } catch {
@@ -108,7 +111,7 @@ final class ConnectionService {
         connectionState = .disconnected
     }
 
-    private func persistProfile(baseURL: URL, userID: String, token: String) {
+    private func persistProfile(baseURL: URL, userID: String, token: String) -> String {
         let existing = try? localStore.activeProfile()
         let profile = existing ?? ServerProfile(
             baseURL: baseURL.absoluteString,
@@ -121,14 +124,14 @@ final class ConnectionService {
         profile.isActive = true
         if existing == nil {
             try? localStore.saveProfile(profile)
-            // Re-store token keyed by the new profile UUID
-            credentialStore.store(token: token, for: profile.uuid)
-            // Clean up redundant intermediate keys
-            credentialStore.delete(for: "default")
-            credentialStore.delete(for: userID)
         } else {
             try? localStore.saveContext()
         }
+        // Reconnecting must replace the existing profile's token too.
+        credentialStore.store(token: token, for: profile.uuid)
+        credentialStore.delete(for: "default")
+        credentialStore.delete(for: userID)
+        return profile.uuid
     }
 
     private func normalizeURL(_ urlString: String) -> URL? {

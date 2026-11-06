@@ -5,7 +5,6 @@ import SwiftUI
 final class SettingsFeature {
     var showDisconnectConfirmed = false
     var showDisconnectConfirmation = false
-    var privacyCoverEnabled = false
     var cacheSizeDescription: String = ""
     var isClearingCache = false
     var appVersionDescription: String = ""

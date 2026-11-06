@@ -57,7 +57,9 @@ final class ConnectionFeature {
 
         switch connectionService.connectionState {
         case .connected:
+            await environment.mediaRepository.clearAllCaches()
             UserDefaults.standard.set(url, forKey: "lastServerURL")
+            environment.selectedTab = .library
             environment.isConnected = true
         case .error(let message):
             errorMessage = message

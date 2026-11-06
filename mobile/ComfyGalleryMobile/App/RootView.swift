@@ -4,30 +4,17 @@ struct RootView: View {
     @Environment(AppEnvironment.self) private var environment
 
     var body: some View {
-        Group {
-            if environment.isConnected {
-                TabView(selection: Bindable(environment).selectedTab) {
-                    LibraryView(
-                        apiClient: environment.apiClient,
-                        mediaRepository: environment.mediaRepository
-                    )
-                        .tabItem { Label("Library", systemImage: "photo.on.rectangle") }
-                        .tag(AppEnvironment.Tab.library)
-
-                    ReviewHomeView(apiClient: environment.apiClient)
-                        .tabItem { Label("Review", systemImage: "checklist") }
-                        .tag(AppEnvironment.Tab.review)
-
-                    SettingsView(
-                        connectionService: environment.connectionService,
-                        mediaRepository: environment.mediaRepository
-                    )
-                        .tabItem { Label("Settings", systemImage: "gear") }
-                        .tag(AppEnvironment.Tab.settings)
-                }
-            } else {
-                ConnectionView(environment: environment)
+        if environment.isConnected {
+            TabView(selection: Bindable(environment).selectedTab) {
+                LibraryView(apiClient: environment.apiClient, tab: .library)
+                    .tabItem { Label("图库", systemImage: "photo.on.rectangle") }.tag(AppEnvironment.Tab.library)
+                PromptRegistryView(apiClient: environment.apiClient)
+                    .tabItem { Label("词库", systemImage: "text.book.closed") }.tag(AppEnvironment.Tab.registry)
+                LibraryView(apiClient: environment.apiClient, tab: .search)
+                    .tabItem { Label("搜索", systemImage: "magnifyingglass") }.tag(AppEnvironment.Tab.search)
             }
+        } else {
+            ConnectionView(environment: environment)
         }
     }
 }

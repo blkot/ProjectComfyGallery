@@ -49,6 +49,7 @@ from comfy_gallery_core.db.models import (
     Media,
     MediaAsset,
     MediaCollection,
+    MediaPromptIndex,
     MediaVariant,
     ModelUsage,
     SourceOccurrence,
@@ -89,6 +90,7 @@ async def list_media(
         description=MEDIA_SHA256_QUERY_DESCRIPTION,
     ),
     kind: str | None = None,
+    character_lora: Annotated[str | None, Query(max_length=512)] = None,
     media_status: str | None = Query(default=None, alias="status"),
     workflow_status: str | None = None,
     evaluation_state: str | None = None,
@@ -115,6 +117,7 @@ async def list_media(
         q=q,
         sha256=sha256,
         kind=kind,
+        character_lora=character_lora,
         media_status=media_status,
         workflow_status=workflow_status,
         evaluation_state=evaluation_state,
@@ -134,7 +137,13 @@ async def list_media(
     order = _media_order(sort)
     media_ids = list(await session.scalars(id_query.order_by(*order).offset(offset).limit(limit)))
     if not media_ids:
-        return MediaPageResponse(items=[], total=total, limit=limit, offset=offset)
+        return MediaPageResponse(
+            items=[],
+            total=total,
+            limit=limit,
+            offset=offset,
+            character_lora=character_lora.strip() if character_lora else None,
+        )
 
     records = list(
         await session.scalars(
@@ -175,6 +184,7 @@ async def list_media(
         total=total,
         limit=limit,
         offset=offset,
+        character_lora=character_lora.strip() if character_lora else None,
     )
 
 
@@ -327,6 +337,7 @@ async def get_media_navigation(
         description=MEDIA_SHA256_QUERY_DESCRIPTION,
     ),
     kind: str | None = None,
+    character_lora: Annotated[str | None, Query(max_length=512)] = None,
     media_status: str | None = Query(default=None, alias="status"),
     workflow_status: str | None = None,
     evaluation_state: str | None = None,
@@ -351,6 +362,7 @@ async def get_media_navigation(
         q=q,
         sha256=sha256,
         kind=kind,
+        character_lora=character_lora,
         media_status=media_status,
         workflow_status=workflow_status,
         evaluation_state=evaluation_state,
@@ -783,6 +795,7 @@ def _media_id_query(
     checkpoint_reference_match: ReferenceMatch,
     lora_reference_ids: list[UUID],
     lora_reference_match: ReferenceMatch,
+    character_lora: str | None = None,
 ) -> Select[tuple[UUID]]:
     filters: list[ColumnElement[bool]] = []
     keyword_filter = media_keyword_filter(q)
@@ -793,6 +806,17 @@ def _media_id_query(
         filters.append(hash_filter)
     if kind:
         filters.append(Media.kind == kind)
+    if character_lora and character_lora.strip():
+        # Match the authoritative per-output character field, not any LoRA usage.
+        filters.append(
+            select(MediaPromptIndex.media_id)
+            .where(
+                MediaPromptIndex.media_id == Media.id,
+                func.lower(func.trim(MediaPromptIndex.character_lora))
+                == character_lora.strip().casefold(),
+            )
+            .exists()
+        )
     if media_status:
         filters.append(Media.status == media_status)
     if prefer_spatial_playback is not None:
