@@ -4,13 +4,15 @@ struct ImageViewer: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let image: UIImage
     @Binding var scale: CGFloat
+    let onDoubleTap: () -> Void
     @State private var lastScale: CGFloat = 1.0
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
 
-    init(image: UIImage, scale: Binding<CGFloat> = .constant(1.0)) {
+    init(image: UIImage, scale: Binding<CGFloat> = .constant(1.0), onDoubleTap: @escaping () -> Void = {}) {
         self.image = image
         self._scale = scale
+        self.onDoubleTap = onDoubleTap
     }
 
     var body: some View {
@@ -21,15 +23,8 @@ struct ImageViewer: View {
             .offset(offset)
             .gesture(zoomGesture)
             .simultaneousGesture(panGesture, including: scale > 1.05 ? .all : .none)
-            .onTapGesture(count: 2) {
-                withAnimation(reduceMotion ? nil : .spring()) {
-                    if scale > 1.0 {
-                        resetZoom()
-                    } else {
-                        scale = 2.0
-                    }
-                }
-            }
+            .onTapGesture(count: 2, perform: onDoubleTap)
+            .accessibilityAction(named: "重置缩放", resetZoom)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()
     }

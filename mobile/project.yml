@@ -27,6 +27,9 @@ targets:
   ComfyGalleryMobileTests:
     type: bundle.unit-test
     platform: iOS
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
     sources:
       - path: ComfyGalleryMobileTests
     dependencies:
@@ -38,6 +41,9 @@ targets:
   ComfyGalleryMobileUITests:
     type: bundle.ui-testing
     platform: iOS
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
     sources:
       - path: ComfyGalleryMobileUITests
     dependencies:

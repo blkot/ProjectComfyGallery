@@ -11,7 +11,6 @@ final class ViewerFeature {
     private(set) var isMutating = false
     private(set) var canMutate = false
     var errorMessage: String?
-    var notice: String?
     let scope: GalleryScope
     private let service: any GalleryService
     private var generation = 0
@@ -24,16 +23,7 @@ final class ViewerFeature {
     }
 
     var outsideScope: Bool {
-        isOutsideScope(item)
-    }
-
-    private func isOutsideScope(_ item: MobileMediaSummary) -> Bool {
-        guard scope.promptUsage == nil else { return false }
-        return (scope.favorite == .only && item.favorite != true) ||
-        (scope.favorite == .excluded && item.favorite == true) ||
-        (scope.trash == .hidden && item.isTrash == true) ||
-        (scope.trash == .only && item.isTrash != true) ||
-        (scope.rating != .all && item.contentRating != scope.rating.rawValue.lowercased())
+        scope.excludes(item)
     }
 
     var neighbors: [MobileMediaSummary] {
@@ -52,7 +42,7 @@ final class ViewerFeature {
         defer { if request == generation { isWorking = false } }
         do {
             let detail = try await service.detail(id: item.id)
-            let context = isOutsideScope(detail) ? navigation : try await service.navigation(id: detail.id, scope: scope)
+            let context = scope.excludes(detail) ? navigation : try await service.navigation(id: detail.id, scope: scope)
             try Task.checkCancellation()
             guard request == generation else { return }
             item = detail
@@ -71,7 +61,6 @@ final class ViewerFeature {
         let request = generation
         isWorking = true
         errorMessage = nil
-        notice = nil
         defer { if request == generation { isWorking = false } }
         do {
             // Validate membership before replacing the current page.
@@ -96,11 +85,12 @@ final class ViewerFeature {
         errorMessage = nil
         defer { isWorking = false; isMutating = false }
         do {
-            if let favorite { notice = try await service.setFavorite(ids: [item.id], value: favorite).message }
-            else if let trash { notice = try await service.setTrash(ids: [item.id], value: trash).message }
+            let result: MediaBulkResult?
+            if let favorite { result = try await service.setFavorite(ids: [item.id], value: favorite) }
+            else if let trash { result = try await service.setTrash(ids: [item.id], value: trash) }
             else if let rating {
                 try await service.setContentRating(id: item.id, rating: rating)
-                notice = "已更新内容分级"
+                result = nil
             }
             else { return }
             canMutate = false
@@ -109,6 +99,8 @@ final class ViewerFeature {
             replacePage(item)
             // Keep showing this item even when the mutation removes it from the filter.
             if !outsideScope { navigation = try await service.navigation(id: item.id, scope: scope) }
+            await loadNeighbors(generation: generation)
+            if let result, !result.errors.isEmpty { errorMessage = result.message }
         } catch {
             canMutate = false
             errorMessage = "操作状态待确认：\(error.localizedDescription) 请刷新确认后重试。"
@@ -124,13 +116,15 @@ final class ViewerFeature {
         let center = item.id
         let previous = navigation?.previousID
         let next = navigation?.nextID
+        var fetched: [MobileMediaSummary] = []
         // Metadata only; heavy resource preloading is bounded separately by MediaRepository.
         for id in [previous, next].compactMap({ $0 }) {
             guard !pages.contains(where: { $0.id == id }) else { continue }
             guard let detail = try? await service.detail(id: id), !Task.isCancelled,
-                  request == generation, item.id == center,
-                  let index = pages.firstIndex(where: { $0.id == center }) else { continue }
-            pages.insert(detail, at: id == previous ? index : index + 1)
+                  request == generation, item.id == center else { continue }
+            fetched.append(detail)
         }
+        guard !Task.isCancelled, request == generation, item.id == center else { return }
+        pages = ViewerPageWindow.reconcile(current: item, navigation: navigation, cached: pages, fetched: fetched)
     }
 }

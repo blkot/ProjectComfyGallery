@@ -6,6 +6,7 @@ struct ViewerMediaView: View {
     let targetSize: CGSize
     var isActive = true
     @Binding var scale: CGFloat
+    var onDoubleTap: () -> Void = {}
     @Environment(AppEnvironment.self) private var environment
     @Environment(\.displayScale) private var displayScale
     @State private var poster: UIImage?
@@ -20,7 +21,7 @@ struct ViewerMediaView: View {
             Color.black
             if let videoURL { VideoPlayerView(videoURL: videoURL, posterImage: poster) }
             else if let image = original ?? poster {
-                ImageViewer(image: image, scale: $scale)
+                ImageViewer(image: image, scale: $scale, onDoubleTap: item.kind == .image ? onDoubleTap : {})
             }
             if loading {
                 ProgressView(item.kind == .video ? "正在缓存视频…" : "正在加载原图…")

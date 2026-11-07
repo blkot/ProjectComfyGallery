@@ -7,8 +7,8 @@ struct ViewerFeatureView: View {
     @Environment(AppEnvironment.self) private var environment
     @Environment(\.dismiss) private var dismiss
     @Environment(\.displayScale) private var displayScale
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pageID: String?
+    @State private var pagerIsInteracting = false
     @State private var scale: CGFloat = 1
     @State private var showingInfo = false
     @State private var confirmingTrash = false
@@ -25,52 +25,36 @@ struct ViewerFeatureView: View {
         ZStack {
             Color.black.ignoresSafeArea()
             GeometryReader { geometry in
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: 0) {
-                        ForEach(feature.pages) { item in
-                            ViewerMediaView(item: item, targetSize: geometry.size,
-                                            isActive: pageID == item.id && !showingInfo && promptRoute == nil,
-                                            scale: pageID == item.id ? $scale : .constant(1))
-                                .frame(width: geometry.size.width, height: geometry.size.height)
-                                .id(item.id)
-                        }
-                    }
-                    .scrollTargetLayout()
+                ViewerPager(pages: feature.pages, selection: $pageID, isInteracting: $pagerIsInteracting,
+                            isEnabled: scale <= 1.05 && !feature.isWorking && saver?.isSaving != true && !showingInfo && promptRoute == nil,
+                            policy: ViewerPagingPolicy(), showDetails: { showingInfo = true }, close: { dismiss() }) { item, size in
+                    ViewerMediaView(item: item, targetSize: size,
+                                    isActive: pageID == item.id && !showingInfo && promptRoute == nil,
+                                    scale: pageID == item.id ? $scale : .constant(1),
+                                    onDoubleTap: { toggleFavorite(id: item.id) })
                 }
-                .scrollTargetBehavior(.paging)
-                .scrollPosition(id: $pageID, anchor: .center)
-                .scrollDisabled(scale > 1.05 || feature.isMutating || saver?.isSaving == true)
-                .simultaneousGesture(verticalGesture)
                 .task(id: feature.prefetchKey) {
                     await environment.mediaRepository.prepareViewerWindow(currentID: feature.item.id, neighbors: feature.neighbors,
                                                                          targetSize: geometry.size, scale: displayScale)
                 }
-                .accessibilityAction(named: "上一项") { navigate(feature.navigation?.previousID) }
-                .accessibilityAction(named: "下一项") { navigate(feature.navigation?.nextID) }
-                .accessibilityAction(named: "显示媒体详情") { showingInfo = true }
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) { header }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(spacing: 0) {
-                if let message = feature.errorMessage ?? saver?.message ?? feature.notice {
-                    Text(message).font(.footnote).multilineTextAlignment(.center).padding(10).frame(maxWidth: .infinity).background(.regularMaterial)
+            MediaActionBar(item: feature.item, disabled: feature.isWorking || !feature.canMutate || pageID != feature.item.id || pagerIsInteracting,
+                           saving: saver?.isSaving == true,
+                           favorite: { mutate(favorite: feature.item.favorite != true) },
+                           rate: { mutate(rating: $0) }, save: save,
+                           trash: { if feature.item.isTrash == true { mutate(trash: false) } else { confirmingTrash = true } })
+                .overlay(alignment: .top) {
+                    ViewerStatusOverlay(message: feature.errorMessage ?? saver?.message,
+                                        hasError: feature.errorMessage != nil, permissionDenied: saver?.permissionDenied == true,
+                                        retry: { Task { await feature.loadContext() } })
+                        .alignmentGuide(.top) { $0[.bottom] + 8 }
                 }
-                if feature.errorMessage != nil {
-                    Button("重试当前页面") { Task { await feature.loadContext() } }.font(.footnote).frame(minHeight: 44)
-                }
-                if saver?.permissionDenied == true {
-                    Link("打开系统设置", destination: URL(string: UIApplication.openSettingsURLString)!).font(.footnote).padding(8)
-                }
-                MediaActionBar(item: feature.item, disabled: feature.isWorking || !feature.canMutate || pageID != feature.item.id,
-                               saving: saver?.isSaving == true,
-                               favorite: { mutate(favorite: feature.item.favorite != true) },
-                               rate: { mutate(rating: $0) }, save: save,
-                               trash: { if feature.item.isTrash == true { mutate(trash: false) } else { confirmingTrash = true } })
-            }
         }
         .preferredColorScheme(.dark)
-        .interactiveDismissDisabled(feature.isMutating || saver?.isSaving == true)
+        .interactiveDismissDisabled(feature.isMutating || pagerIsInteracting || saver?.isSaving == true)
         .confirmationDialog("移入废纸篓？", isPresented: $confirmingTrash, titleVisibility: .visible) {
             Button("移入废纸篓", role: .destructive) { mutate(trash: true) }
         } message: { Text("内容仍可恢复，不会永久删除文件。") }
@@ -94,7 +78,7 @@ struct ViewerFeatureView: View {
     private var header: some View {
         HStack {
             Button("关闭", systemImage: "chevron.down") { dismiss() }.labelStyle(.iconOnly).frame(width: 44, height: 44)
-                .disabled(feature.isMutating || saver?.isSaving == true)
+                .disabled(feature.isMutating || pagerIsInteracting || saver?.isSaving == true)
             Spacer()
             VStack(spacing: 2) {
                 if let date = feature.item.fileDate { Text(date, format: .dateTime.year().month().day()).font(.headline) }
@@ -107,17 +91,9 @@ struct ViewerFeatureView: View {
             else {
                 Button("媒体详情 · 向上轻扫", systemImage: "info.circle") { showingInfo = true }
                     .labelStyle(.iconOnly).frame(width: 44, height: 44)
+                    .disabled(pagerIsInteracting || saver?.isSaving == true)
             }
         }.padding(.horizontal, 12).background(.regularMaterial)
-    }
-
-    private var verticalGesture: some Gesture {
-        DragGesture(minimumDistance: 35).onEnded { value in
-            guard scale <= 1.05, abs(value.translation.height) > abs(value.translation.width) * 1.4,
-                  !feature.isWorking, saver?.isSaving != true else { return }
-            if value.translation.height < -65 { showingInfo = true }
-            else if value.translation.height > 130 { dismiss() }
-        }
     }
 
     private func activatePage() async {
@@ -126,12 +102,13 @@ struct ViewerFeatureView: View {
         if id == feature.item.id { await feature.loadContext() }
         else { await feature.open(id: id) }
         guard !Task.isCancelled else { return }
-        if feature.item.id != id { navigate(feature.item.id) }
+        if feature.item.id != id { pageID = feature.item.id }
     }
 
-    private func navigate(_ id: String?) {
-        guard let id else { return }
-        withAnimation(reduceMotion ? nil : .snappy) { pageID = id }
+    private func toggleFavorite(id: String) {
+        guard id == feature.item.id, pageID == id, feature.item.kind == .image,
+              feature.canMutate, !feature.isWorking, !pagerIsInteracting, saver?.isSaving != true else { return }
+        mutate(favorite: feature.item.favorite != true)
     }
 
     private func mutate(favorite: Bool? = nil, trash: Bool? = nil, rating: String? = nil) {

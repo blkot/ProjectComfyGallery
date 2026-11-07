@@ -56,4 +56,14 @@ struct GalleryScope: Hashable, Sendable {
     }
 
     var hasFilters: Bool { kind != nil || favorite != .all || rating != .all || characterLora != nil }
+
+    /// Only local, mutable membership facts. Character/search membership remains server-owned.
+    func excludes(_ item: MobileMediaSummary) -> Bool {
+        guard promptUsage == nil else { return false }
+        return (favorite == .only && item.favorite != true) ||
+            (favorite == .excluded && item.favorite == true) ||
+            (trash == .hidden && item.isTrash == true) ||
+            (trash == .only && item.isTrash != true) ||
+            (rating != .all && item.contentRating != rating.rawValue.lowercased())
+    }
 }

@@ -165,11 +165,19 @@ final class LibraryFeature {
     }
 
     func update(_ item: MobileMediaSummary) {
-        if let index = items.firstIndex(where: { $0.id == item.id }) {
-            var updated = item
-            // The detail DTO lacks the usage-only character field; retain its group identity.
-            if updated.characterLora == nil { updated.characterLora = items[index].characterLora }
-            items[index] = updated
+        // A pre-mutation refresh/page response may still be in flight. It must not
+        // reinsert a media item after its acknowledged removal from this scope.
+        generation += 1
+        isLoading = false
+        isLoadingMore = false
+        let projection = LibraryMutationProjection(items: items, updated: item, scope: scope)
+        items = projection.items
+        if projection.removedIndex != nil {
+            total = max(0, total - 1)
+            nextOffset = max(0, nextOffset - 1)
+            exhausted = nextOffset >= total
+            selectedIDs.remove(item.id)
+            if returnAnchorID == item.id { returnAnchorID = projection.fallbackAnchorID }
         }
         needsRefresh = true
     }

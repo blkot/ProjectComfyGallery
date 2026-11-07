@@ -3,6 +3,8 @@
 > **2026-11-07 redesign:** Current behavior is recorded in
 > [UX iteration 2](design/photos-v1/UX-ITERATION-2.md): Library / Prompt Registry /
 > Search, a left overlay drawer, native paging, Photos export, and swipe-up detail.
+> Follow-up [viewer fixes](design/photos-v1/VIEWER-FIXES.md) specify direction-locked
+> single-page snapping, double-tap Favorite, stable chrome, and immediate scoped removal.
 > The [V1 interactive preview](design/photos-v1/index.html) is archived and has not
 > been updated to reflect iteration 2. The specification below
 > describes the earlier review-centered app; do not use its navigation or grid

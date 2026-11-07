@@ -18,6 +18,7 @@ with the same viewer. Its metadata is outside the separate blind-review flow.
 Existing review code is retained but is not part of the new core navigation yet.
 
 - [Current UX, API compatibility, verification, and remaining device checks](design/photos-v1/UX-ITERATION-2.md)
+- [Viewer fixes: direction lock, single-page snap, quiet actions, double-tap Favorite, Trash synchronization](design/photos-v1/VIEWER-FIXES.md)
 - [Archived V1 interactive design](design/photos-v1/README.md)
 - [Initial core implementation record](design/photos-v1/IMPLEMENTATION.md)
 - Portable API/layout checks: `zsh mobile/scripts/check-gallery-contracts.sh` from the repository root.

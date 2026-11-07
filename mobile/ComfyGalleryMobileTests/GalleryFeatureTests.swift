@@ -43,9 +43,12 @@ final class GalleryFeatureTests: XCTestCase {
         await service.useOverlappingPages()
         let feature = LibraryFeature(service: service)
         await feature.reload()
+        XCTAssertEqual(feature.items.count, 48)
+        XCTAssertEqual(feature.nextOffset, 48)
+        XCTAssertTrue(feature.canLoadMore)
         await feature.loadMore()
-        XCTAssertEqual(feature.items.map(\.id), ["one", "two", "three"])
-        XCTAssertEqual(feature.nextOffset, 4)
+        XCTAssertEqual(feature.items.map(\.id), ["one", "two"] + (0..<46).map { "filler-\($0)" } + ["three"])
+        XCTAssertEqual(feature.nextOffset, 50)
         XCTAssertFalse(feature.canLoadMore)
     }
 
@@ -54,6 +57,10 @@ final class GalleryFeatureTests: XCTestCase {
         await service.useOverlappingPages()
         let feature = LibraryFeature(service: service)
         await feature.reload()
+        guard feature.canLoadMore else {
+            XCTFail("Fixture must leave a second page for the held pagination request")
+            return
+        }
         await service.holdNextPage()
         let old = Task { await feature.loadMore() }
         await service.waitForHeldPage()
@@ -190,8 +197,11 @@ private actor GalleryTestService: GalleryService {
         }
         if pagesFail { throw APIError.serverError(503) }
         if scope.kind == .video { return MediaPage(items: [Self.item("video", kind: .video)], total: 1, limit: limit, offset: offset) }
-        let ids = overlapping ? (offset == 0 ? ["one", "two"] : ["two", "three"]) : ["one"]
-        return MediaPage(items: ids.map { Self.item($0) }, total: overlapping ? 4 : 1, limit: limit, offset: offset)
+        // Reload fills a 48-record window, so a tiny first page would consume
+        // both fixture pages before loadMore gets a chance to run.
+        let firstPage = ["one", "two"] + (0..<46).map { "filler-\($0)" }
+        let ids = overlapping ? (offset == 0 ? firstPage : ["two", "three"]) : ["one"]
+        return MediaPage(items: ids.map { Self.item($0) }, total: overlapping ? 50 : 1, limit: limit, offset: offset)
     }
 
     func detail(id: String) async throws -> MobileMediaSummary {
