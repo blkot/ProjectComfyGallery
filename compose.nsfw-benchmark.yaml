@@ -55,7 +55,6 @@ services:
       - /tmp:rw,noexec,nosuid,size=256m
     user: "0:0"
     init: true
-    pids_limit: 128
     security_opt:
       - no-new-privileges:true
     deploy:
@@ -63,3 +62,4 @@ services:
         limits:
           cpus: ${NSFW_CPU_LIMIT:-2.0}
           memory: ${NSFW_MEMORY_LIMIT:-1536M}
+          pids: 128
