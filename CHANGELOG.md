@@ -4,6 +4,12 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+- Add opt-in NSFW image classification with queued single and bulk actions,
+  separate model assessments, optional NudeNet evidence, and idle model-process
+  shutdown; add a standalone benchmark and manifest editor.
+- Stabilize iOS viewer paging and refresh the visible media window after library
+  mutations.
+
 ## 0.1.0-rc.44 — 2026-11-07
 
 - Add the native iOS Photos-style Library, Viewer, and Prompt Registry flows, and
