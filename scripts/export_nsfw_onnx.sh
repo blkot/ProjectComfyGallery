@@ -16,9 +16,11 @@ fi
 
 mkdir -p "${output_dir}"
 uvx \
-  --from 'optimum-onnx[onnxruntime]==0.1.0' \
+  --from optimum \
+  --with 'optimum-onnx[onnxruntime]==0.1.0' \
   --with torch \
   --with safetensors \
+  --with 'timm>=1,<2' \
   optimum-cli export onnx \
   --model "${model_dir}" \
   --task image-classification \
