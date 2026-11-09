@@ -4,7 +4,7 @@ FROM python:3.11.18-slim-bookworm@sha256:061c190f3d5815b341a18dfe8a45771f8ba68c1
 
 COPY --from=uv /uv /uvx /bin/
 
-ARG CG_PROJECT_VERSION=0.1.0-rc.44
+ARG CG_PROJECT_VERSION=0.1.0-rc.45
 ARG CG_SOURCE_URL=https://github.com/blkot/ProjectComfyGallery
 ARG CG_REVISION=unknown
 

@@ -4,6 +4,8 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.45 — 2026-11-09
+
 - Add opt-in NSFW image classification with queued single and bulk actions,
   separate model assessments, optional NudeNet evidence, and idle model-process
   shutdown; add a standalone benchmark and manifest editor.
