@@ -52,11 +52,15 @@ saved filters, and filter-backed selections. The Review unclassified images
 shortcut temporarily replaces the current Library scope, opens the first
 unclassified image, and keeps the scope for detail navigation.
 
-The five raw model confidence buttons can save their mapped human rating
-(Normal/Drawing to Safe, Sexy to Sexy, Porn/Hentai to Explicit). The separate
-human rating buttons also allow Nudity, which Mini cannot predict as a distinct
-class. NudeNet exposed-region detections receive a critical accent; other region
-labels use a hatched neutral chip to distinguish evidence from a rating.
+The five raw model confidence scores are read-only. The model's predicted class
+is highlighted, with safe classes in green, Sexy in amber, and Porn/Hentai in
+coral. Human review is optional: until a human rating is recorded, the model's
+suggested rating remains the active classifier rating. A matching human rating
+confirms the model; a different one overrides it. Clearing the human rating
+restores the model suggestion. The human rating options also allow Nudity, which
+Mini cannot predict as a distinct class. NudeNet exposed-region detections
+receive a critical accent; other region labels use a hatched neutral chip to
+distinguish evidence from a rating.
 
 ## Request and execution flow
 

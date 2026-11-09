@@ -25,6 +25,7 @@ from comfy_gallery_api.media_filters import (
     MEDIA_SHA256_QUERY_DESCRIPTION,
     MEDIA_SHA256_QUERY_LENGTH,
     MEDIA_SHA256_QUERY_PATTERN,
+    media_character_lora_filter,
     media_keyword_filter,
     media_sha256_filter,
 )
@@ -57,7 +58,6 @@ from comfy_gallery_core.db.models import (
     Media,
     MediaAsset,
     MediaCollection,
-    MediaPromptIndex,
     MediaVariant,
     ModelUsage,
     SourceOccurrence,
@@ -219,6 +219,7 @@ async def get_slideshow_playlist(
         description=MEDIA_SHA256_QUERY_DESCRIPTION,
     ),
     kind: str | None = None,
+    character_lora: Annotated[str | None, Query(max_length=512)] = None,
     media_status: str | None = Query(default=None, alias="status"),
     workflow_status: str | None = None,
     evaluation_state: str | None = None,
@@ -256,6 +257,7 @@ async def get_slideshow_playlist(
         q=q,
         sha256=sha256,
         kind=kind,
+        character_lora=character_lora,
         media_status=media_status,
         workflow_status=workflow_status,
         evaluation_state=evaluation_state,
@@ -852,17 +854,9 @@ def _media_id_query(
         filters.append(hash_filter)
     if kind:
         filters.append(Media.kind == kind)
-    if character_lora and character_lora.strip():
-        # Match the authoritative per-output character field, not any LoRA usage.
-        filters.append(
-            select(MediaPromptIndex.media_id)
-            .where(
-                MediaPromptIndex.media_id == Media.id,
-                func.lower(func.trim(MediaPromptIndex.character_lora))
-                == character_lora.strip().casefold(),
-            )
-            .exists()
-        )
+    character_lora_filter = media_character_lora_filter(character_lora)
+    if character_lora_filter is not None:
+        filters.append(character_lora_filter)
     if media_status:
         filters.append(Media.status == media_status)
     if prefer_spatial_playback is not None:

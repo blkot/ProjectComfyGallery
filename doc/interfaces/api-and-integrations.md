@@ -109,18 +109,21 @@ POST   /api/v1/workflows/reprocess
 
 Original/proxy delivery supports HTTP range requests where relevant.
 
-Library list and per-media navigation accept optional `character_lora` (max 512
-characters), matched as a complete case-insensitive, trimmed value against the
-trusted materialized `MediaPromptIndex.character_lora`. It combines with other
-filters using AND. It is distinct from general LoRA reference filters and does
-not infer a character from arbitrary model usage. Both routes share the same
-SQL predicate so totals, pagination, and neighbor positions remain consistent.
+Library list, slideshow, and per-media navigation accept optional
+`character_lora` (max 512 characters), matched as a complete case-insensitive,
+trimmed value against the trusted materialized `MediaPromptIndex.character_lora`.
+It combines with other filters using AND. It is distinct from general LoRA
+reference filters and does not infer a character from arbitrary model usage.
+These routes share the same SQL predicate so totals, pagination, slideshow
+contents, and neighbor positions remain consistent.
 The list response echoes nullable `character_lora` with whitespace trimmed and
 case preserved; clients may require this echo when using the new filter to detect
 older servers that silently ignore unknown query parameters. Blank input imposes
 no filter. This uses the existing `0021_prompt_index_character_lora` index and
 requires it to be populated; there is no per-request workflow-scan fallback on
-these Library routes. Prompt Registry Usage retains its own scope and endpoints.
+these Library routes. Filter-backed bulk actions, review scopes, and saved filters
+accept the same exact `character_lora` field. Prompt Registry Usage retains its
+own scope and endpoints.
 
 Phase 1 implements list/detail/original/preview/playback/import paths. Phase 2
 implements workflow summary/graph, explicit raw-evidence retrieval, per-media

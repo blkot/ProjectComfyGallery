@@ -6,8 +6,10 @@ semantics and compatibility that a schema alone cannot express.
 
 ## Unreleased: exact Library Character LoRA filter
 
-`GET /api/v1/media` and `GET /api/v1/media/{id}/navigation` add optional
-`character_lora` (maximum 512 characters). Both use the same exact,
+`GET /api/v1/media`, `GET /api/v1/media/slideshow`, and
+`GET /api/v1/media/{id}/navigation` accept optional `character_lora` (maximum
+512 characters). Filter-backed bulk actions, review scopes, and saved filters
+accept the same field. All use the same exact,
 case-insensitive, surrounding-whitespace-insensitive match against the trusted
 `MediaPromptIndex.character_lora` value. This is not a substring match or a
 generic LoRA model-reference filter. It combines with existing filters using AND;
@@ -18,7 +20,8 @@ The list response adds nullable `character_lora`, echoing the requested value
 with surrounding whitespace removed (case preserved). New mobile clients use
 this field to detect old servers that silently ignore the new query parameter,
 and show an upgrade message instead of unfiltered results. Requests without the
-parameter retain their existing behavior. Other endpoint scopes are unchanged.
+parameter retain their existing behavior. Prompt Registry Usage retains its
+separate scope and endpoints.
 
 **Database migration:** none added; requires the existing
 `0021_prompt_index_character_lora` migration and populated materialized index.

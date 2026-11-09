@@ -128,6 +128,14 @@ class MediaFilterRequest(BaseModel):
         ),
     )
     kind: Literal["image", "video"] | None = None
+    character_lora: str | None = Field(
+        default=None,
+        max_length=512,
+        description=(
+            "Exact case-insensitive match against the indexed Character LoRA field; "
+            "does not match general LoRA usage."
+        ),
+    )
     status: str | None = None
     workflow_status: str | None = None
     evaluation_state: Literal["not_started", "in_progress", "complete"] | None = None
@@ -162,6 +170,13 @@ class MediaFilterRequest(BaseModel):
     def normalize_hash_query(cls, value: object) -> object:
         if value is None or isinstance(value, str):
             return normalize_media_sha256_query(value)
+        return value
+
+    @field_validator("character_lora", mode="before")
+    @classmethod
+    def normalize_character_lora(cls, value: object) -> object:
+        if isinstance(value, str):
+            return value.strip() or None
         return value
 
     @model_validator(mode="after")
