@@ -20,10 +20,10 @@ uvx \
   --with 'optimum-onnx[onnxruntime]==0.1.0' \
   --with torch \
   --with safetensors \
-  --with 'timm>=1,<2' \
   optimum-cli export onnx \
   --model "${model_dir}" \
   --task image-classification \
+  --library-name transformers \
   --monolith \
   --atol 0.0001 \
   "${output_dir}"
