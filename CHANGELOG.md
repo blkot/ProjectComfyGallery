@@ -4,6 +4,8 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.47 — 2026-11-10
+
 - Add a searchable Character LoRA filter to Library and carry its exact indexed
   scope through selection, review, saved filters, and slideshows.
 - Keep classifier confidence scores read-only, highlight the model result, and
