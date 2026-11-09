@@ -137,15 +137,10 @@ command -v ssh >/dev/null 2>&1 || die "ssh is required"
 [[ -x "$nas_helper" ]] || die "NAS helper is not executable: $nas_helper"
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "not inside a Git worktree"
 
-# Fail fast instead of hanging on an unreachable NAS. Without this check each
-# remote call waits for the operating system's TCP timeout.
-nas_ssh_host="${XANTA_NAS_SSH_HOST:-xanta-nas}"
-nas_connect_timeout="${XANTA_NAS_CONNECT_TIMEOUT_SECONDS:-5}"
-[[ "$nas_connect_timeout" =~ ^[1-9][0-9]*$ ]] ||
-  die "XANTA_NAS_CONNECT_TIMEOUT_SECONDS must be a positive integer"
-if ! ssh -o BatchMode=yes -o ConnectTimeout="$nas_connect_timeout" \
-  "$nas_ssh_host" true >/dev/null 2>&1; then
-  die "cannot reach the NAS over SSH (${nas_ssh_host}); connect to the LAN/VPN and retry"
+# Use the configured helper for reachability. Some managed environments allow
+# the helper's SSH route while denying a direct SSH subprocess from this script.
+if ! "$nas_helper" true >/dev/null 2>&1; then
+  die "cannot reach the NAS through ${nas_helper}; connect to the LAN/VPN and retry"
 fi
 
 target_commit="$(git rev-parse --verify "${target_revision}^{commit}")" ||

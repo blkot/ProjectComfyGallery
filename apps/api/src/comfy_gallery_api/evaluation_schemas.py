@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from comfy_gallery_api.classifier_filters import ClassifierRating, ClassifierStatus
 from comfy_gallery_api.media_filters import (
     MEDIA_SEARCH_QUERY_MAX_LENGTH,
     MEDIA_SHA256_QUERY_LENGTH,
@@ -136,6 +137,8 @@ class MediaFilterRequest(BaseModel):
     spatial_available: bool | None = None
     favorite: bool | None = None
     content_rating: ContentRatingFilter | None = None
+    classifier_status: ClassifierStatus | None = None
+    classifier_rating: ClassifierRating | None = None
     source_root_id: UUID | None = None
     # Singular fields keep saved filters created before multi-reference support valid.
     checkpoint_reference_id: UUID | None = None

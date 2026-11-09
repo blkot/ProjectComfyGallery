@@ -7,6 +7,7 @@ remote_repository="${XANTA_COMFY_GALLERY_REPOSITORY:-/share/homes/xanta/data/doc
 release_version=""
 assume_yes=false
 wait_for_images=true
+preserve_nsfw_runtime=false
 wait_timeout_seconds="${CG_RELEASE_WAIT_TIMEOUT_SECONDS:-2700}"
 poll_seconds="${CG_RELEASE_POLL_SECONDS:-10}"
 
@@ -20,6 +21,8 @@ release to the Xanta NAS.
 Options:
   --yes                   Skip the exact-version deployment confirmation.
   --no-wait               Fail instead of waiting when images are not ready.
+  --preserve-nsfw-runtime Leave the currently running NSFW runtime container and
+                          its loaded model process untouched during this release.
   --wait-timeout SECONDS  Maximum image-build wait (default: 2700).
   -h, --help              Show this help.
 EOF
@@ -37,6 +40,9 @@ while (($# > 0)); do
       ;;
     --no-wait)
       wait_for_images=false
+      ;;
+    --preserve-nsfw-runtime)
+      preserve_nsfw_runtime=true
       ;;
     --wait-timeout)
       (($# >= 2)) || die "--wait-timeout requires a number of seconds"
@@ -128,13 +134,18 @@ if [[ "$assume_yes" != true ]]; then
   fi
 fi
 
+remote_deploy_command="./deploy/operations/deploy-release.sh '$release_version'"
+if [[ "$preserve_nsfw_runtime" == true ]]; then
+  remote_deploy_command+=" --preserve-nsfw-runtime"
+fi
+
 "$nas_helper" sh -lc "
   set -eu
   cd '$remote_repository'
   test -z \"\$(/opt/bin/git status --porcelain)\"
   /opt/bin/git fetch --tags origin
   /opt/bin/git checkout --detach '$release_tag'
-  ./deploy/operations/deploy-release.sh '$release_version'
+  $remote_deploy_command
 "
 
 echo "Deployment completed from ${workflow_url}"

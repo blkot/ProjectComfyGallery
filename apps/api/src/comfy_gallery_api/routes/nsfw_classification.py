@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Response, status
 from sqlalchemy import select
 from uuid6 import uuid7
 
@@ -15,9 +15,11 @@ from comfy_gallery_api.nsfw_schemas import (
     MediaSafetyClassificationBatchResponse,
     MediaSafetyClassificationRequest,
     MediaSafetyClassificationStatusResponse,
+    MediaSafetyReviewResponse,
+    MediaSafetyReviewUpdateRequest,
 )
 from comfy_gallery_api.routes.evaluations import _resolve_membership_media_ids
-from comfy_gallery_core.db.models import Job, Media, MediaSafetyAssessment
+from comfy_gallery_core.db.models import Job, Media, MediaSafetyAssessment, MediaSafetyReview
 from comfy_gallery_core.nsfw import assessment_matches_settings
 from comfy_gallery_core.queue import enqueue_nsfw_classification
 
@@ -195,14 +197,87 @@ async def get_media_safety_classification(
     assessment = await session.scalar(
         select(MediaSafetyAssessment).where(MediaSafetyAssessment.media_id == media_id)
     )
+    review = await session.scalar(
+        select(MediaSafetyReview).where(MediaSafetyReview.media_id == media_id)
+    )
     job = await session.get(Job, assessment.job_id) if assessment and assessment.job_id else None
     return MediaSafetyClassificationStatusResponse(
         media_id=media_id,
         assessment=(
             MediaSafetyAssessmentResponse.model_validate(assessment) if assessment else None
         ),
+        review=MediaSafetyReviewResponse.model_validate(review) if review else None,
         job=JobResponse.model_validate(job) if job is not None else None,
     )
+
+
+@router.put(
+    "/{media_id}/classifier-review",
+    response_model=MediaSafetyReviewResponse,
+)
+async def save_media_safety_review(
+    media_id: UUID,
+    request: MediaSafetyReviewUpdateRequest,
+    principal: CsrfPrincipalDep,
+    session: DbSessionDep,
+) -> MediaSafetyReviewResponse:
+    media = await session.get(Media, media_id)
+    if media is None:
+        raise ApiError(
+            status_code=404,
+            code="MEDIA_NOT_FOUND",
+            message="The media record was not found.",
+        )
+    if media.kind != "image":
+        raise ApiError(
+            status_code=422,
+            code="CLASSIFIER_REVIEW_REQUIRES_IMAGE",
+            message="Classifier ratings are currently available for images only.",
+        )
+    review = await session.scalar(
+        select(MediaSafetyReview).where(MediaSafetyReview.media_id == media_id).with_for_update()
+    )
+    now = datetime.now(UTC)
+    if review is None:
+        review = MediaSafetyReview(
+            media_id=media_id,
+            rating=request.rating,
+            reviewer_user_id=principal.user.id,
+            reviewed_at=now,
+        )
+        session.add(review)
+    else:
+        review.rating = request.rating
+        review.reviewer_user_id = principal.user.id
+        review.reviewed_at = now
+    await session.commit()
+    await session.refresh(review)
+    return MediaSafetyReviewResponse.model_validate(review)
+
+
+@router.delete(
+    "/{media_id}/classifier-review",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def clear_media_safety_review(
+    media_id: UUID,
+    _principal: CsrfPrincipalDep,
+    session: DbSessionDep,
+) -> Response:
+    media = await session.get(Media, media_id)
+    if media is None:
+        raise ApiError(
+            status_code=404,
+            code="MEDIA_NOT_FOUND",
+            message="The media record was not found.",
+        )
+    review = await session.scalar(
+        select(MediaSafetyReview).where(MediaSafetyReview.media_id == media_id)
+    )
+    if review is not None:
+        await session.delete(review)
+        await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 def _require_classifier_enabled(enabled: bool) -> None:

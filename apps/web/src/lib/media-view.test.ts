@@ -176,6 +176,8 @@ describe("media view context", () => {
       spatial_available: true,
       favorite: true,
       content_rating: null,
+      classifier_status: null,
+      classifier_rating: null,
       checkpoint_reference_ids: ["checkpoint-a", "checkpoint-b"],
       checkpoint_reference_match: "any",
       lora_reference_ids: ["lora-a", "lora-b"],

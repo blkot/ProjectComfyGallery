@@ -11,6 +11,12 @@ from sqlalchemy import and_, extract, func, or_, select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql import ColumnElement, Select
 
+from comfy_gallery_api.classifier_filters import (
+    ClassifierRating,
+    ClassifierStatus,
+    classifier_rating_filter,
+    classifier_status_filter,
+)
 from comfy_gallery_api.dependencies import CsrfPrincipalDep, DbSessionDep, PrincipalDep, SettingsDep
 from comfy_gallery_api.errors import ApiError
 from comfy_gallery_api.media_filters import (
@@ -37,6 +43,7 @@ from comfy_gallery_api.media_schemas import (
     MediaPlaybackPreferenceResponse,
     MediaPlaybackPreferenceUpdateRequest,
     MediaSafetyAssessmentSummaryResponse,
+    MediaSafetyReviewSummaryResponse,
     MediaSpatialPreferenceResponse,
     MediaSpatialPreferenceUpdateRequest,
     MediaVariantResponse,
@@ -101,6 +108,8 @@ async def list_media(
     spatial_available: bool | None = None,
     favorite: bool | None = None,
     content_rating: ContentRatingFilter | None = None,
+    classifier_status: ClassifierStatus | None = None,
+    classifier_rating: ClassifierRating | None = None,
     source_root_id: UUID | None = None,
     checkpoint_reference_id: Annotated[list[UUID] | None, Query()] = None,
     checkpoint_reference_match: ReferenceMatch = "any",
@@ -127,6 +136,8 @@ async def list_media(
         spatial_available=spatial_available,
         favorite=favorite,
         content_rating=content_rating,
+        classifier_status=classifier_status,
+        classifier_rating=classifier_rating,
         source_root_id=source_root_id,
         collection_id=None,
         checkpoint_reference_ids=checkpoint_reference_id or [],
@@ -154,6 +165,7 @@ async def list_media(
                 selectinload(Media.workflow_snapshot),
                 selectinload(Media.evaluations),
                 selectinload(Media.safety_assessment),
+                selectinload(Media.safety_review),
             )
             .where(Media.id.in_(media_ids))
         )
@@ -216,6 +228,8 @@ async def get_slideshow_playlist(
     spatial_available: bool | None = None,
     favorite: bool | None = None,
     content_rating: ContentRatingFilter | None = None,
+    classifier_status: ClassifierStatus | None = None,
+    classifier_rating: ClassifierRating | None = None,
     source_root_id: UUID | None = None,
     collection_id: UUID | None = None,
     checkpoint_reference_id: Annotated[list[UUID] | None, Query()] = None,
@@ -250,6 +264,8 @@ async def get_slideshow_playlist(
         spatial_available=spatial_available,
         favorite=favorite,
         content_rating=content_rating,
+        classifier_status=classifier_status,
+        classifier_rating=classifier_rating,
         source_root_id=source_root_id,
         collection_id=collection_id,
         checkpoint_reference_ids=checkpoint_reference_id or [],
@@ -349,6 +365,8 @@ async def get_media_navigation(
     spatial_available: bool | None = None,
     favorite: bool | None = None,
     content_rating: ContentRatingFilter | None = None,
+    classifier_status: ClassifierStatus | None = None,
+    classifier_rating: ClassifierRating | None = None,
     source_root_id: UUID | None = None,
     checkpoint_reference_id: Annotated[list[UUID] | None, Query()] = None,
     checkpoint_reference_match: ReferenceMatch = "any",
@@ -373,6 +391,8 @@ async def get_media_navigation(
         spatial_available=spatial_available,
         favorite=favorite,
         content_rating=content_rating,
+        classifier_status=classifier_status,
+        classifier_rating=classifier_rating,
         source_root_id=source_root_id,
         collection_id=None,
         checkpoint_reference_ids=checkpoint_reference_id or [],
@@ -472,6 +492,11 @@ async def get_media(
         media_safety_assessment=(
             MediaSafetyAssessmentSummaryResponse.model_validate(media.safety_assessment)
             if media.safety_assessment is not None
+            else None
+        ),
+        media_safety_review=(
+            MediaSafetyReviewSummaryResponse.model_validate(media.safety_review)
+            if media.safety_review is not None
             else None
         ),
         derivatives=[DerivativeResponse.model_validate(item) for item in media.derivatives],
@@ -658,6 +683,7 @@ async def _load_media(session: DbSessionDep, media_id: UUID) -> Media:
             selectinload(Media.workflow_snapshot),
             selectinload(Media.evaluations),
             selectinload(Media.safety_assessment),
+            selectinload(Media.safety_review),
         )
         .where(Media.id == media_id)
     )
@@ -769,6 +795,11 @@ def _list_item(
             if media.safety_assessment is not None
             else None
         ),
+        media_safety_review=(
+            MediaSafetyReviewSummaryResponse.model_validate(media.safety_review)
+            if media.safety_review is not None
+            else None
+        ),
         file_created_at=_file_created_at(source_mtime_ns, media.created_at),
         created_at=media.created_at,
         preview_url=f"/api/v1/media/{media.id}/preview",
@@ -802,6 +833,8 @@ def _media_id_query(
     spatial_available: bool | None,
     favorite: bool | None,
     content_rating: ContentRatingFilter | None,
+    classifier_status: ClassifierStatus | None,
+    classifier_rating: ClassifierRating | None,
     source_root_id: UUID | None,
     collection_id: UUID | None,
     checkpoint_reference_ids: list[UUID],
@@ -844,6 +877,10 @@ def _media_id_query(
         filters.append(Media.content_rating == "sfw")
     elif content_rating is not None:
         filters.append(Media.content_rating == content_rating)
+    if classifier_status is not None:
+        filters.extend((Media.kind == "image", classifier_status_filter(classifier_status)))
+    if classifier_rating is not None:
+        filters.extend((Media.kind == "image", classifier_rating_filter(classifier_rating)))
     if workflow_status == "unprocessed":
         filters.append(~Media.workflow_snapshot.has())
     elif workflow_status:

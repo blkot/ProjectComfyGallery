@@ -4,6 +4,9 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+- Add human review for NSFW classifier suggestions, compact NudeNet evidence
+  labels, and Library filters for classifier status and suggested rating.
+
 ## 0.1.0-rc.45 — 2026-11-09
 
 - Add opt-in NSFW image classification with queued single and bulk actions,

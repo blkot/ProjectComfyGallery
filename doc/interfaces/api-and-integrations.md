@@ -81,6 +81,8 @@ POST   /api/v1/media/bulk/trash
 POST   /api/v1/media/bulk/download
 POST   /api/v1/media/bulk/nsfw-classification
 GET    /api/v1/media/:id/nsfw-classification
+PUT    /api/v1/media/:id/classifier-review
+DELETE /api/v1/media/:id/classifier-review
 GET    /api/v1/media/bulk/download/:archiveId
 GET    /api/v1/media/bulk/download/:archiveId/download
 PUT    /api/v1/media/:id/playback-preference

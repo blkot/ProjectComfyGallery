@@ -12,6 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql import ColumnElement, Select
 
+from comfy_gallery_api.classifier_filters import (
+    classifier_rating_filter,
+    classifier_status_filter,
+)
 from comfy_gallery_api.dependencies import CsrfPrincipalDep, DbSessionDep, PrincipalDep
 from comfy_gallery_api.errors import ApiError
 from comfy_gallery_api.evaluation_schemas import (
@@ -1001,6 +1005,16 @@ def _media_scope_query(
         query = query.where(Media.content_rating == "sfw")
     elif media_filter.content_rating is not None:
         query = query.where(Media.content_rating == media_filter.content_rating)
+    if media_filter.classifier_status is not None:
+        query = query.where(
+            Media.kind == "image",
+            classifier_status_filter(media_filter.classifier_status),
+        )
+    if media_filter.classifier_rating is not None:
+        query = query.where(
+            Media.kind == "image",
+            classifier_rating_filter(media_filter.classifier_rating),
+        )
     if media_filter.workflow_status == "unprocessed":
         query = query.where(~Media.workflow_snapshot.has())
     elif media_filter.workflow_status:
