@@ -183,6 +183,21 @@ publish a new tag; release tags are immutable.
 
 ## 8. Deploy from the Mac
 
+If the NAS NSFW runtime was started manually from its locally edited `.env` and
+must keep its loaded model process, include `--preserve-nsfw-runtime`:
+
+```bash
+./deploy/operations/deploy-xanta-release.sh 0.1.0-rc.18 \
+  --preserve-nsfw-runtime
+```
+
+This updates the API, web app, workers, database, Redis, and backup service while
+leaving the existing `nsfw-runtime` container running. Its container ID and start
+time are checked after deployment. The release only updates `CG_IMAGE_NAMESPACE`
+and `CG_IMAGE_TAG` in the NAS `.env`; manually configured `CG_NSFW_*` and
+`NSFW_*` values are retained. The running NSFW container continues using its
+existing image until it is deliberately updated in a later operation.
+
 ```bash
 ./deploy/operations/deploy-xanta-release.sh 0.1.0-rc.18
 ```

@@ -162,6 +162,14 @@ class MediaSafetyAssessmentSummaryResponse(BaseModel):
     needs_review: bool
 
 
+class MediaSafetyReviewSummaryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    rating: Literal["safe", "sexy", "nudity", "explicit"]
+    reviewer_user_id: UUID
+    reviewed_at: datetime
+
+
 class MediaVariantImportStatusResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -245,6 +253,7 @@ class MediaListItemResponse(BaseModel):
     favorite: bool
     content_rating: ContentRating
     media_safety_assessment: MediaSafetyAssessmentSummaryResponse | None = None
+    media_safety_review: MediaSafetyReviewSummaryResponse | None = None
     file_created_at: datetime
     created_at: datetime
     preview_url: str
@@ -326,6 +335,7 @@ class MediaDetailResponse(BaseModel):
     favorite: bool
     content_rating: ContentRating
     media_safety_assessment: MediaSafetyAssessmentSummaryResponse | None = None
+    media_safety_review: MediaSafetyReviewSummaryResponse | None = None
     derivatives: list[DerivativeResponse]
     variants: list[MediaVariantResponse]
     sources: list[SourceOccurrenceResponse]

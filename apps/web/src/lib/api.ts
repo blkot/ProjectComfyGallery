@@ -64,6 +64,25 @@ export type MediaSafetyAssessmentSummary = {
   needs_review: boolean;
 };
 
+export type ClassifierRating = "safe" | "sexy" | "nudity" | "explicit" | "review";
+export type HumanClassifierRating = Exclude<ClassifierRating, "review">;
+export type ClassifierStatus =
+  | "unclassified"
+  | "suggested"
+  | "needs_review"
+  | "reviewed"
+  | "processing"
+  | "failed";
+export type MediaSafetyReview = {
+  id: string;
+  media_id: string;
+  rating: HumanClassifierRating;
+  reviewer_user_id: string;
+  reviewed_at: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type MediaSafetyAssessment = MediaSafetyAssessmentSummary & {
   id: string;
   media_id: string;
@@ -103,6 +122,7 @@ export type MediaSafetyClassificationBatch = {
 export type MediaSafetyClassificationStatus = {
   media_id: string;
   assessment: MediaSafetyAssessment | null;
+  review?: MediaSafetyReview | null;
   job: Job | null;
 };
 
@@ -143,6 +163,7 @@ export type MediaListItem = {
   favorite: boolean;
   content_rating: ContentRating;
   media_safety_assessment?: MediaSafetyAssessmentSummary | null;
+  media_safety_review?: Pick<MediaSafetyReview, "rating" | "reviewer_user_id" | "reviewed_at"> | null;
   file_created_at: string;
   created_at: string;
   preview_url: string;

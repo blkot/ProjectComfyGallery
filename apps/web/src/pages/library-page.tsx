@@ -80,6 +80,25 @@ const contentRatingFilterOptions = [
   { value: "nsfw", label: "NSFW", icon: "nsfw" },
 ] as const;
 
+const classifierStatusOptions = [
+  { value: "", label: "All classifier states" },
+  { value: "unclassified", label: "Unclassified" },
+  { value: "suggested", label: "Suggested" },
+  { value: "needs_review", label: "Needs review" },
+  { value: "reviewed", label: "Human reviewed" },
+  { value: "processing", label: "Processing" },
+  { value: "failed", label: "Failed" },
+] as const;
+
+const classifierRatingOptions = [
+  { value: "", label: "All classifier ratings" },
+  { value: "safe", label: "Safe" },
+  { value: "sexy", label: "Sexy" },
+  { value: "nudity", label: "Nudity" },
+  { value: "explicit", label: "Explicit" },
+  { value: "review", label: "Review" },
+] as const;
+
 const spatialPreferenceFilterOptions = [
   { value: "", label: "Any", icon: "all" },
   { value: "true", label: "Spatial", icon: "spatial" },
@@ -278,6 +297,7 @@ export function LibraryPage() {
   const galleryTopRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const restoredReturnRef = useRef<string | null>(null);
+  const autoOpenUnclassifiedRef = useRef<string | null>(null);
   const [selection, setSelection] = useState<LibrarySelection>(
     emptyLibrarySelection,
   );
@@ -311,6 +331,8 @@ export function LibraryPage() {
       : "false";
   const favorite = searchParams.get("favorite") ?? "";
   const contentRating = searchParams.get("content_rating") ?? "";
+  const classifierStatus = searchParams.get("classifier_status") ?? "";
+  const classifierRating = searchParams.get("classifier_rating") ?? "";
   const preferSpatialPlayback =
     searchParams.get("prefer_spatial_playback") ??
     searchParams.get("spatial_view_preferred") ??
@@ -341,6 +363,30 @@ export function LibraryPage() {
         ? 3_000
         : false,
   });
+
+  useEffect(() => {
+    const expectedSearch = autoOpenUnclassifiedRef.current;
+    if (
+      !expectedSearch ||
+      requestSearch !== expectedSearch ||
+      overlay.mediaId ||
+      media.isPending ||
+      media.isFetching
+    ) {
+      return;
+    }
+    autoOpenUnclassifiedRef.current = null;
+    const firstImage = media.data?.items[0];
+    if (firstImage) overlay.open(firstImage.id);
+  }, [
+    media.data,
+    media.isFetching,
+    media.isPending,
+    overlay,
+    overlay.mediaId,
+    overlay.open,
+    requestSearch,
+  ]);
   const libraryPageCount = Math.max(
     1,
     Math.ceil((media.data?.total ?? 0) / mediaPageSize),
@@ -664,6 +710,29 @@ export function LibraryPage() {
       next.delete(mediaReturnParam);
       return next;
     });
+  }
+
+  function startUnclassifiedReview() {
+    clearSelection();
+    const next = new URLSearchParams({
+      kind: "image",
+      classifier_status: "unclassified",
+      trash: "false",
+      sort: defaultMediaSort,
+    });
+    const expectedSearch = mediaListQuery(next).toString();
+    autoOpenUnclassifiedRef.current = expectedSearch;
+    if (
+      expectedSearch === requestSearch &&
+      !media.isPending &&
+      !media.isFetching
+    ) {
+      autoOpenUnclassifiedRef.current = null;
+      const firstImage = media.data?.items[0];
+      if (firstImage) overlay.open(firstImage.id);
+      return;
+    }
+    setSearchParams(next);
   }
 
   function changeMultiLibraryParameter(name: string, values: string[]) {
@@ -1011,7 +1080,7 @@ export function LibraryPage() {
               onChange={(value) => changeLibraryParameter("favorite", value)}
             />
             <LibrarySegmentedFilter
-              label="Content safety"
+              label="Manual SFW / NSFW"
               name="library-content-rating"
               options={contentRatingFilterOptions}
               value={contentRating}
@@ -1019,6 +1088,43 @@ export function LibraryPage() {
                 changeLibraryParameter("content_rating", value)
               }
             />
+            <label>
+              Classifier status
+              <select
+                value={classifierStatus}
+                onChange={(event) =>
+                  changeLibraryParameter("classifier_status", event.target.value)
+                }
+              >
+                {classifierStatusOptions.map((option) => (
+                  <option key={option.value || "all"} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Classifier rating
+              <select
+                value={classifierRating}
+                onChange={(event) =>
+                  changeLibraryParameter("classifier_rating", event.target.value)
+                }
+              >
+                {classifierRatingOptions.map((option) => (
+                  <option key={option.value || "all"} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              className="secondary-button library-review-unclassified-button"
+              type="button"
+              onClick={startUnclassifiedReview}
+            >
+              Review unclassified images
+            </button>
             <LibrarySegmentedFilter
               label="Spatial preference"
               name="library-spatial-preference"
@@ -1556,27 +1662,38 @@ export function LibraryPage() {
                           ? "Trash"
                           : titleCase(item.evaluation_state)}
                       </span> : null}
-                      {item.media_safety_assessment ? (
+                      {item.media_safety_assessment || item.media_safety_review ? (
                         <span
                           className="ai-classification-badge"
-                          data-status={item.media_safety_assessment.status}
+                          data-status={
+                            item.media_safety_review
+                              ? "reviewed"
+                              : item.media_safety_assessment?.status
+                          }
+                          data-rating={
+                            item.media_safety_review?.rating ??
+                            item.media_safety_assessment?.suggested_rating ??
+                            undefined
+                          }
                           title={
-                            item.media_safety_assessment.needs_review
-                              ? "AI suggestion needs review; the human content rating is unchanged."
-                              : "AI suggestion only; the human content rating is unchanged."
+                            item.media_safety_review
+                              ? `Human rating: ${titleCase(item.media_safety_review.rating)}`
+                              : item.media_safety_assessment?.needs_review
+                                ? "Classifier result needs human review"
+                                : "Classifier suggestion"
                           }
                         >
-                          AI {item.media_safety_assessment.status === "completed"
-                            ? titleCase(
-                                item.media_safety_assessment.needs_review
-                                  ? "review"
-                                  : item.media_safety_assessment.suggested_rating ??
+                          {item.media_safety_review
+                            ? `Reviewed · ${titleCase(item.media_safety_review.rating)}`
+                            : item.media_safety_assessment?.status === "completed"
+                              ? item.media_safety_assessment.needs_review
+                                ? "Needs review"
+                                : titleCase(
+                                    item.media_safety_assessment.suggested_rating ??
                                       item.media_safety_assessment.label ??
                                       "classified",
-                              )
-                            : item.media_safety_assessment.status === "running"
-                              ? "Grading"
-                              : titleCase(item.media_safety_assessment.status)}
+                                  )
+                              : titleCase(item.media_safety_assessment?.status ?? "classified")}
                         </span>
                       ) : null}
                     </div>

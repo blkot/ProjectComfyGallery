@@ -135,6 +135,16 @@ Key concepts:
 - Deleting the media cascades to its current assessment. Deleting a job clears
   only the assessment's optional job reference.
 
+### `media_safety_review`
+
+- One latest human classifier decision per media item, with rating, reviewer,
+  and review timestamp.
+- Human classifier decisions do not alter the current AI assessment or
+  `media.content_rating`; they take precedence only for the effective
+  `classifier_rating` Library filter and review UI.
+- Deleting the media cascades to its classifier review. The reviewer's user
+  account is protected while review records refer to it.
+
 ### `media_variant`
 
 - An externally produced, non-regenerable alternate file for one logical media.

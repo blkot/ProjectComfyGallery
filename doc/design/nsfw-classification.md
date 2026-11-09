@@ -37,6 +37,27 @@ The current assessment row stores the most recent run, including model revision
 and raw scores; each execution also has an ordinary durable `Job` and stage
 attempt.
 
+Human classifier decisions are stored separately in `media_safety_review` and
+currently offer Safe, Sexy, Nudity, and Explicit. A saved human decision takes
+precedence over the model suggestion for `classifier_rating` filters. It still
+does not modify the legacy `content_rating`; the Library exposes both fields
+until the future migration away from the binary mark is planned.
+
+The Library's `classifier_status` filter separates Unclassified, Suggested,
+Needs review, Human reviewed, Processing, and Failed image records. Unclassified
+means neither an assessment nor a human decision exists. The `classifier_rating`
+filter selects the human decision when present, otherwise the latest completed
+model suggestion. Both filters also apply to detail navigation, slideshows,
+saved filters, and filter-backed selections. The Review unclassified images
+shortcut temporarily replaces the current Library scope, opens the first
+unclassified image, and keeps the scope for detail navigation.
+
+The five raw model confidence buttons can save their mapped human rating
+(Normal/Drawing to Safe, Sexy to Sexy, Porn/Hentai to Explicit). The separate
+human rating buttons also allow Nudity, which Mini cannot predict as a distinct
+class. NudeNet exposed-region detections receive a critical accent; other region
+labels use a hatched neutral chip to distinguish evidence from a rating.
+
 ## Request and execution flow
 
 ```mermaid

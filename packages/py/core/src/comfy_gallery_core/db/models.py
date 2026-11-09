@@ -56,6 +56,7 @@ class User(TimestampMixin, Base):
     weighting_profiles: Mapped[list[WeightingProfile]] = relationship(back_populates="created_by")
     analysis_runs: Mapped[list[AnalysisRun]] = relationship(back_populates="created_by")
     export_runs: Mapped[list[ExportRun]] = relationship(back_populates="created_by")
+    safety_reviews: Mapped[list[MediaSafetyReview]] = relationship(back_populates="reviewer")
 
 
 class WebSession(Base):
@@ -182,6 +183,11 @@ class Media(TimestampMixin, Base):
         uselist=False,
     )
     safety_assessment: Mapped[MediaSafetyAssessment | None] = relationship(
+        back_populates="media",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+    safety_review: Mapped[MediaSafetyReview | None] = relationship(
         back_populates="media",
         cascade="all, delete-orphan",
         uselist=False,
@@ -326,6 +332,36 @@ class MediaSafetyAssessment(TimestampMixin, Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     media: Mapped[Media] = relationship(back_populates="safety_assessment")
+
+
+class MediaSafetyReview(TimestampMixin, Base):
+    """Latest human classifier decision, separate from model suggestions and content_rating."""
+
+    __tablename__ = "media_safety_review"
+    __table_args__ = (
+        UniqueConstraint("media_id", name="uq_media_safety_review_media"),
+        Index("ix_media_safety_review_rating", "rating"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid7)
+    media_id: Mapped[UUID] = mapped_column(
+        ForeignKey("media.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    rating: Mapped[str] = mapped_column(String(24), nullable=False)
+    reviewer_user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("app_user.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    reviewed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    media: Mapped[Media] = relationship(back_populates="safety_review")
+    reviewer: Mapped[User] = relationship(back_populates="safety_reviews")
 
 
 class Derivative(Base):

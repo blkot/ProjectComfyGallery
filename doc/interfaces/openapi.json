@@ -2817,6 +2817,16 @@
               }
             ]
           },
+          "media_safety_review": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MediaSafetyReviewSummaryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "mime_type": {
             "anyOf": [
               {
@@ -3171,6 +3181,43 @@
             "title": "Checkpoint Reference Match",
             "type": "string"
           },
+          "classifier_rating": {
+            "anyOf": [
+              {
+                "enum": [
+                  "safe",
+                  "sexy",
+                  "nudity",
+                  "explicit",
+                  "review"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Classifier Rating"
+          },
+          "classifier_status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "unclassified",
+                  "suggested",
+                  "needs_review",
+                  "reviewed",
+                  "processing",
+                  "failed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Classifier Status"
+          },
           "collection_id": {
             "anyOf": [
               {
@@ -3486,6 +3533,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/MediaSafetyAssessmentSummaryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "media_safety_review": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MediaSafetyReviewSummaryResponse"
               },
               {
                 "type": "null"
@@ -4184,6 +4241,16 @@
             "format": "uuid",
             "title": "Media Id",
             "type": "string"
+          },
+          "review": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MediaSafetyReviewResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -4192,6 +4259,111 @@
           "job"
         ],
         "title": "MediaSafetyClassificationStatusResponse",
+        "type": "object"
+      },
+      "MediaSafetyReviewResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "media_id": {
+            "format": "uuid",
+            "title": "Media Id",
+            "type": "string"
+          },
+          "rating": {
+            "enum": [
+              "safe",
+              "sexy",
+              "nudity",
+              "explicit"
+            ],
+            "title": "Rating",
+            "type": "string"
+          },
+          "reviewed_at": {
+            "format": "date-time",
+            "title": "Reviewed At",
+            "type": "string"
+          },
+          "reviewer_user_id": {
+            "format": "uuid",
+            "title": "Reviewer User Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "media_id",
+          "rating",
+          "reviewer_user_id",
+          "reviewed_at",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "MediaSafetyReviewResponse",
+        "type": "object"
+      },
+      "MediaSafetyReviewSummaryResponse": {
+        "properties": {
+          "rating": {
+            "enum": [
+              "safe",
+              "sexy",
+              "nudity",
+              "explicit"
+            ],
+            "title": "Rating",
+            "type": "string"
+          },
+          "reviewed_at": {
+            "format": "date-time",
+            "title": "Reviewed At",
+            "type": "string"
+          },
+          "reviewer_user_id": {
+            "format": "uuid",
+            "title": "Reviewer User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rating",
+          "reviewer_user_id",
+          "reviewed_at"
+        ],
+        "title": "MediaSafetyReviewSummaryResponse",
+        "type": "object"
+      },
+      "MediaSafetyReviewUpdateRequest": {
+        "properties": {
+          "rating": {
+            "enum": [
+              "safe",
+              "sexy",
+              "nudity",
+              "explicit"
+            ],
+            "title": "Rating",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rating"
+        ],
+        "title": "MediaSafetyReviewUpdateRequest",
         "type": "object"
       },
       "MediaSpatialPreferenceResponse": {
@@ -12249,6 +12421,53 @@
           },
           {
             "in": "query",
+            "name": "classifier_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "unclassified",
+                    "suggested",
+                    "needs_review",
+                    "reviewed",
+                    "processing",
+                    "failed"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Classifier Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "classifier_rating",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "safe",
+                    "sexy",
+                    "nudity",
+                    "explicit",
+                    "review"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Classifier Rating"
+            }
+          },
+          {
+            "in": "query",
             "name": "source_root_id",
             "required": false,
             "schema": {
@@ -12945,6 +13164,53 @@
           },
           {
             "in": "query",
+            "name": "classifier_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "unclassified",
+                    "suggested",
+                    "needs_review",
+                    "reviewed",
+                    "processing",
+                    "failed"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Classifier Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "classifier_rating",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "safe",
+                    "sexy",
+                    "nudity",
+                    "explicit",
+                    "review"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Classifier Rating"
+            }
+          },
+          {
+            "in": "query",
             "name": "source_root_id",
             "required": false,
             "schema": {
@@ -13191,6 +13457,93 @@
         "summary": "Get Media",
         "tags": [
           "media"
+        ]
+      }
+    },
+    "/api/v1/media/{media_id}/classifier-review": {
+      "delete": {
+        "operationId": "clear_media_safety_review_api_v1_media__media_id__classifier_review_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Media Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Clear Media Safety Review",
+        "tags": [
+          "media safety"
+        ]
+      },
+      "put": {
+        "operationId": "save_media_safety_review_api_v1_media__media_id__classifier_review_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Media Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaSafetyReviewUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaSafetyReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Media Safety Review",
+        "tags": [
+          "media safety"
         ]
       }
     },
@@ -13639,6 +13992,53 @@
                 }
               ],
               "title": "Content Rating"
+            }
+          },
+          {
+            "in": "query",
+            "name": "classifier_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "unclassified",
+                    "suggested",
+                    "needs_review",
+                    "reviewed",
+                    "processing",
+                    "failed"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Classifier Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "classifier_rating",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "safe",
+                    "sexy",
+                    "nudity",
+                    "explicit",
+                    "review"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Classifier Rating"
             }
           },
           {

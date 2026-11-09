@@ -101,6 +101,16 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
 - **NSFW-012:** The system may suggest Nudity only from configured exposed-region
   detections when Mini is not uncertain and does not classify the image as
   Explicit. Manual content ratings remain unchanged.
+- **NSFW-013:** An authenticated user MUST be able to save a human classifier
+  decision of Safe, Sexy, Nudity, or Explicit independently from the model
+  assessment and legacy binary `content_rating`. The decision MUST record its
+  reviewer and timestamp and MUST take precedence over the model suggestion in
+  classifier-rating filters.
+- **NSFW-014:** The Library MUST filter classifier state and effective
+  classifier rating across media pages, detail navigation, saved filters,
+  slideshows, and filter-backed selection scopes. It MUST provide a shortcut
+  that opens the first unclassified image for review without saving or changing
+  the user's existing Library filter.
 
 ## Workflow ground truth and graph
 

@@ -212,6 +212,29 @@ Drawing outputs. It does not emit an independent Nudity rating. See the
 [classification design](../design/nsfw-classification.md) for the provisional
 mapping and process lifecycle.
 
+## Unreleased: human classifier review and Library filters
+
+**Database migration:** `0024_media_safety_review`
+
+The Library list, navigation, slideshow, saved-filter, review-session, and
+bulk-selection scopes accept `classifier_status` and `classifier_rating`.
+Classifier status values are `unclassified`, `suggested`, `needs_review`,
+`reviewed`, `processing`, and `failed`. Rating values are `safe`, `sexy`,
+`nudity`, `explicit`, and `review`. Classifier filters apply to images. The
+rating filter uses the latest human decision when present and falls back to the
+latest completed model suggestion.
+
+```http
+PUT    /api/v1/media/{media_id}/classifier-review
+DELETE /api/v1/media/{media_id}/classifier-review
+```
+
+The PUT accepts `{"rating":"safe|sexy|nudity|explicit"}`. A human decision is
+persisted with reviewer and timestamp in `media_safety_review`, and appears in
+list/detail classifier summaries plus the existing classification status GET.
+DELETE clears that override and returns the record to its AI or unclassified
+state. Neither operation changes the legacy `content_rating` field.
+
 ## Unreleased: ComfyGallery-driven MSS spatial conversion
 
 **Database migration:** `0013_spatial_conversion_runs`

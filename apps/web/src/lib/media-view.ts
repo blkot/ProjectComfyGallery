@@ -1,3 +1,5 @@
+import type { ClassifierRating, ClassifierStatus } from "./api";
+
 export const mediaPageSize = 48;
 export const defaultMediaSort = "file_created_desc";
 export const mediaReturnParam = "return_media";
@@ -26,6 +28,8 @@ export type LibraryFilterExpression = {
   spatial_available: boolean | null;
   favorite: boolean | null;
   content_rating: "sfw" | "nsfw" | "unknown" | null;
+  classifier_status?: ClassifierStatus | null;
+  classifier_rating?: ClassifierRating | null;
   checkpoint_reference_ids: string[];
   checkpoint_reference_match: ReferenceMatch;
   lora_reference_ids: string[];
@@ -69,6 +73,8 @@ export function libraryFilterExpression(
     spatial_available: booleanFilter(search, "spatial_available"),
     favorite: booleanFilter(search, "favorite"),
     content_rating: contentRatingFilter(search),
+    classifier_status: classifierStatusFilter(search),
+    classifier_rating: classifierRatingFilter(search),
     checkpoint_reference_ids: uniqueValues(
       search.getAll("checkpoint_reference_id"),
     ),
@@ -287,6 +293,28 @@ function contentRatingFilter(
     : null;
 }
 
+function classifierStatusFilter(search: URLSearchParams): ClassifierStatus | null {
+  const value = search.get("classifier_status");
+  return value &&
+    [
+      "unclassified",
+      "suggested",
+      "needs_review",
+      "reviewed",
+      "processing",
+      "failed",
+    ].includes(value)
+    ? (value as ClassifierStatus)
+    : null;
+}
+
+function classifierRatingFilter(search: URLSearchParams): ClassifierRating | null {
+  const value = search.get("classifier_rating");
+  return value && ["safe", "sexy", "nudity", "explicit", "review"].includes(value)
+    ? (value as ClassifierRating)
+    : null;
+}
+
 function uniqueValues(values: string[]): string[] {
   return [...new Set(values.filter(Boolean))];
 }
@@ -303,6 +331,8 @@ const slideshowFilterParameters = [
   "spatial_available",
   "favorite",
   "content_rating",
+  "classifier_status",
+  "classifier_rating",
   "source_root_id",
   "collection_id",
   "tag_id",

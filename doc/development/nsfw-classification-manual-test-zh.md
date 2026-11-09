@@ -204,6 +204,17 @@ docker compose -f compose.nsfw-benchmark.yaml run --rm nsfw-benchmark
 Mini + NudeNet。报告记录模型加载时间、首张推理、P50/P95/P99、串行吞吐量和进程 RSS；Docker Stats
 用于补充容器资源数据。文档中的 `1536M` 内存上限和 P95 低于 2 秒是待验证目标，不是已测结果。
 
+## 可选：CG 人工复核与媒体库筛选
+
+部署包含数据库迁移 `0024_media_safety_review` 的版本后，可在 CG 中按以下顺序手动验收：
+
+1. 打开一张图片的详情，在 Info 中查看 Content classification。确认页面不再显示模型免责声明或 NudeNet 版本号。
+2. 检查五个模型分数按钮；点击 Normal/Drawing 应保存为 Safe，Sexy 保存为 Sexy，Porn/Hentai 保存为 Explicit。也可以直接点 Human rating 下的 Safe、Sexy、Nudity、Explicit。
+3. 保存后确认详情显示 Human rating；刷新页面后仍保留。点击 Undo rating 后应恢复显示模型建议，未跑过模型的图片则恢复为 Unclassified。
+4. 在 Library controls 检查 Classifier status 和 Classifier rating。分别确认 Unclassified、Suggested、Needs review、Human reviewed、Processing、Failed，以及 Safe、Sexy、Nudity、Explicit、Review 的筛选结果。
+5. 点击 Review unclassified images。页面应临时切到未分类图片范围并打开第一张；详情中的前后导航应继续留在这个范围内。保存一张图片的人工等级后，该图应从未分类范围移出。
+6. 同时查看 Manual SFW / NSFW 筛选和图片原有标记，确认人工 classifier review 没有改写旧的 SFW/NSFW 值。
+
 ## 隐私与提交
 
 不要把测试图片、`manifest.local.json`、JSON 结果或 HTML 报告提交到仓库。它们包含私人样本或嵌入的图片

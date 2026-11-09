@@ -8,6 +8,23 @@ from comfy_gallery_api.evaluation_schemas import MediaMembershipRequest
 from comfy_gallery_api.media_schemas import JobResponse
 
 SuggestedContentRating = Literal["safe", "sexy", "nudity", "explicit", "review"]
+HumanContentRating = Literal["safe", "sexy", "nudity", "explicit"]
+
+
+class MediaSafetyReviewResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    media_id: UUID
+    rating: HumanContentRating
+    reviewer_user_id: UUID
+    reviewed_at: datetime
+    created_at: datetime
+    updated_at: datetime
+
+
+class MediaSafetyReviewUpdateRequest(BaseModel):
+    rating: HumanContentRating
 
 
 class MediaSafetyAssessmentResponse(BaseModel):
@@ -56,4 +73,5 @@ class MediaSafetyClassificationBatchResponse(BaseModel):
 class MediaSafetyClassificationStatusResponse(BaseModel):
     media_id: UUID
     assessment: MediaSafetyAssessmentResponse | None
+    review: MediaSafetyReviewResponse | None = None
     job: JobResponse | None
