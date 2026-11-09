@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f6fa">
+  <title>NSFW 测试清单编辑器</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #20283a;
+      --muted: #68748a;
+      --line: #dfe5ef;
+      --panel: #fff;
+      --canvas: #f4f6fa;
+      --accent: #3c61ce;
+      --accent-soft: #edf2ff;
+      --warn: #9a5c00;
+      --shadow: 0 12px 35px rgb(29 44 77 / 7%);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--canvas);
+      color: var(--ink);
+      font: 15px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+    .shell { width: min(1180px, calc(100% - 36px)); margin: 0 auto; padding: 38px 0 64px; }
+    header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+    h1 { margin: 0; font-size: clamp(25px, 4vw, 34px); letter-spacing: -.03em; }
+    .intro { max-width: 680px; margin: 8px 0 0; color: var(--muted); }
+    .local-badge {
+      flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px;
+      border: 1px solid #c9e6d7; border-radius: 99px; background: #effaf4;
+      color: #286a45; padding: 7px 12px; font-size: 13px; font-weight: 650;
+    }
+    .local-badge::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #36a56c; }
+    .panel { margin-top: 24px; border: 1px solid var(--line); border-radius: 18px; background: var(--panel); box-shadow: var(--shadow); }
+    .controls { padding: 18px; }
+    .button-row { display: flex; flex-wrap: wrap; gap: 10px; }
+    .button {
+      min-height: 42px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink);
+      padding: 9px 14px; font-weight: 650; transition: border-color .15s, background .15s, transform .15s;
+    }
+    .button:hover { border-color: #aab8d3; background: #fafbfe; }
+    .button:active { transform: translateY(1px); }
+    .button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+      outline: 3px solid #9db5ff; outline-offset: 2px;
+    }
+    .button.primary { border-color: var(--accent); background: var(--accent); color: #fff; }
+    .button.primary:hover { background: #2d50b7; }
+    .button.danger { color: #9c3341; }
+    .button:disabled { cursor: not-allowed; opacity: .48; }
+    .hidden-input { display: none; }
+    .privacy-note { margin: 14px 2px 0; color: var(--muted); font-size: 13px; }
+    .status-line { min-height: 25px; margin: 8px 2px 0; color: var(--muted); font-size: 13px; }
+    .status-line[data-kind="error"] { color: #a62e3b; }
+    .status-line[data-kind="success"] { color: #28794a; }
+    .summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+    .summary-card { border: 1px solid var(--line); border-radius: 13px; background: #fbfcfe; padding: 13px 15px; }
+    .summary-card span { display: block; color: var(--muted); font-size: 12px; }
+    .summary-card strong { display: block; margin-top: 2px; font-size: 21px; }
+    .list-panel { overflow: hidden; }
+    .list-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 20px; border-bottom: 1px solid var(--line); }
+    .list-head h2 { margin: 0; font-size: 18px; }
+    .filters { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; }
+    .field {
+      min-height: 40px; border: 1px solid var(--line); border-radius: 9px; background: #fff;
+      color: var(--ink); padding: 8px 11px;
+    }
+    .search { min-width: min(260px, 65vw); }
+    .check-filter { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 13px; white-space: nowrap; }
+    .check-filter input { width: 16px; height: 16px; accent-color: var(--accent); }
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 430px), 1fr)); gap: 13px; padding: 16px; }
+    .image-card { display: grid; grid-template-columns: 142px minmax(0, 1fr); gap: 14px; min-width: 0; border: 1px solid var(--line); border-radius: 13px; background: #fff; padding: 12px; }
+    .preview-wrap { display: grid; place-items: center; min-height: 164px; overflow: hidden; border-radius: 9px; background: #edf0f5; }
+    .preview { display: block; width: 100%; height: 164px; object-fit: contain; }
+    .placeholder { padding: 12px; color: #8791a3; text-align: center; font-size: 12px; }
+    .card-content { display: flex; flex-direction: column; min-width: 0; gap: 9px; }
+    .filename { overflow-wrap: anywhere; margin: 1px 0 0; font-size: 14px; font-weight: 700; }
+    .field-label { display: grid; gap: 4px; color: var(--muted); font-size: 12px; }
+    .field-label select, .field-label textarea { width: 100%; color: var(--ink); font-size: 14px; }
+    .field-label textarea { min-height: 56px; resize: vertical; }
+    .card-bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; }
+    .rating-chip { display: inline-flex; align-items: center; border-radius: 99px; background: var(--accent-soft); color: #3553a1; padding: 3px 9px; font-size: 12px; font-weight: 700; }
+    .remove-button { border: 0; background: transparent; color: #9c3341; padding: 5px 2px; font-size: 12px; }
+    .remove-button:hover { text-decoration: underline; }
+    .empty { grid-column: 1 / -1; padding: 48px 20px; color: var(--muted); text-align: center; }
+    .empty strong { display: block; margin-bottom: 5px; color: var(--ink); font-size: 16px; }
+    footer { margin: 18px 2px 0; color: var(--muted); font-size: 12px; }
+    @media (max-width: 650px) {
+      .shell { width: min(100% - 22px, 1180px); padding-top: 24px; }
+      header { display: block; }
+      .local-badge { margin-top: 14px; }
+      .controls { padding: 13px; }
+      .summary { gap: 7px; }
+      .summary-card { padding: 10px; }
+      .summary-card strong { font-size: 18px; }
+      .list-head { display: grid; align-items: start; padding: 15px; }
+      .filters { display: grid; grid-template-columns: 1fr 1fr; }
+      .search { grid-column: 1 / -1; width: 100%; }
+      .card-grid { padding: 10px; }
+      .image-card { grid-template-columns: 94px minmax(0, 1fr); gap: 10px; padding: 9px; }
+      .preview-wrap, .preview { height: 132px; min-height: 132px; }
+      .button { flex: 1 1 145px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <h1>NSFW 测试清单</h1>
+        <p class="intro">选取 samples 文件夹，逐张添加人工标签和备注，然后保存为 benchmark 使用的 JSON 清单。</p>
+      </div>
+      <span class="local-badge">仅在本机处理</span>
+    </header>
+
+    <section class="panel controls" aria-label="清单操作">
+      <div class="button-row">
+        <button class="button primary" id="pick-folder" type="button">选择 samples 文件夹</button>
+        <button class="button" id="pick-files" type="button">添加图片</button>
+        <button class="button" id="import-manifest" type="button">导入已有清单</button>
+        <button class="button" id="save-manifest" type="button">保存 manifest.local.json</button>
+      </div>
+      <input class="hidden-input" id="folder-input" type="file" accept="image/*,.tif,.tiff" webkitdirectory directory multiple>
+      <input class="hidden-input" id="files-input" type="file" accept="image/*,.tif,.tiff" multiple>
+      <input class="hidden-input" id="manifest-input" type="file" accept=".json,application/json">
+      <p class="privacy-note">图片只在浏览器本地预览，不会上传。保存时选择项目中的 <code>testdata/nsfw/manifest.local.json</code>。</p>
+      <p class="status-line" id="status" role="status" aria-live="polite">先选择图片文件夹，或导入已有清单。</p>
+      <div class="summary" aria-live="polite">
+        <div class="summary-card"><span>清单图片</span><strong id="total-count">0</strong></div>
+        <div class="summary-card"><span>已标注</span><strong id="tagged-count">0</strong></div>
+        <div class="summary-card"><span>待标注</span><strong id="untagged-count">0</strong></div>
+      </div>
+    </section>
+
+    <section class="panel list-panel" aria-label="图片清单">
+      <div class="list-head">
+        <h2>图片与人工标签</h2>
+        <div class="filters">
+          <input class="field search" id="search" type="search" placeholder="搜索文件名或备注" aria-label="搜索文件名或备注">
+          <select class="field" id="rating-filter" aria-label="按标签筛选">
+            <option value="">全部标签</option>
+            <option value="safe">Safe</option>
+            <option value="sexy">Sexy</option>
+            <option value="nudity">Nudity</option>
+            <option value="explicit">Explicit</option>
+            <option value="review">Review</option>
+          </select>
+          <label class="check-filter"><input id="unlabeled-only" type="checkbox">只看未标注</label>
+        </div>
+      </div>
+      <div class="card-grid" id="cards" aria-live="polite"></div>
+    </section>
+    <footer>清单字段为 file、expected_rating 和 notes。保存后可直接交给本地 benchmark 使用。</footer>
+  </main>
+
+  <script>
+    (() => {
+      const RATINGS = ["safe", "sexy", "nudity", "explicit", "review"];
+      const EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "bmp", "tif", "tiff"]);
+      const LABELS = { "": "未标注", safe: "Safe", sexy: "Sexy", nudity: "Nudity", explicit: "Explicit", review: "Review" };
+      const items = [];
+      let dirty = false;
+      const byId = (id) => document.getElementById(id);
+      const cards = byId("cards");
+      const statusLine = byId("status");
+
+      function markDirty() {
+        dirty = true;
+        byId("save-manifest").textContent = "保存更改";
+      }
+
+      function markClean() {
+        dirty = false;
+        byId("save-manifest").textContent = "保存 manifest.local.json";
+      }
+
+      function escapeHTML(value) {
+        return String(value).replace(/[&<>"']/g, (char) => ({
+          "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+        })[char]);
+      }
+
+      function setStatus(message, kind = "") {
+        statusLine.textContent = message;
+        statusLine.dataset.kind = kind;
+      }
+
+      function extensionOf(name) {
+        return name.toLowerCase().split(".").pop() || "";
+      }
+
+      function isSafeRelativePath(path) {
+        const normalized = path.replaceAll("\\", "/");
+        return normalized.length > 0 && !normalized.startsWith("/") &&
+          !normalized.split("/").some((part) => part === ".." || part === "");
+      }
+
+      function attachPreview(item, file) {
+        if (item.previewURL) URL.revokeObjectURL(item.previewURL);
+        item.previewURL = URL.createObjectURL(file);
+      }
+
+      function renderSummary() {
+        const tagged = items.filter((item) => RATINGS.includes(item.expected_rating)).length;
+        byId("total-count").textContent = items.length;
+        byId("tagged-count").textContent = tagged;
+        byId("untagged-count").textContent = items.length - tagged;
+      }
+
+      function render() {
+        const query = byId("search").value.trim().toLowerCase();
+        const ratingFilter = byId("rating-filter").value;
+        const unlabeledOnly = byId("unlabeled-only").checked;
+        const visible = items.filter((item) => {
+          const text = `${item.file} ${item.notes}`.toLowerCase();
+          const untagged = !RATINGS.includes(item.expected_rating);
+          return (!query || text.includes(query)) &&
+            (!ratingFilter || item.expected_rating === ratingFilter) &&
+            (!unlabeledOnly || untagged);
+        });
+
+        if (!visible.length) {
+          cards.innerHTML = items.length
+            ? '<div class="empty"><strong>没有符合条件的图片</strong>调整搜索词或筛选条件。</div>'
+            : '<div class="empty"><strong>清单还是空的</strong>选择 samples 文件夹开始添加图片。</div>';
+          renderSummary();
+          return;
+        }
+
+        cards.innerHTML = visible.map((item) => {
+          const preview = item.previewURL
+            ? `<img class="preview" src="${escapeHTML(item.previewURL)}" alt="${escapeHTML(item.file)}" loading="lazy" decoding="async">`
+            : '<span class="placeholder">尚未加载预览<br>选择 samples 文件夹</span>';
+          const ratingOptions = Object.entries(LABELS).map(([value, label]) =>
+            `<option value="${value}" ${item.expected_rating === value ? "selected" : ""}>${label}</option>`
+          ).join("");
+          return `<article class="image-card" data-file="${escapeHTML(item.file)}">
+            <div class="preview-wrap">${preview}</div>
+            <div class="card-content">
+              <p class="filename" title="${escapeHTML(item.file)}">${escapeHTML(item.file)}</p>
+              <label class="field-label">人工标签
+                <select class="field rating-input" data-field="expected_rating" aria-label="${escapeHTML(item.file)} 的人工标签">${ratingOptions}</select>
+              </label>
+              <label class="field-label">备注（可选）
+                <textarea class="field notes-input" data-field="notes" placeholder="例如：照片 / 插画 / 边界样本" aria-label="${escapeHTML(item.file)} 的备注">${escapeHTML(item.notes)}</textarea>
+              </label>
+              <div class="card-bottom"><span class="rating-chip">${LABELS[item.expected_rating] || LABELS[""]}</span>
+                <button class="remove-button" type="button" data-action="remove">移除</button></div>
+            </div>
+          </article>`;
+        }).join("");
+        cards.querySelectorAll(".preview").forEach((image) => {
+          image.addEventListener("error", () => {
+            const fallback = document.createElement("span");
+            fallback.className = "placeholder";
+            fallback.textContent = "此格式无法在浏览器中预览";
+            image.replaceWith(fallback);
+          }, { once: true });
+        });
+        renderSummary();
+      }
+
+      function findItem(path) {
+        return items.find((item) => item.file === path);
+      }
+
+      function addFiles(fileList, stripRoot) {
+        let added = 0;
+        let previews = 0;
+        let skipped = 0;
+        const files = Array.from(fileList);
+        const rootName = stripRoot && files[0]?.webkitRelativePath
+          ? files[0].webkitRelativePath.split("/")[0]
+          : "";
+
+        for (const file of files) {
+          if (!EXTENSIONS.has(extensionOf(file.name))) {
+            skipped += 1;
+            continue;
+          }
+          const pathParts = file.webkitRelativePath ? file.webkitRelativePath.split("/") : [];
+          const relative = stripRoot && pathParts.length > 1
+            ? pathParts.slice(rootName ? 1 : 0).join("/")
+            : file.name;
+          if (!isSafeRelativePath(relative)) {
+            skipped += 1;
+            continue;
+          }
+          let item = findItem(relative);
+          if (!item) {
+            item = { file: relative, expected_rating: "", notes: "", previewURL: "" };
+            items.push(item);
+            added += 1;
+          }
+          attachPreview(item, file);
+          previews += 1;
+        }
+
+        items.sort((a, b) => a.file.localeCompare(b.file, undefined, { numeric: true, sensitivity: "base" }));
+        if (added) markDirty();
+        render();
+        setStatus(`新增 ${added} 张，已加载 ${previews} 张预览${skipped ? `，跳过 ${skipped} 个非支持文件` : ""}。`, "success");
+      }
+
+      function validateManifest(payload) {
+        if (!payload || !Array.isArray(payload.images)) {
+          throw new Error("清单格式不正确：需要包含 images 数组。");
+        }
+        const seen = new Set();
+        return payload.images.map((entry, index) => {
+          if (!entry || typeof entry.file !== "string" || !isSafeRelativePath(entry.file)) {
+            throw new Error(`第 ${index + 1} 条记录的 file 不是有效相对路径。`);
+          }
+          const file = entry.file.replaceAll("\\", "/");
+          if (seen.has(file)) throw new Error(`清单里有重复文件：${file}`);
+          seen.add(file);
+          const rating = entry.expected_rating ?? "";
+          if (rating !== "" && !RATINGS.includes(rating)) {
+            throw new Error(`${file} 的 expected_rating 不受支持：${rating}`);
+          }
+          if (entry.notes != null && typeof entry.notes !== "string") {
+            throw new Error(`${file} 的 notes 必须是文字。`);
+          }
+          return { file, expected_rating: rating, notes: entry.notes || "", previewURL: "" };
+        });
+      }
+
+      function manifestJSON() {
+        const images = items.map(({ file, expected_rating, notes }) => {
+          const entry = { file };
+          if (RATINGS.includes(expected_rating)) entry.expected_rating = expected_rating;
+          if (notes.trim()) entry.notes = notes.trim();
+          return entry;
+        });
+        return JSON.stringify({ images }, null, 2) + "\n";
+      }
+
+      function downloadFallback(contents) {
+        const blob = new Blob([contents], { type: "application/json;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = "manifest.local.json";
+        document.body.append(anchor);
+        anchor.click();
+        anchor.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        markClean();
+        setStatus("已下载 manifest.local.json；若浏览器没有选择保存位置，请把它移入 testdata/nsfw/。", "success");
+      }
+
+      async function saveManifest() {
+        if (!items.length) {
+          setStatus("清单里还没有图片。先选择 samples 文件夹。", "error");
+          return;
+        }
+        const missing = items.filter((item) => !RATINGS.includes(item.expected_rating)).length;
+        if (missing && !window.confirm(`${missing} 张图片还没有人工标签。仍要保存吗？`)) return;
+        const contents = manifestJSON();
+        if (!window.showSaveFilePicker) {
+          downloadFallback(contents);
+          return;
+        }
+        try {
+          const handle = await window.showSaveFilePicker({
+            suggestedName: "manifest.local.json",
+            types: [{ description: "JSON 清单", accept: { "application/json": [".json"] } }],
+          });
+          const writable = await handle.createWritable();
+          await writable.write(contents);
+          await writable.close();
+          markClean();
+          setStatus("清单已保存。", "success");
+        } catch (error) {
+          if (error?.name === "AbortError") return;
+          downloadFallback(contents);
+        }
+      }
+
+      byId("pick-folder").addEventListener("click", () => byId("folder-input").click());
+      byId("pick-files").addEventListener("click", () => byId("files-input").click());
+      byId("import-manifest").addEventListener("click", () => {
+        if (dirty && !window.confirm("当前有未保存修改。继续导入会丢弃这些修改，是否继续？")) return;
+        byId("manifest-input").click();
+      });
+      byId("save-manifest").addEventListener("click", saveManifest);
+      byId("folder-input").addEventListener("change", (event) => {
+        if (event.target.files?.length) addFiles(event.target.files, true);
+        event.target.value = "";
+      });
+      byId("files-input").addEventListener("change", (event) => {
+        if (event.target.files?.length) addFiles(event.target.files, false);
+        event.target.value = "";
+      });
+      byId("manifest-input").addEventListener("change", async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        try {
+          const loaded = validateManifest(JSON.parse(await file.text()));
+          for (const item of items) if (item.previewURL) URL.revokeObjectURL(item.previewURL);
+          items.splice(0, items.length, ...loaded);
+          markClean();
+          render();
+          setStatus(`已导入 ${items.length} 条记录。选择 samples 文件夹可加载图片预览。`, "success");
+        } catch (error) {
+          setStatus(error.message || "无法读取该清单。", "error");
+        }
+        event.target.value = "";
+      });
+
+      cards.addEventListener("input", (event) => {
+        const card = event.target.closest("[data-file]");
+        const item = card && findItem(card.dataset.file);
+        if (!item) return;
+        if (event.target.matches("[data-field=notes]")) {
+          item.notes = event.target.value;
+          markDirty();
+          renderSummary();
+        }
+      });
+      cards.addEventListener("change", (event) => {
+        const card = event.target.closest("[data-file]");
+        const item = card && findItem(card.dataset.file);
+        if (!item || !event.target.matches("[data-field=expected_rating]")) return;
+        item.expected_rating = event.target.value;
+        markDirty();
+        card.querySelector(".rating-chip").textContent = LABELS[item.expected_rating] || LABELS[""];
+        renderSummary();
+        if (byId("rating-filter").value || byId("unlabeled-only").checked || byId("search").value.trim()) {
+          render();
+        }
+      });
+      cards.addEventListener("click", (event) => {
+        const button = event.target.closest('[data-action="remove"]');
+        const card = button?.closest("[data-file]");
+        const item = card && findItem(card.dataset.file);
+        if (!item) return;
+        if (item.previewURL) URL.revokeObjectURL(item.previewURL);
+        items.splice(items.indexOf(item), 1);
+        markDirty();
+        render();
+        setStatus(`已移除 ${item.file}。`, "success");
+      });
+      byId("search").addEventListener("input", render);
+      byId("rating-filter").addEventListener("change", render);
+      byId("unlabeled-only").addEventListener("change", render);
+      window.addEventListener("beforeunload", (event) => {
+        if (!dirty) return;
+        event.preventDefault();
+        event.returnValue = "";
+      });
+      window.addEventListener("pagehide", () => {
+        for (const item of items) if (item.previewURL) URL.revokeObjectURL(item.previewURL);
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>

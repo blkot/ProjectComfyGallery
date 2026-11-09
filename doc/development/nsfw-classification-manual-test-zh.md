@@ -60,34 +60,24 @@ testdata/nsfw/samples/
 
 支持 JPG、PNG、WebP、BMP、TIFF。文件可以直接复制到 WSL 项目目录中；不需要导入 CG。
 
-第一次创建本地清单：
+打开仓库自带的清单编辑器：
 
 ```bash
-cp testdata/nsfw/manifest.local.example.json \
-  testdata/nsfw/manifest.local.json
+explorer.exe "$(wslpath -w tools/nsfw-manifest-editor/index.html)"
 ```
 
-编辑 `testdata/nsfw/manifest.local.json`，把示例文件名换成你放入 `samples/` 的实际文件名：
+在浏览器中按以下顺序操作：
 
-```json
-{
-  "images": [
-    {
-      "file": "case-001.jpg",
-      "expected_rating": "safe",
-      "notes": "普通人像"
-    },
-    {
-      "file": "case-002.png",
-      "expected_rating": "nudity",
-      "notes": "插画，非明确色情"
-    }
-  ]
-}
-```
+- 点 **选择 samples 文件夹**，选择项目里的 `testdata/nsfw/samples/`。
+- 每张图片会显示预览卡片；选人工标签，备注可以留空。用 **移除** 排除不想测的图片。
+- 点 **保存 manifest.local.json**，保存到 `testdata/nsfw/manifest.local.json`。
+
+编辑器支持导入已有清单继续修改，也可以添加单张或多张图片。推荐 Chrome 或 Edge。图片只在浏览器
+本地预览，不会上传。它是单文件离线页面，不需要 npm 或启动服务。若浏览器改为下载文件，把下载的
+`manifest.local.json` 移到上述目录。
 
 `file` 是相对于 `samples/` 的文件名，所以写 `case-001.jpg`，不要写 `samples/case-001.jpg`。
-可用标签：
+编辑器会自动写入相对文件名。标签含义如下：
 
 | 标签 | 人工标注含义 |
 | --- | --- |
@@ -97,8 +87,8 @@ cp testdata/nsfw/manifest.local.example.json \
 | `explicit` | 明确色情内容或性行为 |
 | `review` | 人工也难以确定的边界图片 |
 
-`expected_rating` 可省略；省略后该图片仍会分类和显示，但不参与准确率统计。清单中不要写
-媒体 ID、姓名等个人信息。图片、实际清单和结果目录都不会提交到 Git。
+留空标签的图片仍会分类和显示，但不参与准确率统计。清单中不要写媒体 ID、姓名等个人信息。
+图片、实际清单和结果目录都不会提交到 Git。
 
 ## 3. 跑第一阶段：Mini / PyTorch
 
