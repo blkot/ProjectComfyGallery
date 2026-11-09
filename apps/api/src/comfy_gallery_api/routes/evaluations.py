@@ -52,7 +52,11 @@ from comfy_gallery_api.evaluation_schemas import (
     TagResponse,
     TrashUpdateRequest,
 )
-from comfy_gallery_api.media_filters import media_keyword_filter, media_sha256_filter
+from comfy_gallery_api.media_filters import (
+    media_character_lora_filter,
+    media_keyword_filter,
+    media_sha256_filter,
+)
 from comfy_gallery_core.db.models import (
     CollectionItem,
     CriterionVersion,
@@ -990,6 +994,9 @@ def _media_scope_query(
         query = query.where(Media.status.in_(REVIEWABLE_MEDIA_STATUSES))
     if media_filter.kind:
         query = query.where(Media.kind == media_filter.kind)
+    character_lora_filter = media_character_lora_filter(media_filter.character_lora)
+    if character_lora_filter is not None:
+        query = query.where(character_lora_filter)
     if media_filter.status:
         query = query.where(Media.status == media_filter.status)
     preference_filter = media_filter.spatial_preference_filter()

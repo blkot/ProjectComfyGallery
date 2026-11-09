@@ -174,6 +174,7 @@ export type MediaPage = {
   total: number;
   limit: number;
   offset: number;
+  character_lora?: string | null;
 };
 
 export type SlideshowItem = {

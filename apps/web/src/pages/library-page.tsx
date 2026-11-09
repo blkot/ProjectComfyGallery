@@ -17,6 +17,7 @@ import {
   type MediaSafetyClassificationBatch,
   type MediaTag,
   type ModelReferenceFilterOption,
+  type PromptRegistryCharacterLora,
   type ReviewSession,
   type SavedFilter,
 } from "../lib/api";
@@ -318,6 +319,8 @@ export function LibraryPage() {
   const [controlsCollapsed, setControlsCollapsed] = useState(
     readLibraryControlsCollapsed,
   );
+  const [characterLoraOptionSearch, setCharacterLoraOptionSearch] =
+    useState("");
   const controlsCollapseTimeoutRef = useRef<number | null>(null);
   const keywordQuery = searchParams.get("q")?.trim() ?? "";
   const kind = searchParams.get("kind") ?? "";
@@ -331,6 +334,7 @@ export function LibraryPage() {
       : "false";
   const favorite = searchParams.get("favorite") ?? "";
   const contentRating = searchParams.get("content_rating") ?? "";
+  const characterLora = searchParams.get("character_lora")?.trim() ?? "";
   const classifierStatus = searchParams.get("classifier_status") ?? "";
   const classifierRating = searchParams.get("classifier_rating") ?? "";
   const preferSpatialPlayback =
@@ -363,6 +367,28 @@ export function LibraryPage() {
         ? 3_000
         : false,
   });
+  const characterLoraOptions = useQuery({
+    queryKey: [
+      "library-character-lora-options",
+      characterLoraOptionSearch.trim(),
+    ],
+    queryFn: () => {
+      const params = new URLSearchParams({ limit: "200" });
+      if (characterLoraOptionSearch.trim()) {
+        params.set("q", characterLoraOptionSearch.trim());
+      }
+      return apiRequest<PromptRegistryCharacterLora[]>(
+        `/api/v1/prompt-registry/character-loras?${params}`,
+      );
+    },
+    staleTime: 60_000,
+  });
+  const characterLoraFilterUnconfirmed = Boolean(
+    characterLora &&
+      media.data &&
+      (media.data.character_lora?.trim().toLowerCase() ?? "") !==
+        characterLora.toLowerCase(),
+  );
 
   useEffect(() => {
     const expectedSearch = autoOpenUnclassifiedRef.current;
@@ -761,7 +787,7 @@ export function LibraryPage() {
 
   function selectAllMatching() {
     const count = media.data?.total ?? 0;
-    if (!count) return;
+    if (!count || characterLoraFilterUnconfirmed) return;
     setMediaArchiveId(null);
     setSelection(createFilterSelection(libraryFilterExpression(searchParams), count));
   }
@@ -1202,6 +1228,52 @@ export function LibraryPage() {
               }
             />
             <label>
+              Find Character LoRA
+              <input
+                type="text"
+                aria-label="Search indexed Character LoRA options"
+                value={characterLoraOptionSearch}
+                onChange={(event) =>
+                  setCharacterLoraOptionSearch(event.target.value)
+                }
+                placeholder="Search indexed character names"
+                maxLength={512}
+                autoComplete="off"
+              />
+            </label>
+            <label>
+              Character LoRA
+              <select
+                value={characterLora}
+                onChange={(event) =>
+                  changeLibraryParameter("character_lora", event.target.value)
+                }
+                aria-label="Character LoRA filter"
+              >
+                <option value="">All Character LoRAs</option>
+                {characterLora &&
+                !characterLoraOptions.data?.some(
+                  (option) => option.name === characterLora,
+                ) ? (
+                  <option value={characterLora}>{characterLora}</option>
+                ) : null}
+                {characterLoraOptions.data?.map((option) => (
+                  <option key={option.name} value={option.name}>
+                    {option.name} ({option.media_count})
+                  </option>
+                ))}
+              </select>
+              <small>
+                Uses the indexed Character LoRA field, separate from LoRA
+                reference matching.
+              </small>
+              {characterLoraOptions.isError ? (
+                <small role="status">
+                  Character LoRA values could not be loaded.
+                </small>
+              ) : null}
+            </label>
+            <label>
               Sort
               <select
                 value={sort}
@@ -1262,7 +1334,7 @@ export function LibraryPage() {
               <button
                 className="secondary-button"
                 type="button"
-                disabled={!media.data?.total}
+                disabled={!media.data?.total || characterLoraFilterUnconfirmed}
                 onClick={selectAllMatching}
               >
                 Select all {media.data?.total ?? 0} matching
@@ -1579,6 +1651,13 @@ export function LibraryPage() {
         </aside>
 
         <div className="library-gallery" ref={galleryTopRef}>
+          {characterLoraFilterUnconfirmed ? (
+            <p className="notice error-notice" role="alert">
+              The server did not confirm this Character LoRA filter, so the
+              results may be unfiltered. Update the server before selecting all
+              matching media.
+            </p>
+          ) : null}
           {media.isError ? (
             <p className="notice error-notice" role="alert">
               {keywordQuery

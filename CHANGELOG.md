@@ -4,6 +4,11 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+- Add a searchable Character LoRA filter to Library and carry its exact indexed
+  scope through selection, review, saved filters, and slideshows.
+- Keep classifier confidence scores read-only, highlight the model result, and
+  make human review an optional override.
+
 ## 0.1.0-rc.46 — 2026-11-09
 
 - Add human review for NSFW classifier suggestions, compact NudeNet evidence

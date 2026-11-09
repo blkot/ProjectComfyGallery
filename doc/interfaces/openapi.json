@@ -3151,6 +3151,19 @@
       },
       "MediaFilterRequest": {
         "properties": {
+          "character_lora": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Exact case-insensitive match against the indexed Character LoRA field; does not match general LoRA usage.",
+            "title": "Character Lora"
+          },
           "checkpoint_reference_id": {
             "anyOf": [
               {
@@ -13011,6 +13024,23 @@
                 }
               ],
               "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "character_lora",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Character Lora"
             }
           },
           {

@@ -98,6 +98,12 @@ export function MediaSafetyClassificationPanel({
   const busy = jobStatus === "queued" || jobStatus === "running";
   const reviewPending = saveReview.isPending || clearReview.isPending;
   const reviewError = saveReview.error ?? clearReview.error;
+  const reviewRelationship =
+    humanReview && assessment?.status === "completed" && assessment.suggested_rating
+      ? humanReview.rating === assessment.suggested_rating
+        ? "Confirms model result"
+        : "Overrides model result"
+      : null;
 
   function recordRating(rating: HumanClassifierRating) {
     saveReview.mutate(rating);
@@ -148,40 +154,46 @@ export function MediaSafetyClassificationPanel({
             className="media-safety-suggestion"
             data-review={assessment.needs_review || undefined}
           >
-            {humanReview
-              ? `Human rating: ${titleCase(humanReview.rating)}`
-              : assessment.needs_review
-                ? "Needs human review"
-                : `Suggested: ${titleCase(assessment.suggested_rating ?? assessment.label ?? "unknown")}`}
-            {!humanReview && assessment.confidence !== null
+            Model result: {titleCase(assessment.label ?? "unknown")}
+            {assessment.confidence !== null
               ? ` · ${(assessment.confidence * 100).toFixed(1)}%`
               : ""}
+            {assessment.suggested_rating
+              ? ` · Rating: ${titleCase(assessment.suggested_rating)}`
+              : ""}
           </p>
+          {assessment.needs_review && !humanReview ? (
+            <p className="media-safety-review-note">
+              Model confidence is low; a human review is recommended but optional.
+            </p>
+          ) : null}
           <div
             className="media-safety-scores"
-            role="group"
+            role="list"
             aria-label="Classifier confidence scores"
           >
             {Object.entries(assessment.scores)
               .sort(([, first], [, second]) => second - first)
               .map(([label, score]) => {
-                const rating = scoreRating(label);
+                const predicted =
+                  label.trim().toLowerCase() === assessment.label?.trim().toLowerCase();
                 return (
-                  <button
-                    className="media-safety-score-button"
-                    data-rating={rating ?? undefined}
-                    data-selected={rating === humanReview?.rating || undefined}
+                  <div
+                    className="media-safety-score"
+                    data-severity={scoreSeverity(label)}
+                    data-predicted={predicted || undefined}
                     key={label}
-                    type="button"
-                    disabled={!rating || reviewPending || classification.isPending}
-                    aria-pressed={rating === humanReview?.rating}
-                    aria-label={`Record ${rating ? titleCase(rating) : "classifier"} from ${titleCase(label)} score, ${(score * 100).toFixed(1)} percent`}
-                    title={rating ? `Set human rating to ${titleCase(rating)}` : undefined}
-                    onClick={() => rating && recordRating(rating)}
+                    role="listitem"
+                    aria-current={predicted ? "true" : undefined}
                   >
-                    <span>{titleCase(label)}</span>
+                    <span className="media-safety-score-heading">
+                      <span>{titleCase(label)}</span>
+                      {predicted ? (
+                        <span className="media-safety-score-predicted">Model result</span>
+                      ) : null}
+                    </span>
                     <strong>{(score * 100).toFixed(1)}%</strong>
-                  </button>
+                  </div>
                 );
               })}
           </div>
@@ -222,12 +234,19 @@ export function MediaSafetyClassificationPanel({
       <div className="media-safety-human-review">
         <div className="media-safety-human-review-heading">
           <div>
-            <p className="kicker">Human rating</p>
+            <p className="kicker">Human review (optional)</p>
             {humanReview ? (
               <p className="media-safety-recorded-rating">
-                Recorded as <strong>{titleCase(humanReview.rating)}</strong>
+                Human rating: <strong>{titleCase(humanReview.rating)}</strong>
+                {reviewRelationship ? ` · ${reviewRelationship}` : ""}
               </p>
-            ) : null}
+            ) : (
+              <p className="media-safety-review-note">
+                {assessment?.status === "completed"
+                  ? "The model result remains active until you record a human rating here."
+                  : "Choose a rating only if you want to record a human decision."}
+              </p>
+            )}
           </div>
           {humanReview ? (
             <button
@@ -266,17 +285,17 @@ export function MediaSafetyClassificationPanel({
   );
 }
 
-function scoreRating(label: string): HumanClassifierRating | null {
-  switch (label.toLowerCase()) {
+function scoreSeverity(label: string): "safe" | "suggestive" | "explicit" | "unknown" {
+  switch (label.trim().toLowerCase()) {
     case "normal":
     case "drawing":
       return "safe";
     case "sexy":
-      return "sexy";
+      return "suggestive";
     case "porn":
     case "hentai":
       return "explicit";
     default:
-      return null;
+      return "unknown";
   }
 }

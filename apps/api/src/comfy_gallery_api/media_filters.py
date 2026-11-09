@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from sqlalchemy import String, and_, cast, or_, select
+from sqlalchemy import String, and_, cast, func, or_, select
 from sqlalchemy.sql import ColumnElement
 
 from comfy_gallery_core.db.models import (
     ExtractionRun,
     Media,
     MediaAsset,
+    MediaPromptIndex,
     MediaVariant,
     ModelArtifact,
     ModelReference,
@@ -140,6 +141,23 @@ def media_sha256_filter(query: str | None) -> ColumnElement[bool] | None:
         .exists()
     )
     return or_(asset_hash_match, variant_hash_match)
+
+
+def media_character_lora_filter(value: str | None) -> ColumnElement[bool] | None:
+    if value is None:
+        return None
+    normalized_value = value.strip()
+    if not normalized_value:
+        return None
+    return (
+        select(MediaPromptIndex.media_id)
+        .where(
+            MediaPromptIndex.media_id == Media.id,
+            func.lower(func.trim(MediaPromptIndex.character_lora)) == normalized_value.casefold(),
+        )
+        .correlate(Media)
+        .exists()
+    )
 
 
 def _escape_like(value: str) -> str:

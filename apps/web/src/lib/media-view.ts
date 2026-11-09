@@ -30,6 +30,7 @@ export type LibraryFilterExpression = {
   content_rating: "sfw" | "nsfw" | "unknown" | null;
   classifier_status?: ClassifierStatus | null;
   classifier_rating?: ClassifierRating | null;
+  character_lora?: string;
   checkpoint_reference_ids: string[];
   checkpoint_reference_match: ReferenceMatch;
   lora_reference_ids: string[];
@@ -38,7 +39,18 @@ export type LibraryFilterExpression = {
 
 export function mediaListQuery(search: URLSearchParams): URLSearchParams {
   const result = new URLSearchParams(search);
-  for (const key of ["view_media", "return_to", "usage_offset", "preferred_character_lora", "character_lora", "prompt_id", "heatmap_source", "heatmap_character", "heatmap_not_faved", "heatmap_trash"]) result.delete(key);
+  const promptRegistryContext = [
+    "view_media",
+    "return_to",
+    "usage_offset",
+    "preferred_character_lora",
+    "prompt_id",
+    "heatmap_source",
+    "heatmap_character",
+    "heatmap_not_faved",
+    "heatmap_trash",
+  ];
+  for (const key of promptRegistryContext) result.delete(key);
   if (
     !result.has("prefer_spatial_playback") &&
     result.has("spatial_view_preferred")
@@ -60,6 +72,7 @@ export function mediaListQuery(search: URLSearchParams): URLSearchParams {
 export function libraryFilterExpression(
   search: URLSearchParams,
 ): LibraryFilterExpression {
+  const characterLora = search.get("character_lora")?.trim();
   return {
     q: search.get("q")?.trim() || null,
     kind: search.get("kind") || null,
@@ -75,6 +88,7 @@ export function libraryFilterExpression(
     content_rating: contentRatingFilter(search),
     classifier_status: classifierStatusFilter(search),
     classifier_rating: classifierRatingFilter(search),
+    ...(characterLora ? { character_lora: characterLora } : {}),
     checkpoint_reference_ids: uniqueValues(
       search.getAll("checkpoint_reference_id"),
     ),
@@ -333,6 +347,7 @@ const slideshowFilterParameters = [
   "content_rating",
   "classifier_status",
   "classifier_rating",
+  "character_lora",
   "source_root_id",
   "collection_id",
   "tag_id",
