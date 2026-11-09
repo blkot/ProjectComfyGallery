@@ -58,23 +58,33 @@ ls -lh models/nsfw/mini
 testdata/nsfw/samples/
 ```
 
-支持 JPG、PNG、WebP、BMP、TIFF。文件可以直接复制到 WSL 项目目录中；不需要导入 CG。
+支持 JPG、PNG、WebP、BMP、TIFF。文件可以直接复制到 WSL 项目目录中；也可以通过下面的编辑器从
+Windows 导入到 WSL，不需要导入 CG。
 
-打开仓库自带的清单编辑器：
+在 WSL 项目根目录启动编辑器服务：
 
 ```bash
-explorer.exe "$(wslpath -w tools/nsfw-manifest-editor/index.html)"
+python3 tools/nsfw-manifest-editor/server.py
 ```
 
-在浏览器中按以下顺序操作：
+保持这个终端运行，然后在 Windows 浏览器打开：
 
-- 点 **选择 samples 文件夹**，选择项目里的 `testdata/nsfw/samples/`。
-- 每张图片会显示预览卡片；选人工标签，备注可以留空。用 **移除** 排除不想测的图片。
-- 点 **保存 manifest.local.json**，保存到 `testdata/nsfw/manifest.local.json`。
+```text
+http://127.0.0.1:8765
+```
 
-编辑器支持导入已有清单继续修改，也可以添加单张或多张图片。推荐 Chrome 或 Edge。图片只在浏览器
-本地预览，不会上传。它是单文件离线页面，不需要 npm 或启动服务。若浏览器改为下载文件，把下载的
-`manifest.local.json` 移到上述目录。
+在页面中按需操作：
+
+- 点 **从 WSL samples 加入图片**，把 WSL `testdata/nsfw/samples/` 里的图片加入清单。
+- 点 **导入 Windows 图片文件夹**，选择 Windows 文件夹；图片会通过本机 localhost 复制到 WSL 的
+  `testdata/nsfw/samples/`。也可以用 **添加 Windows 图片** 选择若干文件。
+- 每张图片会显示预览卡片；选人工标签，备注可以留空。用 **从清单移除** 排除不想测的图片。
+- 点 **重载 WSL 清单** 可继续编辑现有清单；也可以用 **导入 Windows 清单** 选择 JSON。
+- 点 **保存到 WSL**，页面会直接写入 WSL 项目中的 `testdata/nsfw/manifest.local.json`，不会弹出
+  Windows 保存对话框。
+
+图片和 manifest 都保存在 WSL 项目目录。传输只经过本机回环地址，不连接 CG 或外网；服务只监听
+`127.0.0.1`。完成后回到启动服务的终端按 Ctrl-C 停止。推荐 Chrome 或 Edge。
 
 `file` 是相对于 `samples/` 的文件名，所以写 `case-001.jpg`，不要写 `samples/case-001.jpg`。
 编辑器会自动写入相对文件名。标签含义如下：

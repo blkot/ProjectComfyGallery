@@ -114,23 +114,25 @@
     <header>
       <div>
         <h1>NSFW 测试清单</h1>
-        <p class="intro">选取 samples 文件夹，逐张添加人工标签和备注，然后保存为 benchmark 使用的 JSON 清单。</p>
+        <p class="intro">从 WSL 读取测试图片，在浏览器里标注，然后直接保存到 WSL 项目目录。</p>
       </div>
-      <span class="local-badge">仅在本机处理</span>
+      <span class="local-badge">WSL 本机服务</span>
     </header>
 
     <section class="panel controls" aria-label="清单操作">
       <div class="button-row">
-        <button class="button primary" id="pick-folder" type="button">选择 samples 文件夹</button>
-        <button class="button" id="pick-files" type="button">添加图片</button>
-        <button class="button" id="import-manifest" type="button">导入已有清单</button>
-        <button class="button" id="save-manifest" type="button">保存 manifest.local.json</button>
+        <button class="button" id="load-samples" type="button">从 WSL samples 加入图片</button>
+        <button class="button" id="import-folder" type="button">导入 Windows 图片文件夹</button>
+        <button class="button" id="import-files" type="button">添加 Windows 图片</button>
+        <button class="button" id="import-manifest" type="button">导入 Windows 清单</button>
+        <button class="button" id="reload-manifest" type="button">重载 WSL 清单</button>
+        <button class="button primary" id="save-manifest" type="button">保存到 WSL</button>
       </div>
       <input class="hidden-input" id="folder-input" type="file" accept="image/*,.tif,.tiff" webkitdirectory directory multiple>
       <input class="hidden-input" id="files-input" type="file" accept="image/*,.tif,.tiff" multiple>
       <input class="hidden-input" id="manifest-input" type="file" accept=".json,application/json">
-      <p class="privacy-note">图片只在浏览器本地预览，不会上传。保存时选择项目中的 <code>testdata/nsfw/manifest.local.json</code>。</p>
-      <p class="status-line" id="status" role="status" aria-live="polite">先选择图片文件夹，或导入已有清单。</p>
+      <p class="privacy-note">Windows 浏览器通过 WSL 的 localhost 服务读写当前项目。选择 Windows 图片会经本机回环复制到 WSL 的 <code>testdata/nsfw/samples/</code>；不会连接 CG 或外网。</p>
+      <p class="status-line" id="status" role="status" aria-live="polite">正在连接 WSL 项目…</p>
       <div class="summary" aria-live="polite">
         <div class="summary-card"><span>清单图片</span><strong id="total-count">0</strong></div>
         <div class="summary-card"><span>已标注</span><strong id="tagged-count">0</strong></div>
@@ -156,7 +158,7 @@
       </div>
       <div class="card-grid" id="cards" aria-live="polite"></div>
     </section>
-    <footer>清单字段为 file、expected_rating 和 notes。保存后可直接交给本地 benchmark 使用。</footer>
+    <footer>保存位置固定为 WSL 项目中的 <code>testdata/nsfw/manifest.local.json</code>。图片仅当你从 Windows 导入时复制到 WSL。</footer>
   </main>
 
   <script>
@@ -165,6 +167,8 @@
       const EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "bmp", "tif", "tiff"]);
       const LABELS = { "": "未标注", safe: "Safe", sexy: "Sexy", nudity: "Nudity", explicit: "Explicit", review: "Review" };
       const items = [];
+      let sampleFiles = new Set();
+      let connected = false;
       let dirty = false;
       const byId = (id) => document.getElementById(id);
       const cards = byId("cards");
@@ -198,12 +202,53 @@
       function isSafeRelativePath(path) {
         const normalized = path.replaceAll("\\", "/");
         return normalized.length > 0 && !normalized.startsWith("/") &&
-          !normalized.split("/").some((part) => part === ".." || part === "");
+          !normalized.split("/").some((part) => part === ".." || part === "." || part === "");
       }
 
-      function attachPreview(item, file) {
-        if (item.previewURL) URL.revokeObjectURL(item.previewURL);
-        item.previewURL = URL.createObjectURL(file);
+      function sampleURL(path) {
+        return `/api/sample?path=${encodeURIComponent(path)}`;
+      }
+
+      async function requestJSON(url, options) {
+        const response = await fetch(url, options);
+        let payload;
+        try {
+          payload = await response.json();
+        } catch {
+          payload = {};
+        }
+        if (!response.ok) throw new Error(payload.error || `请求失败（HTTP ${response.status}）`);
+        return payload;
+      }
+
+      async function readState() {
+        const state = await requestJSON("/api/state");
+        sampleFiles = new Set(state.samples || []);
+        connected = true;
+        return state;
+      }
+
+      function rowsFromManifest(manifest) {
+        return (manifest?.images || []).map((entry) => ({
+          file: entry.file,
+          expected_rating: entry.expected_rating || "",
+          notes: entry.notes || "",
+          previewURL: sampleFiles.has(entry.file) ? sampleURL(entry.file) : "",
+        }));
+      }
+
+      async function loadWorkspace() {
+        try {
+          const state = await readState();
+          items.splice(0, items.length, ...rowsFromManifest(state.manifest));
+          markClean();
+          render();
+          setStatus(`已连接 WSL：samples 有 ${sampleFiles.size} 张图片，已载入清单 ${items.length} 条。`, "success");
+        } catch (error) {
+          connected = false;
+          render();
+          setStatus("无法连接 WSL 服务。请在 WSL 项目根目录启动 server.py，再打开 http://127.0.0.1:8765。", "error");
+        }
       }
 
       function renderSummary() {
@@ -228,7 +273,7 @@
         if (!visible.length) {
           cards.innerHTML = items.length
             ? '<div class="empty"><strong>没有符合条件的图片</strong>调整搜索词或筛选条件。</div>'
-            : '<div class="empty"><strong>清单还是空的</strong>选择 samples 文件夹开始添加图片。</div>';
+            : '<div class="empty"><strong>清单还是空的</strong>从 WSL samples 加入图片，或导入 Windows 图片文件夹。</div>';
           renderSummary();
           return;
         }
@@ -236,7 +281,7 @@
         cards.innerHTML = visible.map((item) => {
           const preview = item.previewURL
             ? `<img class="preview" src="${escapeHTML(item.previewURL)}" alt="${escapeHTML(item.file)}" loading="lazy" decoding="async">`
-            : '<span class="placeholder">尚未加载预览<br>选择 samples 文件夹</span>';
+            : '<span class="placeholder">WSL samples 中找不到此文件<br>可导入图片补齐</span>';
           const ratingOptions = Object.entries(LABELS).map(([value, label]) =>
             `<option value="${value}" ${item.expected_rating === value ? "selected" : ""}>${label}</option>`
           ).join("");
@@ -251,12 +296,14 @@
                 <textarea class="field notes-input" data-field="notes" placeholder="例如：照片 / 插画 / 边界样本" aria-label="${escapeHTML(item.file)} 的备注">${escapeHTML(item.notes)}</textarea>
               </label>
               <div class="card-bottom"><span class="rating-chip">${LABELS[item.expected_rating] || LABELS[""]}</span>
-                <button class="remove-button" type="button" data-action="remove">移除</button></div>
+                <button class="remove-button" type="button" data-action="remove">从清单移除</button></div>
             </div>
           </article>`;
         }).join("");
         cards.querySelectorAll(".preview").forEach((image) => {
           image.addEventListener("error", () => {
+            const item = findItem(image.closest("[data-file]")?.dataset.file || "");
+            if (item) item.previewURL = "";
             const fallback = document.createElement("span");
             fallback.className = "placeholder";
             fallback.textContent = "此格式无法在浏览器中预览";
@@ -270,42 +317,21 @@
         return items.find((item) => item.file === path);
       }
 
-      function addFiles(fileList, stripRoot) {
+      function mergeSampleFiles(paths) {
         let added = 0;
-        let previews = 0;
-        let skipped = 0;
-        const files = Array.from(fileList);
-        const rootName = stripRoot && files[0]?.webkitRelativePath
-          ? files[0].webkitRelativePath.split("/")[0]
-          : "";
-
-        for (const file of files) {
-          if (!EXTENSIONS.has(extensionOf(file.name))) {
-            skipped += 1;
+        for (const path of paths) {
+          const existing = findItem(path);
+          if (existing) {
+            existing.previewURL = sampleURL(path);
             continue;
           }
-          const pathParts = file.webkitRelativePath ? file.webkitRelativePath.split("/") : [];
-          const relative = stripRoot && pathParts.length > 1
-            ? pathParts.slice(rootName ? 1 : 0).join("/")
-            : file.name;
-          if (!isSafeRelativePath(relative)) {
-            skipped += 1;
-            continue;
-          }
-          let item = findItem(relative);
-          if (!item) {
-            item = { file: relative, expected_rating: "", notes: "", previewURL: "" };
-            items.push(item);
-            added += 1;
-          }
-          attachPreview(item, file);
-          previews += 1;
+          items.push({ file: path, expected_rating: "", notes: "", previewURL: sampleURL(path) });
+          added += 1;
         }
-
         items.sort((a, b) => a.file.localeCompare(b.file, undefined, { numeric: true, sensitivity: "base" }));
         if (added) markDirty();
         render();
-        setStatus(`新增 ${added} 张，已加载 ${previews} 张预览${skipped ? `，跳过 ${skipped} 个非支持文件` : ""}。`, "success");
+        return added;
       }
 
       function validateManifest(payload) {
@@ -327,7 +353,7 @@
           if (entry.notes != null && typeof entry.notes !== "string") {
             throw new Error(`${file} 的 notes 必须是文字。`);
           }
-          return { file, expected_rating: rating, notes: entry.notes || "", previewURL: "" };
+          return { file, expected_rating: rating, notes: entry.notes || "", previewURL: sampleFiles.has(file) ? sampleURL(file) : "" };
         });
       }
 
@@ -341,61 +367,125 @@
         return JSON.stringify({ images }, null, 2) + "\n";
       }
 
-      function downloadFallback(contents) {
-        const blob = new Blob([contents], { type: "application/json;charset=utf-8" });
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement("a");
-        anchor.href = url;
-        anchor.download = "manifest.local.json";
-        document.body.append(anchor);
-        anchor.click();
-        anchor.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-        markClean();
-        setStatus("已下载 manifest.local.json；若浏览器没有选择保存位置，请把它移入 testdata/nsfw/。", "success");
-      }
-
       async function saveManifest() {
+        if (!connected) {
+          setStatus("WSL 服务未连接，无法保存。请先启动本地 server.py。", "error");
+          return;
+        }
         if (!items.length) {
-          setStatus("清单里还没有图片。先选择 samples 文件夹。", "error");
+          setStatus("清单里还没有图片。先从 WSL samples 加入，或导入 Windows 图片。", "error");
           return;
         }
         const missing = items.filter((item) => !RATINGS.includes(item.expected_rating)).length;
         if (missing && !window.confirm(`${missing} 张图片还没有人工标签。仍要保存吗？`)) return;
-        const contents = manifestJSON();
-        if (!window.showSaveFilePicker) {
-          downloadFallback(contents);
-          return;
-        }
         try {
-          const handle = await window.showSaveFilePicker({
-            suggestedName: "manifest.local.json",
-            types: [{ description: "JSON 清单", accept: { "application/json": [".json"] } }],
+          await requestJSON("/api/manifest", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: manifestJSON(),
           });
-          const writable = await handle.createWritable();
-          await writable.write(contents);
-          await writable.close();
           markClean();
-          setStatus("清单已保存。", "success");
+          setStatus("已直接保存到 WSL 项目：testdata/nsfw/manifest.local.json", "success");
         } catch (error) {
-          if (error?.name === "AbortError") return;
-          downloadFallback(contents);
+          setStatus(error.message || "保存失败。", "error");
         }
       }
 
-      byId("pick-folder").addEventListener("click", () => byId("folder-input").click());
-      byId("pick-files").addEventListener("click", () => byId("files-input").click());
+      async function uploadWindowsFiles(fileList, stripRoot) {
+        if (!connected) throw new Error("WSL 服务未连接。");
+        const files = Array.from(fileList);
+        const rootName = stripRoot && files[0]?.webkitRelativePath
+          ? files[0].webkitRelativePath.split("/")[0]
+          : "";
+        const records = [];
+        let skipped = 0;
+        for (const file of files) {
+          if (!EXTENSIONS.has(extensionOf(file.name))) {
+            skipped += 1;
+            continue;
+          }
+          const pathParts = file.webkitRelativePath ? file.webkitRelativePath.split("/") : [];
+          const path = stripRoot && pathParts.length > 1
+            ? pathParts.slice(rootName ? 1 : 0).join("/")
+            : file.name;
+          if (!isSafeRelativePath(path)) {
+            skipped += 1;
+            continue;
+          }
+          records.push({ file, path });
+        }
+        if (!records.length) throw new Error("没有找到支持的图片文件。");
+
+        const failures = [];
+        let completed = 0;
+        for (let offset = 0; offset < records.length; offset += 3) {
+          const batch = records.slice(offset, offset + 3);
+          const outcomes = await Promise.all(batch.map(async ({ file, path }) => {
+            try {
+              await requestJSON(`/api/upload?path=${encodeURIComponent(path)}`, {
+                method: "POST",
+                headers: { "Content-Type": file.type || "application/octet-stream" },
+                body: file,
+              });
+              sampleFiles.add(path);
+              return { path };
+            } catch (error) {
+              return { path, error: error.message || "上传失败" };
+            }
+          }));
+          for (const outcome of outcomes) {
+            completed += 1;
+            if (outcome.error) failures.push(`${outcome.path}：${outcome.error}`);
+            else if (!findItem(outcome.path)) {
+              items.push({ file: outcome.path, expected_rating: "", notes: "", previewURL: sampleURL(outcome.path) });
+              markDirty();
+            } else {
+              findItem(outcome.path).previewURL = sampleURL(outcome.path);
+            }
+          }
+          setStatus(`正在导入到 WSL：${completed}/${records.length} 张${failures.length ? `，失败 ${failures.length} 张` : ""}`, "");
+        }
+
+        items.sort((a, b) => a.file.localeCompare(b.file, undefined, { numeric: true, sensitivity: "base" }));
+        render();
+        const result = `导入完成：${records.length - failures.length} 张成功${skipped ? `，跳过 ${skipped} 个非支持文件` : ""}。`;
+        setStatus(failures.length ? `${result}首个错误：${failures[0]}` : result, failures.length ? "error" : "success");
+      }
+
+      byId("load-samples").addEventListener("click", async () => {
+        try {
+          const state = await readState();
+          const added = mergeSampleFiles(state.samples || []);
+          setStatus(`已从 WSL samples 加入 ${added} 张；原有清单标签和备注已保留。`, "success");
+        } catch (error) {
+          setStatus(error.message || "无法读取 WSL samples。", "error");
+        }
+      });
+      byId("import-folder").addEventListener("click", () => byId("folder-input").click());
+      byId("import-files").addEventListener("click", () => byId("files-input").click());
       byId("import-manifest").addEventListener("click", () => {
         if (dirty && !window.confirm("当前有未保存修改。继续导入会丢弃这些修改，是否继续？")) return;
         byId("manifest-input").click();
       });
+      byId("reload-manifest").addEventListener("click", async () => {
+        if (dirty && !window.confirm("当前有未保存修改。重载会丢弃这些修改，是否继续？")) return;
+        await loadWorkspace();
+      });
       byId("save-manifest").addEventListener("click", saveManifest);
       byId("folder-input").addEventListener("change", (event) => {
-        if (event.target.files?.length) addFiles(event.target.files, true);
+        if (event.target.files?.length) {
+          byId("import-folder").disabled = true;
+          uploadWindowsFiles(event.target.files, true).catch((error) => setStatus(error.message || "导入失败。", "error"))
+            .finally(() => { byId("import-folder").disabled = false; });
+        }
         event.target.value = "";
       });
       byId("files-input").addEventListener("change", (event) => {
-        if (event.target.files?.length) addFiles(event.target.files, false);
+        if (event.target.files?.length) {
+          byId("import-files").disabled = true;
+          uploadWindowsFiles(event.target.files, false).catch((error) => setStatus(error.message || "导入失败。", "error"))
+            .finally(() => { byId("import-files").disabled = false; });
+        }
         event.target.value = "";
       });
       byId("manifest-input").addEventListener("change", async (event) => {
@@ -403,11 +493,11 @@
         if (!file) return;
         try {
           const loaded = validateManifest(JSON.parse(await file.text()));
-          for (const item of items) if (item.previewURL) URL.revokeObjectURL(item.previewURL);
           items.splice(0, items.length, ...loaded);
           markClean();
           render();
-          setStatus(`已导入 ${items.length} 条记录。选择 samples 文件夹可加载图片预览。`, "success");
+          const missingFiles = items.filter((item) => !sampleFiles.has(item.file)).length;
+          setStatus(`已从 Windows 导入 ${items.length} 条记录${missingFiles ? `；其中 ${missingFiles} 张尚未在 WSL samples 中找到` : ""}。保存会写入 WSL 项目。`, missingFiles ? "" : "success");
         } catch (error) {
           setStatus(error.message || "无法读取该清单。", "error");
         }
@@ -441,7 +531,6 @@
         const card = button?.closest("[data-file]");
         const item = card && findItem(card.dataset.file);
         if (!item) return;
-        if (item.previewURL) URL.revokeObjectURL(item.previewURL);
         items.splice(items.indexOf(item), 1);
         markDirty();
         render();
@@ -455,11 +544,8 @@
         event.preventDefault();
         event.returnValue = "";
       });
-      window.addEventListener("pagehide", () => {
-        for (const item of items) if (item.previewURL) URL.revokeObjectURL(item.previewURL);
-      });
-
       render();
+      loadWorkspace();
     })();
   </script>
 </body>

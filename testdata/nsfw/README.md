@@ -9,7 +9,10 @@
 - `samples/`：私有样本图片，只在本地或目标 NAS 保留。
 - `manifest.local.json`：本地 benchmark 清单，从
   `manifest.local.example.json` 复制后填写文件名、人工标签和备注；也可以用
-  [`tools/nsfw-manifest-editor/index.html`](../../tools/nsfw-manifest-editor/index.html) 在浏览器里编辑。
+  [`tools/nsfw-manifest-editor/index.html`](../../tools/nsfw-manifest-editor/index.html) 在浏览器里编辑。要让
+  Windows 浏览器直接读写 WSL 项目，请在仓库根目录运行
+  `python3 tools/nsfw-manifest-editor/server.py`，再打开 `http://127.0.0.1:8765`；可以从 Windows 导入
+  图片到 `samples/`，并将清单直接保存到 WSL。
 - `results/`：每阶段的 JSON 数据和可视化 HTML 报告。
 - `manifest.example.json`：仅供可选的 CG API 单张集成冒烟脚本使用；普通分级、
   性能和准确率测试不需要它。
