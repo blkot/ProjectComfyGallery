@@ -1230,7 +1230,8 @@ export function LibraryPage() {
             <label>
               Find Character LoRA
               <input
-                type="search"
+                type="text"
+                aria-label="Search indexed Character LoRA options"
                 value={characterLoraOptionSearch}
                 onChange={(event) =>
                   setCharacterLoraOptionSearch(event.target.value)

@@ -153,8 +153,7 @@ def media_character_lora_filter(value: str | None) -> ColumnElement[bool] | None
         select(MediaPromptIndex.media_id)
         .where(
             MediaPromptIndex.media_id == Media.id,
-            func.lower(func.trim(MediaPromptIndex.character_lora))
-            == normalized_value.casefold(),
+            func.lower(func.trim(MediaPromptIndex.character_lora)) == normalized_value.casefold(),
         )
         .correlate(Media)
         .exists()
