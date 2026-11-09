@@ -40,6 +40,9 @@ flowchart TB
     MediaWorker["Media worker"]
     BackgroundWorker["Background worker"]
     SpatialWorker["Spatial orchestration worker"]
+    NsfwWorker["NSFW classification worker"]
+    NsfwSupervisor["NSFW runtime supervisor"]
+    NsfwModel["On-demand Mini model process"]
     MSS["ml-sharp-spatial GPU service"]
     Redis["Redis broker"]
     DB["PostgreSQL"]
@@ -63,6 +66,11 @@ flowchart TB
     SpatialWorker --> Managed
     SpatialWorker --> MSS
     MSS --> API
+    NsfwWorker --> Redis
+    NsfwWorker --> DB
+    NsfwWorker --> Managed
+    NsfwWorker --> NsfwSupervisor
+    NsfwSupervisor -. "starts on first queued image" .-> NsfwModel
     API --> Managed
     DB -. "pg_dump" .-> Backups
     API -. "portable exports" .-> Backups
@@ -89,6 +97,7 @@ Responsibilities:
 - Query/pagination APIs.
 - Media range delivery and controlled original download.
 - Job creation, cancellation requests, and retry requests.
+- Durable NSFW classification job creation and latest assessment retrieval.
 - Analysis-run creation and retrieval.
 - Health/readiness endpoints.
 
@@ -116,6 +125,12 @@ single-request reconciliation and accepts CG variant activation as success. Exte
 batches therefore do not occupy either NAS processing pool. Each pool uses one
 process and one thread; their CPU and memory ceilings are separate and explicitly
 bounded for the J4125 CPU.
+
+The NSFW worker consumes only `nsfw` with one process and one thread. It sends
+ready image bytes to the internal runtime supervisor. The supervisor starts the
+PyTorch child only when a job arrives and stops it after an idle timeout; GET
+requests from the Library never start inference. Human `content_rating` is not
+written by the classifier.
 
 ### PostgreSQL
 

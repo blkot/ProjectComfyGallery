@@ -10,6 +10,7 @@ erDiagram
     MEDIA ||--|| MEDIA_ASSET : owns
     MEDIA ||--o{ SOURCE_OCCURRENCE : discovered_at
     MEDIA ||--o{ DERIVATIVE : has
+    MEDIA ||--o| MEDIA_SAFETY_ASSESSMENT : suggests
     MEDIA ||--o{ MEDIA_VARIANT : has
     MEDIA ||--o| WORKFLOW_SNAPSHOT : embeds
     WORKFLOW_SNAPSHOT ||--o{ WORKFLOW_NODE : contains
@@ -122,6 +123,17 @@ Key concepts:
 - Source media and generation recipe version.
 - Codec/container/dimensions/size.
 - Regenerable and never authoritative.
+
+### `media_safety_assessment`
+
+- One latest classifier suggestion per media item, separate from human-owned
+  `media.content_rating`.
+- Stores classifier job ID, model ID/revision, status, model label, suggested
+  rating, raw class scores, confidence, score margin, and review requirement.
+- Reclassification replaces this latest projection; durable jobs and stage
+  attempts preserve execution history.
+- Deleting the media cascades to its current assessment. Deleting a job clears
+  only the assessment's optional job reference.
 
 ### `media_variant`
 

@@ -41,6 +41,18 @@ x-backend-environment: &backend-environment
   CG_MSS_RECONCILIATION_INTERVAL_SECONDS: ${CG_MSS_RECONCILIATION_INTERVAL_SECONDS:-300}
   CG_MSS_CONVERTER_NAME: ${CG_MSS_CONVERTER_NAME:-ml-sharp-spatial}
   CG_MSS_CONVERTER_VERSION: ${CG_MSS_CONVERTER_VERSION:-0.1}
+  CG_NSFW_CLASSIFIER_ENABLED: ${CG_NSFW_CLASSIFIER_ENABLED:-false}
+  CG_NSFW_AUTO_CLASSIFY: ${CG_NSFW_AUTO_CLASSIFY:-false}
+  CG_NSFW_SERVICE_URL: http://nsfw-runtime:8001
+  CG_NSFW_MODEL_ID: ${CG_NSFW_MODEL_ID:-viddexa/nsfw-detection-2-mini}
+  CG_NSFW_MODEL_REVISION: ${CG_NSFW_MODEL_REVISION:-local-unspecified}
+  CG_NSFW_INFERENCE_BACKEND: ${NSFW_INFERENCE_BACKEND:-pytorch}
+  CG_NSFW_NUDENET_ENABLED: ${NSFW_NUDENET_ENABLED:-false}
+  CG_NSFW_NUDENET_MODEL_REVISION: ${NSFW_NUDENET_MODEL_REVISION:-3.4.2-320n}
+  CG_NSFW_NUDENET_RUN_MODE: ${NSFW_NUDENET_RUN_MODE:-always}
+  CG_NSFW_REQUEST_TIMEOUT_SECONDS: ${CG_NSFW_REQUEST_TIMEOUT_SECONDS:-480}
+  CG_NSFW_MAX_IMAGE_BYTES: ${NSFW_MAX_IMAGE_BYTES:-67108864}
+  CG_NSFW_MAX_IMAGES_PER_REQUEST: ${CG_NSFW_MAX_IMAGES_PER_REQUEST:-2000}
   CG_REGISTRY_HTTP_TIMEOUT_SECONDS: ${CG_REGISTRY_HTTP_TIMEOUT_SECONDS:-180}
   CG_REGISTRY_MAX_RESPONSE_BYTES: ${CG_REGISTRY_MAX_RESPONSE_BYTES:-67108864}
   CG_REGISTRY_MAX_NODE_DEFINITIONS: ${CG_REGISTRY_MAX_NODE_DEFINITIONS:-20000}
@@ -293,6 +305,101 @@ services:
         limits:
           cpus: "${SPATIAL_WORKER_CPU_LIMIT:-0.5}"
           memory: ${SPATIAL_WORKER_MEMORY_LIMIT:-512M}
+
+  worker-nsfw:
+    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/backend:${CG_IMAGE_TAG:-0.1.0-rc.44}
+    build: *backend-build
+    restart: unless-stopped
+    environment:
+      <<: *backend-environment
+      CG_RUNTIME_ROOT: /data/runtime/nsfw-worker
+    command:
+      [
+        "dramatiq",
+        "comfy_gallery_worker.tasks",
+        "--processes",
+        "1",
+        "--threads",
+        "1",
+        "--queues",
+        "nsfw",
+      ]
+    volumes:
+      - ${MEDIA_DATA_ROOT:-./data/media}:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nsfw-runtime:
+        condition: service_healthy
+    stop_grace_period: 30s
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    logging: *service-logging
+    deploy:
+      resources:
+        limits:
+          cpus: "${NSFW_WORKER_CPU_LIMIT:-0.5}"
+          memory: ${NSFW_WORKER_MEMORY_LIMIT:-512M}
+
+  nsfw-runtime:
+    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/nsfw-runtime:${CG_IMAGE_TAG:-0.1.0-rc.44}
+    build:
+      context: .
+      dockerfile: deploy/docker/nsfw-runtime.Dockerfile
+      args:
+        CG_PROJECT_VERSION: ${CG_IMAGE_TAG:-0.1.0-rc.44}
+        CG_SOURCE_URL: https://github.com/blkot/ProjectComfyGallery
+        CG_REVISION: ${CG_REVISION:-unknown}
+    restart: unless-stopped
+    environment:
+      NSFW_MODEL_PATH: /models/mini
+      NSFW_MODEL_ID: ${CG_NSFW_MODEL_ID:-viddexa/nsfw-detection-2-mini}
+      NSFW_MODEL_REVISION: ${CG_NSFW_MODEL_REVISION:-local-unspecified}
+      NSFW_INFERENCE_BACKEND: ${NSFW_INFERENCE_BACKEND:-pytorch}
+      NSFW_ONNX_MODEL_PATH: /models/mini-onnx/model.onnx
+      NSFW_IDLE_TIMEOUT_SECONDS: ${NSFW_IDLE_TIMEOUT_SECONDS:-480}
+      NSFW_MODEL_START_TIMEOUT_SECONDS: ${NSFW_MODEL_START_TIMEOUT_SECONDS:-240}
+      NSFW_INFERENCE_TIMEOUT_SECONDS: ${NSFW_INFERENCE_TIMEOUT_SECONDS:-180}
+      NSFW_CPU_THREADS: ${NSFW_CPU_THREADS:-2}
+      NSFW_MAX_IMAGE_BYTES: ${NSFW_MAX_IMAGE_BYTES:-67108864}
+      NSFW_REVIEW_CONFIDENCE_THRESHOLD: ${NSFW_REVIEW_CONFIDENCE_THRESHOLD:-0.70}
+      NSFW_REVIEW_MARGIN_THRESHOLD: ${NSFW_REVIEW_MARGIN_THRESHOLD:-0.20}
+      NSFW_NUDENET_ENABLED: ${NSFW_NUDENET_ENABLED:-false}
+      NSFW_NUDENET_MODEL_PATH: ${NSFW_NUDENET_MODEL_PATH:-}
+      NSFW_NUDENET_MODEL_REVISION: ${NSFW_NUDENET_MODEL_REVISION:-3.4.2-320n}
+      NSFW_NUDENET_RUN_MODE: ${NSFW_NUDENET_RUN_MODE:-always}
+      NSFW_NUDENET_SCORE_THRESHOLD: ${NSFW_NUDENET_SCORE_THRESHOLD:-0.25}
+    volumes:
+      - ${NSFW_MODEL_DIR:-./models/nsfw/mini}:/models/mini:ro
+      - ${NSFW_ONNX_MODEL_DIR:-./models/nsfw/mini-onnx}:/models/mini-onnx:ro
+      - ${NSFW_NUDENET_MODEL_DIR:-./models/nsfw/nudenet}:/models/nudenet:ro
+    expose:
+      - "8001"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=3)",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    init: true
+    stop_grace_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    logging: *service-logging
+    deploy:
+      resources:
+        limits:
+          cpus: "${NSFW_CPU_LIMIT:-2.0}"
+          memory: ${NSFW_MEMORY_LIMIT:-1536M}
 
   backup:
     image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/backup:${CG_IMAGE_TAG:-0.1.0-rc.44}

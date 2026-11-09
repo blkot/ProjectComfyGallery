@@ -63,6 +63,45 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
 - **ING-016:** Authenticated machine clients MUST be able to submit media through
   the same durable multipart import and processing pipeline used by browser uploads.
 
+## Automated image content safety
+
+- **NSFW-001:** CG MUST classify images only through durable background jobs. Video
+  browsing, media listing, and read-only classification status requests MUST NOT
+  start model inference.
+- **NSFW-002:** Automatic classification after upload MUST be separately
+  configurable from enabling the classifier. Both controls default to off.
+- **NSFW-003:** An authenticated user MUST be able to classify a selected Library
+  scope or one image from Media Detail. The server MUST create or reuse durable
+  jobs, bound the number of items in one request, and skip videos and media that
+  are not ready.
+- **NSFW-004:** AI suggestions MUST be stored separately from the user-owned
+  `content_rating` (`sfw` / `nsfw`) and MUST never change that human rating.
+- **NSFW-005:** The system MUST retain the latest model ID, model revision, raw
+  class scores, top label, confidence, score margin, and review requirement for
+  each classified image.
+- **NSFW-006:** The Mini classifier may suggest Safe, Sexy, Explicit, or Review
+  from its five labels. It MUST NOT claim a dedicated Nudity grade because this
+  model has no separate nudity label. Low-confidence or close-score results MUST
+  enter Review using provisional configurable thresholds.
+- **NSFW-007:** The NSFW model MUST run in a dedicated resource-bounded service
+  path. Its heavy inference process MUST start on the first queued request and
+  exit after a configurable idle interval. CG MUST NOT require Docker socket
+  access to manage this lifecycle.
+- **NSFW-008:** Classification failures and process interruptions MUST remain
+  visible and retryable through the existing Job system.
+- **NSFW-009:** The Mini classifier MUST support the original PyTorch CPU path
+  and an optional ONNX Runtime CPU path. The selected backend and immutable
+  model revision MUST be stored with each completed assessment.
+- **NSFW-010:** When enabled, NudeNet MUST store the detected body-region labels,
+  confidence scores, boxes, and model revision independently from Mini's class
+  scores. NudeNet evidence MUST NOT be treated as evidence of sexual intent.
+- **NSFW-011:** NudeNet MUST support an all-images mode for higher nudity recall
+  and an opt-in risk-or-review mode that may skip Mini-safe/drawing results.
+  The latter mode MUST be documented as lower recall.
+- **NSFW-012:** The system may suggest Nudity only from configured exposed-region
+  detections when Mini is not uncertain and does not classify the image as
+  Explicit. Manual content ratings remain unchanged.
+
 ## Workflow ground truth and graph
 
 - **WF-001:** Complete embedded prompt/workflow metadata MUST be stored unchanged.

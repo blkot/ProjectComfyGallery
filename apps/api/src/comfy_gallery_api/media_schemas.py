@@ -152,6 +152,16 @@ class MediaVariantResponse(BaseModel):
     content_url: str
 
 
+class MediaSafetyAssessmentSummaryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    status: str
+    label: str | None
+    suggested_rating: str | None
+    confidence: float | None
+    needs_review: bool
+
+
 class MediaVariantImportStatusResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -234,6 +244,7 @@ class MediaListItemResponse(BaseModel):
     spatial_view_preferred: bool
     favorite: bool
     content_rating: ContentRating
+    media_safety_assessment: MediaSafetyAssessmentSummaryResponse | None = None
     file_created_at: datetime
     created_at: datetime
     preview_url: str
@@ -314,6 +325,7 @@ class MediaDetailResponse(BaseModel):
     spatial_view_preferred: bool
     favorite: bool
     content_rating: ContentRating
+    media_safety_assessment: MediaSafetyAssessmentSummaryResponse | None = None
     derivatives: list[DerivativeResponse]
     variants: list[MediaVariantResponse]
     sources: list[SourceOccurrenceResponse]

@@ -185,6 +185,33 @@ The single-media command accepts `{"content_rating":"sfw"}` or
 scope used by favorite/trash actions and the same two values. There is no clear
 operation: returning a record to the baseline means explicitly setting `sfw`.
 
+## Unreleased: on-demand AI image classification
+
+**Database migration:** `0023_media_safety_assessment`
+
+The classifier stores its latest suggestion, model ID/revision, score map,
+confidence, and review flag in a separate `media_safety_assessment` projection.
+It never updates the human-owned `content_rating`. Authenticated users can start
+classification for selected images and inspect the result:
+
+```http
+POST /api/v1/media/bulk/nsfw-classification
+GET  /api/v1/media/{media_id}/nsfw-classification
+```
+
+The POST accepts the existing `media_ids` or `filter` selection scope,
+`exclude_media_ids`, and optional `force`. It returns `202` with queued, reused,
+skipped, and queue-failure counts and the related durable Job IDs. The GET is a
+database read and never wakes the inference process. Media list/detail results
+include a compact AI assessment summary.
+
+Automatic post-upload classification requires both
+`CG_NSFW_CLASSIFIER_ENABLED=true` and `CG_NSFW_AUTO_CLASSIFY=true`; both default
+to false. The first phase uses Viddexa Mini's Normal, Hentai, Porn, Sexy, and
+Drawing outputs. It does not emit an independent Nudity rating. See the
+[classification design](../design/nsfw-classification.md) for the provisional
+mapping and process lifecycle.
+
 ## Unreleased: ComfyGallery-driven MSS spatial conversion
 
 **Database migration:** `0013_spatial_conversion_runs`

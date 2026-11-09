@@ -84,6 +84,12 @@ for _attempt in {1..60}; do
   worker_spatial_state="$(
     docker inspect comfy-gallery-worker-spatial-1 --format '{{.State.Status}}' 2>/dev/null || true
   )"
+  worker_nsfw_state="$(
+    docker inspect comfy-gallery-worker-nsfw-1 --format '{{.State.Status}}' 2>/dev/null || true
+  )"
+  nsfw_runtime_health="$(
+    docker inspect comfy-gallery-nsfw-runtime-1 --format '{{.State.Health.Status}}' 2>/dev/null || true
+  )"
 
   if [[ "$api_health" == "healthy" &&
     "$web_health" == "healthy" &&
@@ -92,7 +98,9 @@ for _attempt in {1..60}; do
     "$backup_state" == "running" &&
     "$worker_state" == "running" &&
     "$worker_background_state" == "running" &&
-    "$worker_spatial_state" == "running" ]]; then
+    "$worker_spatial_state" == "running" &&
+    "$worker_nsfw_state" == "running" &&
+    "$nsfw_runtime_health" == "healthy" ]]; then
     break
   fi
   sleep 2
@@ -105,7 +113,9 @@ if [[ "$api_health" != "healthy" ||
   "$backup_state" != "running" ||
   "$worker_state" != "running" ||
   "$worker_background_state" != "running" ||
-  "$worker_spatial_state" != "running" ]]; then
+  "$worker_spatial_state" != "running" ||
+  "$worker_nsfw_state" != "running" ||
+  "$nsfw_runtime_health" != "healthy" ]]; then
   docker compose "${compose_files[@]}" ps
   echo "Release health verification failed. Preserve logs and use the backup-based rollback runbook." >&2
   exit 1

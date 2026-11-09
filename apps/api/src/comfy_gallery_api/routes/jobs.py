@@ -10,6 +10,7 @@ from comfy_gallery_api.media_schemas import JobResponse
 from comfy_gallery_core.db.models import (
     ExportRun,
     Job,
+    MediaSafetyAssessment,
     MediaVariant,
     RegistrySyncRun,
     ScanBatch,
@@ -18,6 +19,7 @@ from comfy_gallery_core.db.models import (
 )
 from comfy_gallery_core.queue import (
     enqueue_media_archive,
+    enqueue_nsfw_classification,
     enqueue_portable_export,
     enqueue_registry_sync,
     enqueue_scan,
@@ -117,6 +119,39 @@ async def retry_job(
             variant.last_error_message = None
             await session.commit()
             enqueue_variant_import(variant_id=str(variant.id), job_id=str(job.id))
+        elif job.kind == "classify_media_nsfw":
+            assessment = await session.scalar(
+                select(MediaSafetyAssessment).where(
+                    MediaSafetyAssessment.media_id == job.resource_id
+                )
+            )
+            if assessment is None:
+                raise ApiError(
+                    status_code=404,
+                    code="NSFW_ASSESSMENT_NOT_FOUND",
+                    message="The media classification record no longer exists.",
+                )
+            assessment.job_id = job.id
+            assessment.status = "queued"
+            assessment.label = None
+            assessment.suggested_rating = None
+            assessment.confidence = None
+            assessment.margin = None
+            assessment.scores = {}
+            assessment.needs_review = False
+            assessment.error_code = None
+            assessment.error_message = None
+            assessment.started_at = None
+            assessment.completed_at = None
+            assessment.inference_backend = "unknown"
+            assessment.nudity_detector_status = "disabled"
+            assessment.nudity_detector_mode = "disabled"
+            assessment.nudity_detected = False
+            assessment.nudity_model_id = None
+            assessment.nudity_model_revision = None
+            assessment.nudity_detections = []
+            await session.commit()
+            enqueue_nsfw_classification(media_id=str(job.resource_id), job_id=str(job.id))
         elif job.kind == "scan_source_root":
             scan = await session.get(ScanBatch, job.resource_id)
             if scan is None:
@@ -218,6 +253,17 @@ async def retry_job(
                 conversion.error_code = "QUEUE_UNAVAILABLE"
                 conversion.error_message = "The spatial conversion retry could not be queued."
                 conversion.completed_at = datetime.now(UTC)
+        elif job.kind == "classify_media_nsfw":
+            assessment = await session.scalar(
+                select(MediaSafetyAssessment).where(
+                    MediaSafetyAssessment.media_id == job.resource_id
+                )
+            )
+            if assessment is not None:
+                assessment.status = "failed"
+                assessment.error_code = "QUEUE_UNAVAILABLE"
+                assessment.error_message = "The NSFW classification retry could not be queued."
+                assessment.completed_at = datetime.now(UTC)
         job.status = "failed"
         job.error_code = "QUEUE_UNAVAILABLE"
         job.error_message = "The retry could not be queued."

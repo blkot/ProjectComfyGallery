@@ -62,6 +62,8 @@ jobs:
         include:
           - image: backend
             dockerfile: deploy/docker/backend.Dockerfile
+          - image: nsfw-runtime
+            dockerfile: deploy/docker/nsfw-runtime.Dockerfile
           - image: web
             dockerfile: deploy/docker/web.Dockerfile
           - image: backup

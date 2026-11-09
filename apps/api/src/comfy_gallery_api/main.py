@@ -24,6 +24,7 @@ from comfy_gallery_api.routes.imports import router as imports_router
 from comfy_gallery_api.routes.jobs import router as jobs_router
 from comfy_gallery_api.routes.media import router as media_router
 from comfy_gallery_api.routes.media_archives import router as media_archives_router
+from comfy_gallery_api.routes.nsfw_classification import router as nsfw_classification_router
 from comfy_gallery_api.routes.prompt_registry import router as prompt_registry_router
 from comfy_gallery_api.routes.registries import router as registries_router
 from comfy_gallery_api.routes.spatial_conversions import router as spatial_conversions_router
@@ -109,6 +110,7 @@ app.include_router(imports_router)
 app.include_router(jobs_router)
 app.include_router(media_router)
 app.include_router(media_archives_router)
+app.include_router(nsfw_classification_router)
 app.include_router(variants_router)
 app.include_router(spatial_conversions_router)
 app.include_router(workflows_router)

@@ -14,6 +14,7 @@ import {
   type MediaArchive,
   type MediaBulkActionResponse,
   type MediaPage,
+  type MediaSafetyClassificationBatch,
   type MediaTag,
   type ModelReferenceFilterOption,
   type ReviewSession,
@@ -281,6 +282,8 @@ export function LibraryPage() {
     emptyLibrarySelection,
   );
   const [mediaArchiveId, setMediaArchiveId] = useState<string | null>(null);
+  const [classificationBatch, setClassificationBatch] =
+    useState<MediaSafetyClassificationBatch | null>(null);
   const [collectionName, setCollectionName] = useState("");
   const [collectionId, setCollectionId] = useState("");
   const [tagName, setTagName] = useState("");
@@ -331,6 +334,12 @@ export function LibraryPage() {
     queryKey: ["media", requestSearch],
     queryFn: () => apiRequest<MediaPage>(`/api/v1/media?${requestSearch}`),
     staleTime: 30_000,
+    refetchInterval: (query) =>
+      query.state.data?.items.some((item) =>
+        ["queued", "running"].includes(item.media_safety_assessment?.status ?? ""),
+      )
+        ? 3_000
+        : false,
   });
   const libraryPageCount = Math.max(
     1,
@@ -526,6 +535,21 @@ export function LibraryPage() {
         body: JSON.stringify(selectionPayload(selection)),
       }),
     onSuccess: (archive) => setMediaArchiveId(archive.id),
+  });
+  const classifySelectedMedia = useMutation({
+    mutationFn: () =>
+      apiRequest<MediaSafetyClassificationBatch>(
+        "/api/v1/media/bulk/nsfw-classification",
+        {
+          method: "POST",
+          body: JSON.stringify({ ...selectionPayload(selection), force: true }),
+        },
+      ),
+    onSuccess: async (result) => {
+      setClassificationBatch(result);
+      clearSelection();
+      await queryClient.invalidateQueries({ queryKey: ["media"] });
+    },
   });
 
   useLayoutEffect(() => {
@@ -1201,6 +1225,16 @@ export function LibraryPage() {
                     Restore selected
                   </button>
                   <button
+                    className="nsfw-classification-batch-button"
+                    type="button"
+                    disabled={!selectedCount || classifySelectedMedia.isPending}
+                    onClick={() => classifySelectedMedia.mutate()}
+                  >
+                    {classifySelectedMedia.isPending
+                      ? "Queuing AI grading…"
+                      : `AI classify ${selectedCount} selected`}
+                  </button>
+                  <button
                     className="download-batch-button"
                     type="button"
                     disabled={!selectedCount || createMediaArchive.isPending}
@@ -1393,6 +1427,21 @@ export function LibraryPage() {
             </small>
           </section>
 
+          {classificationBatch ? (
+            <p className="nsfw-classification-result" role="status">
+              AI classification queued {classificationBatch.queued_count}
+              {classificationBatch.reused_count
+                ? ` · ${classificationBatch.reused_count} already in progress`
+                : ""}
+              {classificationBatch.skipped_count
+                ? ` · ${classificationBatch.skipped_count} skipped`
+                : ""}
+              {classificationBatch.queue_failed_count
+                ? ` · ${classificationBatch.queue_failed_count} could not be queued`
+                : ""}
+            </p>
+          ) : null}
+
           {startReview.error ||
           createCollection.error ||
           createTag.error ||
@@ -1403,6 +1452,7 @@ export function LibraryPage() {
           bulkContentRating.error ||
           bulkTrash.error ||
           createMediaArchive.error ||
+          classifySelectedMedia.error ||
           Boolean(bulkTrash.data?.errors.length) ? (
             <p className="notice error-notice" role="alert">
               {startReview.error?.message ||
@@ -1415,6 +1465,7 @@ export function LibraryPage() {
                 bulkContentRating.error?.message ||
                 bulkTrash.error?.message ||
                 createMediaArchive.error?.message ||
+                classifySelectedMedia.error?.message ||
                 bulkTrash.data?.errors.join(" · ")}
             </p>
           ) : null}
@@ -1505,6 +1556,29 @@ export function LibraryPage() {
                           ? "Trash"
                           : titleCase(item.evaluation_state)}
                       </span> : null}
+                      {item.media_safety_assessment ? (
+                        <span
+                          className="ai-classification-badge"
+                          data-status={item.media_safety_assessment.status}
+                          title={
+                            item.media_safety_assessment.needs_review
+                              ? "AI suggestion needs review; the human content rating is unchanged."
+                              : "AI suggestion only; the human content rating is unchanged."
+                          }
+                        >
+                          AI {item.media_safety_assessment.status === "completed"
+                            ? titleCase(
+                                item.media_safety_assessment.needs_review
+                                  ? "review"
+                                  : item.media_safety_assessment.suggested_rating ??
+                                      item.media_safety_assessment.label ??
+                                      "classified",
+                              )
+                            : item.media_safety_assessment.status === "running"
+                              ? "Grading"
+                              : titleCase(item.media_safety_assessment.status)}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                   <div className="media-card-body">

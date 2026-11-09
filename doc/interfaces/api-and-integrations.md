@@ -79,6 +79,8 @@ PUT    /api/v1/media/:id/favorite
 POST   /api/v1/media/bulk/favorite
 POST   /api/v1/media/bulk/trash
 POST   /api/v1/media/bulk/download
+POST   /api/v1/media/bulk/nsfw-classification
+GET    /api/v1/media/:id/nsfw-classification
 GET    /api/v1/media/bulk/download/:archiveId
 GET    /api/v1/media/bulk/download/:archiveId/download
 PUT    /api/v1/media/:id/playback-preference
@@ -138,6 +140,22 @@ Media list and detail responses expose independent `favorite`,
 `prefer_spatial_playback`, and `spatial_available` Booleans. The deprecated
 `spatial_view_preferred` response alias is also returned with the same value as
 `prefer_spatial_playback` during the compatibility window.
+
+NSFW classification is an explicit asynchronous command. `POST
+/api/v1/media/bulk/nsfw-classification` accepts the existing media selection
+scope plus optional `force`; it returns `202` with queued/reused/skipped counts
+and durable Job IDs. The same command accepts one `media_id` and is used by
+Media Detail. It skips videos and media that are not ready. The GET status route
+returns the latest model assessment and its Job without starting inference.
+List/detail projections expose only the compact latest assessment summary. Model
+suggestions never update the manual `content_rating` field. The detailed
+assessment reports the inference backend, NudeNet detector state and model
+revision, exposed-region detections, confidence scores, and boxes when that
+detector is enabled. A suggested `nudity` rating is a rule-engine result from
+body-region evidence and a confident Mini result; NudeNet alone does not infer
+sexual intent. See
+[NSFW image classification](../design/nsfw-classification.md) for labels,
+thresholds, lifecycle, and runtime configuration.
 
 The canonical idempotent preference command is:
 

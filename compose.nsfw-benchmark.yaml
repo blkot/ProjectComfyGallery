@@ -1,0 +1,65 @@
+name: nsfw-local-benchmark
+
+services:
+  nsfw-benchmark:
+    platform: linux/amd64
+    image: ${CG_IMAGE_NAMESPACE:-project-comfy-gallery}/nsfw-runtime:${CG_IMAGE_TAG:-nsfw-benchmark-dev}
+    build:
+      context: .
+      dockerfile: deploy/docker/nsfw-runtime.Dockerfile
+      args:
+        CG_PROJECT_VERSION: ${CG_IMAGE_TAG:-nsfw-benchmark-dev}
+        CG_SOURCE_URL: https://github.com/blkot/ProjectComfyGallery
+        CG_REVISION: ${CG_REVISION:-local}
+    command:
+      [
+        "python",
+        "/app/benchmark.py",
+        "--input-dir",
+        "/testdata/nsfw/samples",
+        "--manifest",
+        "/testdata/nsfw/manifest.local.json",
+        "--output-dir",
+        "/results",
+        "--phase",
+        "${NSFW_BENCHMARK_PHASE:-pytorch-mini}",
+      ]
+    environment:
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      HF_HOME: /tmp/hf-home
+      TMPDIR: /tmp
+      NSFW_MODEL_PATH: /models/mini
+      NSFW_MODEL_ID: ${CG_NSFW_MODEL_ID:-viddexa/nsfw-detection-2-mini}
+      NSFW_MODEL_REVISION: ${CG_NSFW_MODEL_REVISION:-local-unspecified}
+      NSFW_INFERENCE_BACKEND: ${NSFW_INFERENCE_BACKEND:-pytorch}
+      NSFW_ONNX_MODEL_PATH: /models/mini-onnx/model.onnx
+      NSFW_CPU_THREADS: ${NSFW_CPU_THREADS:-2}
+      NSFW_MAX_IMAGE_BYTES: ${NSFW_MAX_IMAGE_BYTES:-67108864}
+      NSFW_REVIEW_CONFIDENCE_THRESHOLD: ${NSFW_REVIEW_CONFIDENCE_THRESHOLD:-0.70}
+      NSFW_REVIEW_MARGIN_THRESHOLD: ${NSFW_REVIEW_MARGIN_THRESHOLD:-0.20}
+      NSFW_NUDENET_ENABLED: ${NSFW_NUDENET_ENABLED:-false}
+      NSFW_NUDENET_MODEL_PATH: ${NSFW_NUDENET_MODEL_PATH:-}
+      NSFW_NUDENET_MODEL_REVISION: ${NSFW_NUDENET_MODEL_REVISION:-3.4.2-320n}
+      NSFW_NUDENET_RUN_MODE: ${NSFW_NUDENET_RUN_MODE:-always}
+      NSFW_NUDENET_SCORE_THRESHOLD: ${NSFW_NUDENET_SCORE_THRESHOLD:-0.25}
+    volumes:
+      - ${NSFW_MODEL_DIR:-./models/nsfw/mini}:/models/mini:ro
+      - ${NSFW_ONNX_MODEL_DIR:-./models/nsfw/mini-onnx}:/models/mini-onnx:ro
+      - ${NSFW_NUDENET_MODEL_DIR:-./models/nsfw/nudenet}:/models/nudenet:ro
+      - ${NSFW_BENCHMARK_DATA_DIR:-./testdata/nsfw}:/testdata/nsfw:ro
+      - ${NSFW_BENCHMARK_RESULTS_DIR:-./testdata/nsfw/results}:/results:rw
+    network_mode: none
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+    user: "0:0"
+    init: true
+    pids_limit: 128
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: ${NSFW_CPU_LIMIT:-2.0}
+          memory: ${NSFW_MEMORY_LIMIT:-1536M}

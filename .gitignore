@@ -17,6 +17,12 @@ coverage/
 *.tsbuildinfo
 
 data/
+/models/nsfw/mini/*
+!/models/nsfw/mini/.gitkeep
+/models/nsfw/mini-onnx/*
+!/models/nsfw/mini-onnx/.gitkeep
+/models/nsfw/nudenet/*
+!/models/nsfw/nudenet/.gitkeep
 testdata/golden/**/original.*
 testdata/golden/**/incoming/
 testdata/golden/manifest.local.json
@@ -24,6 +30,13 @@ testdata/golden/README.local.md
 testdata/golden/**/expected.local.json
 testdata/golden/**/notes.local.md
 !testdata/golden/.gitkeep
+testdata/nsfw/**
+!testdata/nsfw/README.md
+!testdata/nsfw/manifest.example.json
+!testdata/nsfw/manifest.local.example.json
+!testdata/nsfw/samples/
+testdata/nsfw/samples/*
+!testdata/nsfw/samples/.gitkeep
 
 .worktrees/
 

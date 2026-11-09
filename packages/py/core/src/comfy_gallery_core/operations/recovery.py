@@ -12,6 +12,7 @@ from comfy_gallery_core.db.models import (
     ExportRun,
     Job,
     JobStageAttempt,
+    MediaSafetyAssessment,
     MediaVariant,
     RegistrySyncRun,
     ScanBatch,
@@ -38,6 +39,11 @@ def _dispatch_for(job: Job) -> tuple[str, str, tuple[str, ...]] | None:
         "process_variant_import": (
             "process_variant_import",
             "media",
+            (resource_id, job_id),
+        ),
+        "classify_media_nsfw": (
+            "classify_media_nsfw",
+            "nsfw",
             (resource_id, job_id),
         ),
         "scan_source_root": ("scan_source_root", "scan", (resource_id, job_id)),
@@ -73,6 +79,12 @@ async def _reset_owner(session: AsyncSession, job: Job) -> None:
         owner = await session.get(UploadItem, job.resource_id)
     elif job.kind == "process_variant_import":
         owner = await session.get(MediaVariant, job.resource_id)
+    elif job.kind == "classify_media_nsfw":
+        owner = await session.scalar(
+            select(MediaSafetyAssessment).where(
+                MediaSafetyAssessment.media_id == job.resource_id
+            )
+        )
     elif job.kind == "scan_source_root":
         owner = await session.get(ScanBatch, job.resource_id)
     elif job.kind == "registry_sync":
@@ -95,6 +107,25 @@ async def _reset_owner(session: AsyncSession, job: Job) -> None:
         owner.status = "processing" if owner.mss_batch_id else "queued"
         owner.error_code = None
         owner.error_message = None
+        owner.completed_at = None
+    elif isinstance(owner, MediaSafetyAssessment):
+        owner.status = "queued"
+        owner.label = None
+        owner.suggested_rating = None
+        owner.confidence = None
+        owner.margin = None
+        owner.scores = {}
+        owner.needs_review = False
+        owner.inference_backend = "unknown"
+        owner.nudity_detector_status = "disabled"
+        owner.nudity_detector_mode = "disabled"
+        owner.nudity_detected = False
+        owner.nudity_model_id = None
+        owner.nudity_model_revision = None
+        owner.nudity_detections = []
+        owner.error_code = None
+        owner.error_message = None
+        owner.started_at = None
         owner.completed_at = None
 
 

@@ -16,6 +16,7 @@ import {
 
 import { MediaActionToolbar } from "../components/media-action-toolbar";
 import { MediaEvaluationPanel } from "../components/media-evaluation-panel";
+import { MediaSafetyClassificationPanel } from "../components/media-safety-classification-panel";
 import { SpatialVariantAttachment } from "../components/spatial-variant-attachment";
 import { SpatialConversionPanel } from "../components/spatial-conversion-panel";
 import { WorkflowInspector } from "../components/workflow-inspector";
@@ -384,6 +385,10 @@ export function MediaDetailPage() {
                 />
                 <SpatialVariantAttachment media={item} />
               </>
+            ) : null}
+
+            {item.kind === "image" ? (
+              <MediaSafetyClassificationPanel mediaId={item.id} />
             ) : null}
 
             <WorkflowInputMedia mediaId={item.id} />

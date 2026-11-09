@@ -181,6 +181,11 @@ class Media(TimestampMixin, Base):
         cascade="all, delete-orphan",
         uselist=False,
     )
+    safety_assessment: Mapped[MediaSafetyAssessment | None] = relationship(
+        back_populates="media",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
     derivatives: Mapped[list[Derivative]] = relationship(
         back_populates="media",
         cascade="all, delete-orphan",
@@ -242,6 +247,87 @@ class MediaAsset(Base):
     )
 
     media: Mapped[Media] = relationship(back_populates="asset")
+
+
+class MediaSafetyAssessment(TimestampMixin, Base):
+    """Latest versioned model suggestion for a media item; human ratings stay separate."""
+
+    __tablename__ = "media_safety_assessment"
+    __table_args__ = (
+        UniqueConstraint("media_id", name="uq_media_safety_assessment_media"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid7)
+    media_id: Mapped[UUID] = mapped_column(
+        ForeignKey("media.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    job_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("job.id", ondelete="SET NULL"),
+    )
+    model_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    model_revision: Mapped[str] = mapped_column(String(128), nullable=False)
+    inference_backend: Mapped[str] = mapped_column(
+        String(24),
+        nullable=False,
+        default="unknown",
+        server_default="unknown",
+    )
+    status: Mapped[str] = mapped_column(
+        String(24),
+        nullable=False,
+        default="queued",
+        server_default="queued",
+        index=True,
+    )
+    label: Mapped[str | None] = mapped_column(String(64))
+    suggested_rating: Mapped[str | None] = mapped_column(String(24))
+    confidence: Mapped[float | None] = mapped_column(Float)
+    margin: Mapped[float | None] = mapped_column(Float)
+    scores: Mapped[dict[str, object]] = mapped_column(
+        json_type,
+        nullable=False,
+        default=dict,
+        server_default="{}",
+    )
+    needs_review: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=false(),
+    )
+    nudity_detector_status: Mapped[str] = mapped_column(
+        String(24),
+        nullable=False,
+        default="disabled",
+        server_default="disabled",
+    )
+    nudity_detector_mode: Mapped[str] = mapped_column(
+        String(24),
+        nullable=False,
+        default="disabled",
+        server_default="disabled",
+    )
+    nudity_detected: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=false(),
+    )
+    nudity_model_id: Mapped[str | None] = mapped_column(String(128))
+    nudity_model_revision: Mapped[str | None] = mapped_column(String(128))
+    nudity_detections: Mapped[list[dict[str, object]]] = mapped_column(
+        json_type,
+        nullable=False,
+        default=list,
+        server_default="[]",
+    )
+    error_code: Mapped[str | None] = mapped_column(String(80))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    media: Mapped[Media] = relationship(back_populates="safety_assessment")
 
 
 class Derivative(Base):

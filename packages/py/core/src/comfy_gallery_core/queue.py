@@ -49,6 +49,14 @@ def enqueue_upload(*, upload_item_id: str, job_id: str) -> str:
     )
 
 
+def enqueue_nsfw_classification(*, media_id: str, job_id: str) -> str:
+    return enqueue_message(
+        actor_name="classify_media_nsfw",
+        queue_name="nsfw",
+        args=(media_id, job_id),
+    )
+
+
 def enqueue_variant_import(*, variant_id: str, job_id: str) -> str:
     return enqueue_message(
         actor_name="process_variant_import",

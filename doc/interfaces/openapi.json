@@ -2807,6 +2807,16 @@
             ],
             "title": "Last Error Message"
           },
+          "media_safety_assessment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MediaSafetyAssessmentSummaryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "mime_type": {
             "anyOf": [
               {
@@ -3472,6 +3482,16 @@
             "title": "Kind",
             "type": "string"
           },
+          "media_safety_assessment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MediaSafetyAssessmentSummaryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "mime_type": {
             "anyOf": [
               {
@@ -3763,6 +3783,415 @@
           "prefer_spatial_playback"
         ],
         "title": "MediaPlaybackPreferenceUpdateRequest",
+        "type": "object"
+      },
+      "MediaSafetyAssessmentResponse": {
+        "properties": {
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "inference_backend": {
+            "title": "Inference Backend",
+            "type": "string"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "margin": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Margin"
+          },
+          "media_id": {
+            "format": "uuid",
+            "title": "Media Id",
+            "type": "string"
+          },
+          "model_id": {
+            "title": "Model Id",
+            "type": "string"
+          },
+          "model_revision": {
+            "title": "Model Revision",
+            "type": "string"
+          },
+          "needs_review": {
+            "title": "Needs Review",
+            "type": "boolean"
+          },
+          "nudity_detected": {
+            "title": "Nudity Detected",
+            "type": "boolean"
+          },
+          "nudity_detections": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Nudity Detections",
+            "type": "array"
+          },
+          "nudity_detector_mode": {
+            "enum": [
+              "disabled",
+              "always",
+              "risk_or_review"
+            ],
+            "title": "Nudity Detector Mode",
+            "type": "string"
+          },
+          "nudity_detector_status": {
+            "enum": [
+              "disabled",
+              "skipped",
+              "completed"
+            ],
+            "title": "Nudity Detector Status",
+            "type": "string"
+          },
+          "nudity_model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nudity Model Id"
+          },
+          "nudity_model_revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nudity Model Revision"
+          },
+          "scores": {
+            "additionalProperties": true,
+            "title": "Scores",
+            "type": "object"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "suggested_rating": {
+            "anyOf": [
+              {
+                "enum": [
+                  "safe",
+                  "sexy",
+                  "nudity",
+                  "explicit",
+                  "review"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Rating"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "media_id",
+          "job_id",
+          "model_id",
+          "model_revision",
+          "inference_backend",
+          "status",
+          "label",
+          "suggested_rating",
+          "confidence",
+          "margin",
+          "scores",
+          "needs_review",
+          "nudity_detector_status",
+          "nudity_detector_mode",
+          "nudity_detected",
+          "nudity_model_id",
+          "nudity_model_revision",
+          "nudity_detections",
+          "error_code",
+          "error_message",
+          "started_at",
+          "completed_at",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "MediaSafetyAssessmentResponse",
+        "type": "object"
+      },
+      "MediaSafetyAssessmentSummaryResponse": {
+        "properties": {
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "needs_review": {
+            "title": "Needs Review",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "suggested_rating": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Rating"
+          }
+        },
+        "required": [
+          "status",
+          "label",
+          "suggested_rating",
+          "confidence",
+          "needs_review"
+        ],
+        "title": "MediaSafetyAssessmentSummaryResponse",
+        "type": "object"
+      },
+      "MediaSafetyClassificationBatchResponse": {
+        "properties": {
+          "job_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Job Ids",
+            "type": "array"
+          },
+          "queue_failed_count": {
+            "title": "Queue Failed Count",
+            "type": "integer"
+          },
+          "queued_count": {
+            "title": "Queued Count",
+            "type": "integer"
+          },
+          "requested_count": {
+            "title": "Requested Count",
+            "type": "integer"
+          },
+          "reused_count": {
+            "title": "Reused Count",
+            "type": "integer"
+          },
+          "skipped_count": {
+            "title": "Skipped Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "requested_count",
+          "queued_count",
+          "reused_count",
+          "skipped_count",
+          "queue_failed_count"
+        ],
+        "title": "MediaSafetyClassificationBatchResponse",
+        "type": "object"
+      },
+      "MediaSafetyClassificationRequest": {
+        "properties": {
+          "exclude_media_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 2000,
+            "title": "Exclude Media Ids",
+            "type": "array"
+          },
+          "filter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MediaFilterRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "force": {
+            "default": false,
+            "title": "Force",
+            "type": "boolean"
+          },
+          "media_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 2000,
+            "title": "Media Ids",
+            "type": "array"
+          }
+        },
+        "title": "MediaSafetyClassificationRequest",
+        "type": "object"
+      },
+      "MediaSafetyClassificationStatusResponse": {
+        "properties": {
+          "assessment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MediaSafetyAssessmentResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "job": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "media_id": {
+            "format": "uuid",
+            "title": "Media Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "media_id",
+          "assessment",
+          "job"
+        ],
+        "title": "MediaSafetyClassificationStatusResponse",
         "type": "object"
       },
       "MediaSpatialPreferenceResponse": {
@@ -12182,6 +12611,47 @@
         ]
       }
     },
+    "/api/v1/media/bulk/nsfw-classification": {
+      "post": {
+        "operationId": "start_media_safety_classification_api_v1_media_bulk_nsfw_classification_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaSafetyClassificationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaSafetyClassificationBatchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Media Safety Classification",
+        "tags": [
+          "media safety"
+        ]
+      }
+    },
     "/api/v1/media/bulk/trash": {
       "post": {
         "operationId": "update_media_trash_api_v1_media_bulk_trash_post",
@@ -13302,6 +13772,49 @@
         "summary": "Get Media Navigation",
         "tags": [
           "media"
+        ]
+      }
+    },
+    "/api/v1/media/{media_id}/nsfw-classification": {
+      "get": {
+        "operationId": "get_media_safety_classification_api_v1_media__media_id__nsfw_classification_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Media Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaSafetyClassificationStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Media Safety Classification",
+        "tags": [
+          "media safety"
         ]
       }
     },

@@ -40,6 +40,7 @@ DOCKERFILE_PATHS = tuple(
         "backend.Dockerfile",
         "backup.Dockerfile",
         "database.Dockerfile",
+        "nsfw-runtime.Dockerfile",
         "redis.Dockerfile",
         "web.Dockerfile",
         "web-overlay.Dockerfile",

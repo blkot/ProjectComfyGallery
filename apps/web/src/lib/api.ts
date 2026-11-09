@@ -56,6 +56,55 @@ export type MediaArchive = {
 
 export type ContentRating = "sfw" | "nsfw";
 export type ContentRatingFilter = ContentRating | "unknown";
+export type MediaSafetyAssessmentSummary = {
+  status: string;
+  label: string | null;
+  suggested_rating: "safe" | "sexy" | "nudity" | "explicit" | "review" | null;
+  confidence: number | null;
+  needs_review: boolean;
+};
+
+export type MediaSafetyAssessment = MediaSafetyAssessmentSummary & {
+  id: string;
+  media_id: string;
+  job_id: string | null;
+  model_id: string;
+  model_revision: string;
+  inference_backend: string;
+  margin: number | null;
+  scores: Record<string, number>;
+  nudity_detector_status: "disabled" | "skipped" | "completed";
+  nudity_detector_mode: "disabled" | "always" | "risk_or_review";
+  nudity_detected: boolean;
+  nudity_model_id: string | null;
+  nudity_model_revision: string | null;
+  nudity_detections: Array<{
+    class: string;
+    score: number;
+    box: number[];
+  }>;
+  error_code: string | null;
+  error_message: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MediaSafetyClassificationBatch = {
+  requested_count: number;
+  queued_count: number;
+  reused_count: number;
+  skipped_count: number;
+  queue_failed_count: number;
+  job_ids: string[];
+};
+
+export type MediaSafetyClassificationStatus = {
+  media_id: string;
+  assessment: MediaSafetyAssessment | null;
+  job: Job | null;
+};
 
 export type ApiTokenRecord = {
   id: string;
@@ -93,6 +142,7 @@ export type MediaListItem = {
   spatial_view_preferred: boolean;
   favorite: boolean;
   content_rating: ContentRating;
+  media_safety_assessment?: MediaSafetyAssessmentSummary | null;
   file_created_at: string;
   created_at: string;
   preview_url: string;

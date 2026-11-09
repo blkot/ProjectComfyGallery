@@ -68,6 +68,22 @@ class Settings(BaseSettings):
     mss_reconciliation_interval_seconds: int = Field(default=300, ge=30, le=86_400)
     mss_converter_name: str = Field(default="ml-sharp-spatial", min_length=1, max_length=128)
     mss_converter_version: str = Field(default="0.1", min_length=1, max_length=64)
+    nsfw_classifier_enabled: bool = False
+    nsfw_auto_classify: bool = False
+    nsfw_service_url: str = "http://nsfw-runtime:8001"
+    nsfw_model_id: str = "viddexa/nsfw-detection-2-mini"
+    nsfw_model_revision: str = "local-unspecified"
+    nsfw_inference_backend: Literal["pytorch", "onnx"] = "pytorch"
+    nsfw_nudenet_enabled: bool = False
+    nsfw_nudenet_model_revision: str = "3.4.2-320n"
+    nsfw_nudenet_run_mode: Literal["always", "risk_or_review"] = "always"
+    nsfw_request_timeout_seconds: float = Field(default=480.0, ge=10.0, le=1800.0)
+    nsfw_max_image_bytes: int = Field(
+        default=64 * 1024 * 1024,
+        ge=1024 * 1024,
+        le=512 * 1024 * 1024,
+    )
+    nsfw_max_images_per_request: int = Field(default=2000, ge=1, le=5000)
     registry_http_timeout_seconds: float = Field(default=180.0, ge=5.0, le=600.0)
     registry_max_response_bytes: int = Field(
         default=64 * 1024 * 1024,
@@ -101,7 +117,7 @@ class Settings(BaseSettings):
     def normalize_log_level(cls, value: str) -> str:
         return value.upper()
 
-    @field_validator("comfyui_base_url", "mss_base_url", mode="before")
+    @field_validator("comfyui_base_url", "mss_base_url", "nsfw_service_url", mode="before")
     @classmethod
     def normalize_base_url(cls, value: object) -> str | None:
         if value is None:

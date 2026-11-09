@@ -34,6 +34,7 @@ This structure borrows the audience separation of the Diátaxis documentation mo
 ### Subsystem design
 
 - [Media ingestion and processing](design/media-ingestion.md)
+- [NSFW image classification](design/nsfw-classification.md)
 - [Workflow intelligence and node registry](design/workflow-intelligence.md)
 - [Per-output display fields and scoped historical recovery](design/workflow-display-overrides.md)
 - [ComfyUI runtime integration cycle](design/comfyui-runtime-integration-cycle.md)
@@ -82,6 +83,7 @@ This structure borrows the audience separation of the Diátaxis documentation mo
 - [Phase 6 NAS release](development/phase-6-nas-release.md)
 - [Spatial video variant backend update guide](development/spatial-video-variant-backend-update.md)
 - [MSS orchestration implementation and operations](development/mss-orchestration.md)
+- [NSFW image classification manual test guide (Chinese)](development/nsfw-classification-manual-test-zh.md)
 - [Testing and golden corpus](development/testing-and-golden-corpus.md)
 
 ### Decisions and governance

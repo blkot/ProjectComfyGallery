@@ -33,6 +33,7 @@ from comfy_gallery_api.media_schemas import (
     MediaFavoriteUpdateRequest,
     MediaListItemResponse,
     MediaNavigationResponse,
+    MediaSafetyAssessmentSummaryResponse,
     MediaPageResponse,
     MediaPlaybackPreferenceResponse,
     MediaPlaybackPreferenceUpdateRequest,
@@ -152,6 +153,7 @@ async def list_media(
                 selectinload(Media.asset),
                 selectinload(Media.workflow_snapshot),
                 selectinload(Media.evaluations),
+                selectinload(Media.safety_assessment),
             )
             .where(Media.id.in_(media_ids))
         )
@@ -467,6 +469,11 @@ async def get_media(
         spatial_view_preferred=media.spatial_view_preferred,
         favorite=media.favorite,
         content_rating=cast(ContentRating, media.content_rating),
+        media_safety_assessment=(
+            MediaSafetyAssessmentSummaryResponse.model_validate(media.safety_assessment)
+            if media.safety_assessment is not None
+            else None
+        ),
         derivatives=[DerivativeResponse.model_validate(item) for item in media.derivatives],
         variants=[_variant_response(item) for item in media.variants if _is_public_variant(item)],
         sources=[
@@ -650,6 +657,7 @@ async def _load_media(session: DbSessionDep, media_id: UUID) -> Media:
             selectinload(Media.source_occurrences),
             selectinload(Media.workflow_snapshot),
             selectinload(Media.evaluations),
+            selectinload(Media.safety_assessment),
         )
         .where(Media.id == media_id)
     )
@@ -756,6 +764,11 @@ def _list_item(
         spatial_view_preferred=media.spatial_view_preferred,
         favorite=media.favorite,
         content_rating=cast(ContentRating, media.content_rating),
+        media_safety_assessment=(
+            MediaSafetyAssessmentSummaryResponse.model_validate(media.safety_assessment)
+            if media.safety_assessment is not None
+            else None
+        ),
         file_created_at=_file_created_at(source_mtime_ns, media.created_at),
         created_at=media.created_at,
         preview_url=f"/api/v1/media/{media.id}/preview",

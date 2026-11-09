@@ -1,0 +1,29 @@
+{
+  "images": [
+    {
+      "file": "case-001.jpg",
+      "expected_rating": "safe",
+      "notes": "photo | ordinary portrait | negative control"
+    },
+    {
+      "file": "case-002.jpg",
+      "expected_rating": "sexy",
+      "notes": "photo | suggestive clothing | no exposed region"
+    },
+    {
+      "file": "case-003.jpg",
+      "expected_rating": "nudity",
+      "notes": "illustration | non-explicit exposed region"
+    },
+    {
+      "file": "case-004.jpg",
+      "expected_rating": "explicit",
+      "notes": "3d render | explicit"
+    },
+    {
+      "file": "case-005.jpg",
+      "expected_rating": "review",
+      "notes": "photo | ambiguous or context-dependent"
+    }
+  ]
+}

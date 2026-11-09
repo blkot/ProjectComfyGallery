@@ -26,6 +26,10 @@ Expected services:
 frontend/web
 api
 worker
+worker-background
+worker-spatial
+worker-nsfw
+nsfw-runtime
 postgres
 redis
 backup (scheduled or command profile)
@@ -40,6 +44,8 @@ Phase 6 implements all six services, including scheduled backup.
 - PostgreSQL and Redis remain on an internal Compose network and are not published to the LAN.
 - API may remain internal behind the web proxy or be exposed only when operationally necessary.
 - Worker has no inbound public port.
+- `nsfw-runtime` has no host-published port and accepts traffic only from the
+  internal Compose network. It does not receive the Docker socket.
 - Outbound access is required only for configured ComfyUI/LoRA Manager synchronization and optional provider metadata.
 
 `compose.development.yaml` runs a distinct Mac-only PostgreSQL/Redis project on
@@ -83,6 +89,8 @@ Categories:
 - Upload and scan limits.
 - Embedded metadata byte, JSON depth/item, and workflow-node limits.
 - Worker concurrency by task class.
+- NSFW model directory, upload auto-classification toggle, idle timeout, and
+  runtime CPU/RAM ceilings.
 - ffmpeg/ffprobe paths and proxy recipe.
 - Optional ComfyUI/LoRA Manager URL.
 - Session/token secrets.
@@ -124,12 +132,14 @@ Initial conservative defaults:
 - PostgreSQL pool sized for a small deployment.
 - Redis memory policy that does not make it authoritative.
 
-Production uses three isolated Dramatiq pools with one process and one thread each.
+Production uses isolated Dramatiq pools with one process and one thread each.
 The critical `system`/`media` pool cannot be occupied by scans, workflow backfills,
-registry synchronization, or exports; those run in the background pool. This
-keeps uploads and spatial validation responsive while still bounding each work
-class to one operation at a time on the J4125. The `spatial` pool only streams an
-original to MSS and polls its external job; conversion remains on the GPU host.
+registry synchronization, or exports; those run in the background pool. The
+`spatial` pool only streams an original to MSS and polls its external job;
+conversion remains on the GPU host. The `nsfw` pool handles image classification
+separately, while its runtime container loads the model child only for active work
+and releases that process after the idle timeout. This keeps model inference from
+occupying the ordinary media worker or API process.
 Video validation/transcode concurrency remains one unless NAS measurements support
 a change.
 
@@ -141,6 +151,9 @@ Configurable default container ceilings:
 - Critical media worker: 1 GB and 1 CPU.
 - Background worker: 2 GB and 2 CPU.
 - Spatial orchestration worker: 512 MB and 0.5 CPU.
+- NSFW queue worker: 512 MB and 0.5 CPU.
+- NSFW runtime and model child: 1.5 GB and 2 CPU by default. Only the child
+  loads PyTorch and model weights, and it exits after the configured idle timeout.
 - Backup: 256 MB and 0.5 CPU.
 - Web: 128 MB and 0.5 CPU.
 

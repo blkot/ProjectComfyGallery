@@ -25,6 +25,8 @@ ADRs capture why consequential choices were made. They are append-only historica
 - [ADR-0012: Capture and deduplicate workflow input media](0012-capture-workflow-input-media.md)
 - [ADR-0013: Orchestrate external spatial conversion](0013-orchestrate-external-spatial-conversion.md)
 - [ADR-0014: Event-driven MSS orchestration](0014-event-driven-mss-orchestration.md)
+- [ADR-0015: On-demand NSFW image classification](0015-on-demand-nsfw-classification.md)
+- [ADR-0016: ONNX backend and NudeNet evidence](0016-nsfw-onnx-and-nudity-evidence.md)
 
 ## ADR template
 
