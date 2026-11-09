@@ -5,9 +5,11 @@ from uuid import UUID
 
 from fastapi import APIRouter, status
 from sqlalchemy import select
+from uuid6 import uuid7
 
 from comfy_gallery_api.dependencies import CsrfPrincipalDep, DbSessionDep, PrincipalDep, SettingsDep
 from comfy_gallery_api.errors import ApiError
+from comfy_gallery_api.media_schemas import JobResponse
 from comfy_gallery_api.nsfw_schemas import (
     MediaSafetyAssessmentResponse,
     MediaSafetyClassificationBatchResponse,
@@ -18,7 +20,6 @@ from comfy_gallery_api.routes.evaluations import _resolve_membership_media_ids
 from comfy_gallery_core.db.models import Job, Media, MediaSafetyAssessment
 from comfy_gallery_core.nsfw import assessment_matches_settings
 from comfy_gallery_core.queue import enqueue_nsfw_classification
-from uuid6 import uuid7
 
 router = APIRouter(prefix="/api/v1/media", tags=["media safety"])
 CLASSIFICATION_JOB_KIND = "classify_media_nsfw"
@@ -59,10 +60,7 @@ async def start_media_safety_classification(
 
     records = list(
         await session.scalars(
-            select(Media)
-            .where(Media.id.in_(media_ids))
-            .order_by(Media.id)
-            .with_for_update()
+            select(Media).where(Media.id.in_(media_ids)).order_by(Media.id).with_for_update()
         )
     )
     by_id = {record.id: record for record in records}
@@ -203,7 +201,7 @@ async def get_media_safety_classification(
         assessment=(
             MediaSafetyAssessmentResponse.model_validate(assessment) if assessment else None
         ),
-        job=job,
+        job=JobResponse.model_validate(job) if job is not None else None,
     )
 
 

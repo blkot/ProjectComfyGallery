@@ -1,6 +1,6 @@
 [project]
 name = "project-comfy-gallery"
-version = "0.1.0-rc.44"
+version = "0.1.0-rc.45"
 description = "Self-hosted ComfyUI media intelligence and evaluation system"
 requires-python = ">=3.13,<3.14"
 dependencies = []
@@ -48,6 +48,8 @@ select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]
 "packages/py/core/migrations/versions/*.py" = ["E501"]
+"services/nsfw-runtime/benchmark.py" = ["E501", "RUF001"]
+"tools/nsfw-manifest-editor/server.py" = ["RUF001"]
 
 [tool.mypy]
 python_version = "3.13"

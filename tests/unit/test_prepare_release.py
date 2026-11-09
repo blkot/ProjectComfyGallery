@@ -17,6 +17,7 @@ DOCKERFILES = (
     "backend.Dockerfile",
     "backup.Dockerfile",
     "database.Dockerfile",
+    "nsfw-runtime.Dockerfile",
     "redis.Dockerfile",
     "web.Dockerfile",
     "web-overlay.Dockerfile",

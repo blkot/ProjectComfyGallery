@@ -89,7 +89,7 @@ def test_release_workflow_publishes_locked_amd64_images() -> None:
     assert "if: ${{ github.event.repository.private == false }}" in workflow
     assert "provenance: mode=max" in workflow
     assert "sbom: true" in workflow
-    assert workflow.count("dockerfile: deploy/docker/") == 5
+    assert workflow.count("dockerfile: deploy/docker/") == 6
 
 
 def test_nas_deployment_pulls_without_building() -> None:

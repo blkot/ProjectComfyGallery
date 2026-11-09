@@ -209,9 +209,7 @@ def main() -> int:
     for rating in sorted(EXPECTED_RATINGS):
         true_positive = confusion.get(rating, {}).get(rating, 0)
         false_positive = sum(
-            counts.get(rating, 0)
-            for expected, counts in confusion.items()
-            if expected != rating
+            counts.get(rating, 0) for expected, counts in confusion.items() if expected != rating
         )
         false_negative = sum(confusion.get(rating, {}).values()) - true_positive
         class_metrics[rating] = {
@@ -230,9 +228,7 @@ def main() -> int:
             ),
         }
     duration_seconds = max(0.001, time.monotonic() - benchmark_started)
-    completed_count = sum(
-        item.get("assessment_status") == "completed" for item in results
-    )
+    completed_count = sum(item.get("assessment_status") == "completed" for item in results)
     first_result = next(
         (item for item in results if item.get("sequence_index") == 1),
         {},

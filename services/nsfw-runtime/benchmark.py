@@ -122,9 +122,7 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
     confusion = {expected: {predicted: 0 for predicted in RATINGS} for expected in RATINGS}
     successful = [item for item in results if "inference_ms" in item]
     latencies = [float(item["inference_ms"]) for item in successful]
-    first_success_index = (
-        int(successful[0].get("sequence_index", 1)) if successful else None
-    )
+    first_success_index = int(successful[0].get("sequence_index", 1)) if successful else None
     warm_latencies = [
         float(item["inference_ms"])
         for item in successful
@@ -142,9 +140,7 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
     class_metrics: dict[str, dict[str, int | float | None]] = {}
     for rating in RATINGS:
         true_positive = confusion[rating][rating]
-        false_positive = sum(
-            confusion[other][rating] for other in RATINGS if other != rating
-        )
+        false_positive = sum(confusion[other][rating] for other in RATINGS if other != rating)
         false_negative = sum(confusion[rating].values()) - true_positive
         class_metrics[rating] = {
             "true_positive": true_positive,
@@ -164,10 +160,7 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
 
     completed = [item for item in results if "suggested_rating" in item]
     review_count = sum(item["suggested_rating"] == "review" for item in completed)
-    correct = sum(
-        item.get("expected_rating") == item.get("suggested_rating")
-        for item in labeled
-    )
+    correct = sum(item.get("expected_rating") == item.get("suggested_rating") for item in labeled)
     return {
         "image_count": len(results),
         "completed_count": len(completed),
@@ -180,9 +173,7 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
         "p50_inference_ms": percentile(latencies, 50),
         "p95_inference_ms": percentile(latencies, 95),
         "p99_inference_ms": percentile(latencies, 99),
-        "first_image_inference_ms": (
-            successful[0].get("inference_ms") if successful else None
-        ),
+        "first_image_inference_ms": (successful[0].get("inference_ms") if successful else None),
         "warm_p95_inference_ms": percentile(warm_latencies, 95),
         "serial_throughput_images_per_minute": (
             len(completed) * 60_000 / sum(latencies) if sum(latencies) else None
@@ -208,8 +199,7 @@ def confusion_table(summary: dict[str, Any]) -> str:
     rows = []
     for expected in RATINGS:
         cells = "".join(
-            f"<td>{summary['confusion'][expected][predicted]}</td>"
-            for predicted in RATINGS
+            f"<td>{summary['confusion'][expected][predicted]}</td>" for predicted in RATINGS
         )
         rows.append(f"<tr><th>{html.escape(expected)}</th>{cells}</tr>")
     header = "".join(f"<th>{html.escape(rating)}</th>" for rating in RATINGS)
@@ -258,10 +248,13 @@ def html_row(item: dict[str, Any], input_dir: Path) -> str:
         for label, score in sorted(scores.items(), key=lambda pair: pair[1], reverse=True)
     )
     detections = item.get("nudity_detections", [])
-    evidence = "、".join(
-        f"{html.escape(detection['class'])} {float(detection['score']) * 100:.1f}%"
-        for detection in detections
-    ) or "无检测框"
+    evidence = (
+        "、".join(
+            f"{html.escape(detection['class'])} {float(detection['score']) * 100:.1f}%"
+            for detection in detections
+        )
+        or "无检测框"
+    )
     latency = f"{float(item['inference_ms']):.1f} ms" if "inference_ms" in item else "—"
     confidence = (
         f"{float(item['confidence']) * 100:.1f}%" if item.get("confidence") is not None else "—"
@@ -323,8 +316,18 @@ def write_html_report(
         ("P99 分类耗时", metric_cell(summary["p99_inference_ms"], " ms")),
         ("预热 P95", metric_cell(summary["warm_p95_inference_ms"], " ms")),
         ("推理峰值 RSS", metric_cell(summary["peak_rss_mb"], " MB")),
-        ("复核率", metric_cell(summary["review_rate"] * 100 if summary["review_rate"] is not None else None, "%")),
-        ("准确率", metric_cell(summary["accuracy"] * 100 if summary["accuracy"] is not None else None, "%")),
+        (
+            "复核率",
+            metric_cell(
+                summary["review_rate"] * 100 if summary["review_rate"] is not None else None, "%"
+            ),
+        ),
+        (
+            "准确率",
+            metric_cell(
+                summary["accuracy"] * 100 if summary["accuracy"] is not None else None, "%"
+            ),
+        ),
     ]
     cards_html = "".join(
         f"<article><span>{html.escape(str(label))}</span><strong>{html.escape(str(value))}</strong></article>"
@@ -369,7 +372,7 @@ details summary{{display:flex;align-items:center;gap:10px;cursor:pointer}}.evide
 </style></head><body><main>
 <h1>NSFW 手测报告：{html.escape(phase)}</h1>
 <p class="meta">生成时间：{generated_at} · 后端：{html.escape(settings.inference_backend)} · Mini：{html.escape(settings.model_id)} @ {html.escape(settings.model_revision)}</p>
-<p class="meta">NudeNet：{'启用 / ' + html.escape(settings.nudenet_run_mode) if settings.nudenet_enabled else '关闭'} · 置信阈值：{settings.review_confidence_threshold:.2f} · Margin 阈值：{settings.review_margin_threshold:.2f}</p>
+<p class="meta">NudeNet：{"启用 / " + html.escape(settings.nudenet_run_mode) if settings.nudenet_enabled else "关闭"} · 置信阈值：{settings.review_confidence_threshold:.2f} · Margin 阈值：{settings.review_margin_threshold:.2f}</p>
 <p class="muted">此报告由本地目录直接推理生成，不经过 CG API、数据库或媒体 ID。预览图嵌入在此 HTML 中；请将报告与图片一样按私有数据保管。</p>
 <section class="cards">{cards_html}</section>
 <section class="layout"><div class="panel"><h2>混淆矩阵</h2>{confusion_table(summary)}</div>
@@ -377,11 +380,11 @@ details summary{{display:flex;align-items:center;gap:10px;cursor:pointer}}.evide
 <p class="muted">只统计同时有人工标签且分类成功的样本；失败任务单独列出。</p></div></section>
 <h2>逐图结果与检测框</h2><div class="toolbar">
 <input id="search" type="search" placeholder="搜索文件名、备注或标签">
-<select id="expected"><option value="">所有人工标签</option>{''.join(f'<option value="{rating}">{rating}</option>' for rating in RATINGS)}</select>
-<select id="predicted"><option value="">所有模型建议</option>{''.join(f'<option value="{rating}">{rating}</option>' for rating in RATINGS)}</select>
+<select id="expected"><option value="">所有人工标签</option>{"".join(f'<option value="{rating}">{rating}</option>' for rating in RATINGS)}</select>
+<select id="predicted"><option value="">所有模型建议</option>{"".join(f'<option value="{rating}">{rating}</option>' for rating in RATINGS)}</select>
 <label><input id="reviewOnly" type="checkbox"> 仅看需复核</label></div>
 <div class="results"><table><thead><tr><th>图片 / 展开看检测框</th><th>人工标签</th><th>模型建议 / 原始标签</th><th>置信度</th><th>推理耗时</th><th>裸露证据</th><th>错误</th></tr></thead><tbody id="rows">{rows_html}</tbody></table></div>
-<p class="muted">本地串行分类吞吐量：{metric_cell(summary['serial_throughput_images_per_minute'], ' 张/分钟')} · 批处理时间：{metric_cell(summary['batch_elapsed_seconds'], ' 秒')} · 分类进程峰值 RSS：{metric_cell(summary['peak_rss_mb'], ' MB')}</p>
+<p class="muted">本地串行分类吞吐量：{metric_cell(summary["serial_throughput_images_per_minute"], " 张/分钟")} · 批处理时间：{metric_cell(summary["batch_elapsed_seconds"], " 秒")} · 分类进程峰值 RSS：{metric_cell(summary["peak_rss_mb"], " MB")}</p>
 </main><script>
 const controls=[document.querySelector('#search'),document.querySelector('#expected'),document.querySelector('#predicted'),document.querySelector('#reviewOnly')];
 function filterRows(){{const q=controls[0].value.toLowerCase();for(const row of document.querySelectorAll('#rows tr')){{const matchText=row.dataset.search.includes(q);const matchExpected=!controls[1].value||row.dataset.expected===controls[1].value;const matchPredicted=!controls[2].value||row.dataset.predicted===controls[2].value;const matchReview=!controls[3].checked||row.dataset.review==='true';row.dataset.hidden=!(matchText&&matchExpected&&matchPredicted&&matchReview);}}}}
@@ -458,8 +461,7 @@ def main() -> int:
     json_path = args.output_dir / f"{args.phase}.json"
     html_path = args.output_dir / f"{args.phase}.html"
     json_path.write_text(
-        json.dumps({"summary": summary, "results": results}, indent=2, ensure_ascii=False)
-        + "\n",
+        json.dumps({"summary": summary, "results": results}, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
     write_html_report(

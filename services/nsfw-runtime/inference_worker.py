@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException, Request
-from starlette.concurrency import run_in_threadpool
-
 from nsfw_classifier import ClassifierConfig, ClassifierError, NsfwClassifier
+from starlette.concurrency import run_in_threadpool
 
 settings = ClassifierConfig.from_environment()
 classifier = NsfwClassifier(settings)

@@ -81,9 +81,7 @@ async def _reset_owner(session: AsyncSession, job: Job) -> None:
         owner = await session.get(MediaVariant, job.resource_id)
     elif job.kind == "classify_media_nsfw":
         owner = await session.scalar(
-            select(MediaSafetyAssessment).where(
-                MediaSafetyAssessment.media_id == job.resource_id
-            )
+            select(MediaSafetyAssessment).where(MediaSafetyAssessment.media_id == job.resource_id)
         )
     elif job.kind == "scan_source_root":
         owner = await session.get(ScanBatch, job.resource_id)

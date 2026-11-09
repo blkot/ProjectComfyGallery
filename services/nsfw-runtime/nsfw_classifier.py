@@ -61,9 +61,7 @@ class ClassifierConfig:
             model_path=os.getenv("NSFW_MODEL_PATH", "/models/mini"),
             model_id=os.getenv("NSFW_MODEL_ID", "viddexa/nsfw-detection-2-mini"),
             model_revision=os.getenv("NSFW_MODEL_REVISION", "local-unspecified"),
-            inference_backend=os.getenv("NSFW_INFERENCE_BACKEND", "pytorch")
-            .strip()
-            .lower(),
+            inference_backend=os.getenv("NSFW_INFERENCE_BACKEND", "pytorch").strip().lower(),
             onnx_model_path=os.getenv(
                 "NSFW_ONNX_MODEL_PATH",
                 "/models/mini-onnx/model.onnx",
@@ -75,9 +73,7 @@ class ClassifierConfig:
             review_confidence_threshold=float(
                 os.getenv("NSFW_REVIEW_CONFIDENCE_THRESHOLD", "0.70")
             ),
-            review_margin_threshold=float(
-                os.getenv("NSFW_REVIEW_MARGIN_THRESHOLD", "0.20")
-            ),
+            review_margin_threshold=float(os.getenv("NSFW_REVIEW_MARGIN_THRESHOLD", "0.20")),
             cpu_threads=max(1, int(os.getenv("NSFW_CPU_THREADS", "2"))),
             nudenet_enabled=os.getenv("NSFW_NUDENET_ENABLED", "false").lower()
             in {"1", "true", "yes", "on"},
@@ -86,12 +82,8 @@ class ClassifierConfig:
                 "NSFW_NUDENET_MODEL_REVISION",
                 "3.4.2-320n",
             ),
-            nudenet_run_mode=os.getenv("NSFW_NUDENET_RUN_MODE", "always")
-            .strip()
-            .lower(),
-            nudenet_score_threshold=float(
-                os.getenv("NSFW_NUDENET_SCORE_THRESHOLD", "0.25")
-            ),
+            nudenet_run_mode=os.getenv("NSFW_NUDENET_RUN_MODE", "always").strip().lower(),
+            nudenet_score_threshold=float(os.getenv("NSFW_NUDENET_SCORE_THRESHOLD", "0.25")),
         )
 
 
@@ -229,8 +221,7 @@ class NsfwClassifier:
                 nudity_status = "skipped"
 
         nudity_detected = any(
-            detection["class"] in NUDENET_EXPOSED_LABELS
-            for detection in nudity_detections
+            detection["class"] in NUDENET_EXPOSED_LABELS for detection in nudity_detections
         )
         suggested_rating = "review" if needs_review else RATING_BY_LABEL.get(label, "review")
         if not needs_review and label not in {"porn", "hentai"} and nudity_detected:
@@ -248,16 +239,12 @@ class NsfwClassifier:
             "needs_review": needs_review,
             "nudity_detector_status": nudity_status,
             "nudity_detector_mode": (
-                self.settings.nudenet_run_mode
-                if self.settings.nudenet_enabled
-                else "disabled"
+                self.settings.nudenet_run_mode if self.settings.nudenet_enabled else "disabled"
             ),
             "nudity_detected": nudity_detected,
             "nudity_model_id": NUDENET_MODEL_ID if self.settings.nudenet_enabled else None,
             "nudity_model_revision": (
-                self.settings.nudenet_model_revision
-                if self.settings.nudenet_enabled
-                else None
+                self.settings.nudenet_model_revision if self.settings.nudenet_enabled else None
             ),
             "nudity_detections": nudity_detections,
             "image_width": image.width,
@@ -337,7 +324,7 @@ class NsfwClassifier:
             if not np.isfinite(normalized_score) or normalized_score < minimum_score:
                 continue
             try:
-                normalized_box = [int(round(float(value))) for value in box]
+                normalized_box = [round(float(value)) for value in box]
             except (TypeError, ValueError, OverflowError):
                 continue
             normalized.append(

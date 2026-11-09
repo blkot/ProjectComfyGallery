@@ -253,9 +253,7 @@ class MediaSafetyAssessment(TimestampMixin, Base):
     """Latest versioned model suggestion for a media item; human ratings stay separate."""
 
     __tablename__ = "media_safety_assessment"
-    __table_args__ = (
-        UniqueConstraint("media_id", name="uq_media_safety_assessment_media"),
-    )
+    __table_args__ = (UniqueConstraint("media_id", name="uq_media_safety_assessment_media"),)
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid7)
     media_id: Mapped[UUID] = mapped_column(

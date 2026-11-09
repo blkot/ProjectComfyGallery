@@ -33,7 +33,11 @@ class RequestError(Exception):
 def safe_sample_path(value: str) -> Path:
     normalized = value.replace("\\", "/")
     parts = normalized.split("/")
-    if not normalized or normalized.startswith("/") or any(part in {"", ".", ".."} for part in parts):
+    if (
+        not normalized
+        or normalized.startswith("/")
+        or any(part in {"", ".", ".."} for part in parts)
+    ):
         raise RequestError(400, "图片路径必须是 samples 文件夹内的相对路径。")
 
     relative = PurePosixPath(normalized)
@@ -83,7 +87,9 @@ def validate_manifest(payload: object, *, require_images: bool) -> dict[str, lis
 
         rating = raw.get("expected_rating")
         if rating is not None and (not isinstance(rating, str) or rating not in RATINGS):
-            raise RequestError(400, f"{relative} 的标签必须是 safe、sexy、nudity、explicit 或 review。")
+            raise RequestError(
+                400, f"{relative} 的标签必须是 safe、sexy、nudity、explicit 或 review。"
+            )
         notes = raw.get("notes", "")
         if not isinstance(notes, str):
             raise RequestError(400, f"{relative} 的 notes 必须是文字。")
@@ -130,7 +136,10 @@ class ManifestEditorHandler(BaseHTTPRequestHandler):
         return {f"http://127.0.0.1:{port}", f"http://localhost:{port}"}
 
     def _check_local_request(self) -> None:
-        expected_hosts = {f"127.0.0.1:{self.server.server_port}", f"localhost:{self.server.server_port}"}
+        expected_hosts = {
+            f"127.0.0.1:{self.server.server_port}",
+            f"localhost:{self.server.server_port}",
+        }
         if self.headers.get("Host", "") not in expected_hosts:
             raise RequestError(403, "该工具只接受 localhost 请求。")
         origin = self.headers.get("Origin")
@@ -182,7 +191,9 @@ class ManifestEditorHandler(BaseHTTPRequestHandler):
                         )
                     except (OSError, json.JSONDecodeError, RequestError) as exc:
                         message = exc.message if isinstance(exc, RequestError) else str(exc)
-                        raise RequestError(500, f"无法读取现有 manifest.local.json：{message}") from exc
+                        raise RequestError(
+                            500, f"无法读取现有 manifest.local.json：{message}"
+                        ) from exc
                 self._send_json(200, {"manifest": manifest, "samples": list_sample_files()})
                 return
             if parsed.path == "/api/sample":
@@ -215,7 +226,9 @@ class ManifestEditorHandler(BaseHTTPRequestHandler):
                     existing_hash = hashlib.sha256(path.read_bytes()).digest()
                     incoming_hash = hashlib.sha256(content).digest()
                     if existing_hash != incoming_hash:
-                        raise RequestError(409, f"WSL 中已存在不同内容的同名文件：{relative}。请先重命名。")
+                        raise RequestError(
+                            409, f"WSL 中已存在不同内容的同名文件：{relative}。请先重命名。"
+                        )
                     self._send_json(200, {"file": relative, "status": "already_exists"})
                     return
 

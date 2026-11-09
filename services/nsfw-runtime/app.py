@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-import asyncio
 import os
 import subprocess
 import sys
 import threading
 import time
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncIterator
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
@@ -163,7 +162,9 @@ async def classify(request: Request) -> dict[str, object]:
     if content_length is not None:
         try:
             if int(content_length) > MAX_IMAGE_BYTES:
-                raise HTTPException(status_code=413, detail="Image exceeds the configured size limit.")
+                raise HTTPException(
+                    status_code=413, detail="Image exceeds the configured size limit."
+                )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail="Invalid Content-Length header.") from exc
 
@@ -178,6 +179,8 @@ async def classify(request: Request) -> dict[str, object]:
     try:
         return await run_in_threadpool(_classify_with_worker, bytes(image_bytes))
     except TimeoutError as exc:
-        raise HTTPException(status_code=503, detail="The NSFW model did not start in time.") from exc
+        raise HTTPException(
+            status_code=503, detail="The NSFW model did not start in time."
+        ) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

@@ -78,9 +78,7 @@ def main() -> int:
         torch_probabilities = _softmax(torch_logits)
         onnx_probabilities = _softmax(onnx_logits)
         max_logit_delta = float(np.max(np.abs(torch_logits - onnx_logits)))
-        max_probability_delta = float(
-            np.max(np.abs(torch_probabilities - onnx_probabilities))
-        )
+        max_probability_delta = float(np.max(np.abs(torch_probabilities - onnx_probabilities)))
         torch_label_index = int(np.argmax(torch_probabilities))
         onnx_label_index = int(np.argmax(onnx_probabilities))
         labels = model.config.id2label

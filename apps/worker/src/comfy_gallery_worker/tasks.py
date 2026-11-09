@@ -353,9 +353,7 @@ async def _process_upload(upload_item_id: UUID, job_id: UUID) -> UUID:
 async def _schedule_nsfw_classification(media_id: UUID) -> None:
     database = get_database()
     async with database.session() as session:
-        media = await session.scalar(
-            select(Media).where(Media.id == media_id).with_for_update()
-        )
+        media = await session.scalar(select(Media).where(Media.id == media_id).with_for_update())
         if (
             media is None
             or media.kind != "image"
@@ -438,9 +436,7 @@ async def _process_nsfw_classification(media_id: UUID, job_id: UUID) -> None:
             media = await session.get(Media, media_id)
             asset = await session.get(MediaAsset, media_id)
             assessment = await session.scalar(
-                select(MediaSafetyAssessment).where(
-                    MediaSafetyAssessment.media_id == media_id
-                )
+                select(MediaSafetyAssessment).where(MediaSafetyAssessment.media_id == media_id)
             )
             if media is None or asset is None or assessment is None:
                 raise IngestionError(
@@ -479,9 +475,7 @@ async def _process_nsfw_classification(media_id: UUID, job_id: UUID) -> None:
             )
         image_bytes = await asyncio.to_thread(asset_path.read_bytes)
         try:
-            async with httpx.AsyncClient(
-                timeout=settings.nsfw_request_timeout_seconds
-            ) as client:
+            async with httpx.AsyncClient(timeout=settings.nsfw_request_timeout_seconds) as client:
                 response = await client.post(
                     f"{settings.nsfw_service_url}/classify",
                     content=image_bytes,
@@ -520,12 +514,10 @@ async def _process_nsfw_classification(media_id: UUID, job_id: UUID) -> None:
         async with database.session() as session:
             job = await load_job(session, job_id)
             assessment = await session.scalar(
-                select(MediaSafetyAssessment).where(
-                    MediaSafetyAssessment.media_id == media_id
-                )
+                select(MediaSafetyAssessment).where(MediaSafetyAssessment.media_id == media_id)
             )
-            attempt = await session.get(JobStageAttempt, attempt_id) if attempt_id else None
-            if assessment is None or attempt is None:
+            saved_attempt = await session.get(JobStageAttempt, attempt_id) if attempt_id else None
+            if assessment is None or saved_attempt is None:
                 raise IngestionError(
                     code="NSFW_CLASSIFICATION_STATE_MISSING",
                     message="The classification record disappeared before results were saved.",
@@ -549,15 +541,13 @@ async def _process_nsfw_classification(media_id: UUID, job_id: UUID) -> None:
             assessment.error_code = None
             assessment.error_message = None
             assessment.completed_at = datetime.now(UTC)
-            await complete_stage(session, attempt)
+            await complete_stage(session, saved_attempt)
             await succeed_job(session, job)
     except IngestionError as error:
         async with database.session() as session:
             job = await load_job(session, job_id)
             assessment = await session.scalar(
-                select(MediaSafetyAssessment).where(
-                    MediaSafetyAssessment.media_id == media_id
-                )
+                select(MediaSafetyAssessment).where(MediaSafetyAssessment.media_id == media_id)
             )
             if assessment is not None:
                 assessment.status = "failed"
@@ -565,13 +555,13 @@ async def _process_nsfw_classification(media_id: UUID, job_id: UUID) -> None:
                 assessment.error_message = error.message
                 assessment.completed_at = datetime.now(UTC)
             if attempt_id is not None:
-                attempt = await session.get(JobStageAttempt, attempt_id)
-                if attempt is not None and attempt.status == "running":
-                    await fail_stage(session, attempt, error)
+                failed_attempt = await session.get(JobStageAttempt, attempt_id)
+                if failed_attempt is not None and failed_attempt.status == "running":
+                    await fail_stage(session, failed_attempt, error)
             await fail_job(session, job, error)
         raise
     except OSError as exc:
-        error = IngestionError(
+        read_error = IngestionError(
             code="NSFW_IMAGE_READ_FAILED",
             message="The managed image file could not be read.",
             retryable=True,
@@ -580,21 +570,19 @@ async def _process_nsfw_classification(media_id: UUID, job_id: UUID) -> None:
         async with database.session() as session:
             job = await load_job(session, job_id)
             assessment = await session.scalar(
-                select(MediaSafetyAssessment).where(
-                    MediaSafetyAssessment.media_id == media_id
-                )
+                select(MediaSafetyAssessment).where(MediaSafetyAssessment.media_id == media_id)
             )
             if assessment is not None:
                 assessment.status = "failed"
-                assessment.error_code = error.code
-                assessment.error_message = error.message
+                assessment.error_code = read_error.code
+                assessment.error_message = read_error.message
                 assessment.completed_at = datetime.now(UTC)
             if attempt_id is not None:
-                attempt = await session.get(JobStageAttempt, attempt_id)
-                if attempt is not None and attempt.status == "running":
-                    await fail_stage(session, attempt, error)
-            await fail_job(session, job, error)
-        raise error from exc
+                failed_attempt = await session.get(JobStageAttempt, attempt_id)
+                if failed_attempt is not None and failed_attempt.status == "running":
+                    await fail_stage(session, failed_attempt, read_error)
+            await fail_job(session, job, read_error)
+        raise read_error from exc
 
 
 def _validate_nsfw_result(payload: object) -> dict[str, object]:
@@ -669,15 +657,12 @@ def _validate_nsfw_result(payload: object) -> dict[str, object]:
         )
         or (
             nudity_status != "disabled"
-            and (
-                nudity_mode == "disabled"
-                or not nudity_model_id
-                or not nudity_model_revision
-            )
+            and (nudity_mode == "disabled" or not nudity_model_id or not nudity_model_revision)
         )
     ):
         raise IngestionError(code="NSFW_RESPONSE_INVALID", message="Invalid NudeNet response.")
     detections: list[dict[str, object]] = []
+    detection_labels: list[str] = []
     for item in raw_detections:
         if not isinstance(item, dict):
             raise IngestionError(code="NSFW_RESPONSE_INVALID", message="Invalid NudeNet detection.")
@@ -702,6 +687,7 @@ def _validate_nsfw_result(payload: object) -> dict[str, object]:
                 "box": box,
             }
         )
+        detection_labels.append(detection_label)
     exposed_region_labels = {
         "ANUS_EXPOSED",
         "BUTTOCKS_EXPOSED",
@@ -711,8 +697,7 @@ def _validate_nsfw_result(payload: object) -> dict[str, object]:
         "MALE_GENITALIA_EXPOSED",
     }
     has_exposed_region = any(
-        detection["class"].upper() in exposed_region_labels
-        for detection in detections
+        detection_label.upper() in exposed_region_labels for detection_label in detection_labels
     )
     if nudity_detected != has_exposed_region:
         raise IngestionError(
