@@ -59,9 +59,7 @@ def test_deploy_wrapper_refuses_to_be_sourced() -> None:
 
 def test_deploy_wrapper_fails_fast_when_the_nas_is_unreachable() -> None:
     environment = os.environ.copy()
-    environment["XANTA_NAS_HELPER"] = "/usr/bin/true"
-    environment["XANTA_NAS_SSH_HOST"] = "192.0.2.1"  # TEST-NET-1, not routable
-    environment["XANTA_NAS_CONNECT_TIMEOUT_SECONDS"] = "1"
+    environment["XANTA_NAS_HELPER"] = "/usr/bin/false"
 
     started = time.monotonic()
     result = subprocess.run(
@@ -75,7 +73,7 @@ def test_deploy_wrapper_fails_fast_when_the_nas_is_unreachable() -> None:
 
     assert time.monotonic() - started < 20
     assert result.returncode == 1
-    assert "cannot reach the NAS over SSH" in result.stderr
+    assert "cannot reach the NAS through" in result.stderr
 
 
 def test_release_workflow_publishes_locked_amd64_images() -> None:

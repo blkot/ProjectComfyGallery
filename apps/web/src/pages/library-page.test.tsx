@@ -291,7 +291,7 @@ describe("LibraryPage controls sidebar", () => {
       ),
     ).toBeChecked();
     expect(
-      within(screen.getByRole("radiogroup", { name: "Content safety" })).getByRole(
+      within(screen.getByRole("radiogroup", { name: "Manual SFW / NSFW" })).getByRole(
         "radio",
         { name: "All" },
       ),
@@ -310,7 +310,7 @@ describe("LibraryPage controls sidebar", () => {
 
     renderLibrary();
     const filter = await screen.findByRole("radiogroup", {
-      name: "Content safety",
+      name: "Manual SFW / NSFW",
     });
     fireEvent.click(within(filter).getByRole("radio", { name: "NSFW" }));
 
