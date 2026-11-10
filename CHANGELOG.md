@@ -4,6 +4,8 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.48 — 2026-11-10
+
 - Queue large all-matching AI classification selections in bounded requests and
   show batching progress in the Library.
 - Add fixed-order classifier review queues so background classification results

@@ -3453,6 +3453,33 @@
         "title": "MediaFilterRequest",
         "type": "object"
       },
+      "MediaIdSnapshotResponse": {
+        "properties": {
+          "ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Ids",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ids",
+          "total",
+          "truncated"
+        ],
+        "title": "MediaIdSnapshotResponse",
+        "type": "object"
+      },
       "MediaListItemResponse": {
         "properties": {
           "byte_size": {
@@ -10360,7 +10387,7 @@
   },
   "info": {
     "title": "Project Comfy Gallery API",
-    "version": "0.1.0-rc.47"
+    "version": "0.1.0-rc.48"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -12963,6 +12990,425 @@
         "summary": "Upload Media",
         "tags": [
           "imports"
+        ]
+      }
+    },
+    "/api/v1/media/review-queue-snapshot": {
+      "get": {
+        "operationId": "get_review_queue_snapshot_api_v1_media_review_queue_snapshot_get",
+        "parameters": [
+          {
+            "description": "Case-insensitive partial search across model references, prompts, and original or attached-variant SHA-256 hashes.",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Case-insensitive partial search across model references, prompts, and original or attached-variant SHA-256 hashes.",
+              "title": "Q"
+            }
+          },
+          {
+            "description": "Case-insensitive exact SHA-256 match against an original media asset or attached variant.",
+            "in": "query",
+            "name": "sha256",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 64,
+                  "pattern": "^[0-9a-fA-F]{64}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Case-insensitive exact SHA-256 match against an original media asset or attached variant.",
+              "title": "Sha256"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "character_lora",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Character Lora"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workflow_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Workflow Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "evaluation_state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Evaluation State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "trash",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Trash"
+            }
+          },
+          {
+            "in": "query",
+            "name": "prefer_spatial_playback",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Prefer Spatial Playback"
+            }
+          },
+          {
+            "in": "query",
+            "name": "spatial_view_preferred",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Spatial View Preferred"
+            }
+          },
+          {
+            "in": "query",
+            "name": "spatial_available",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Spatial Available"
+            }
+          },
+          {
+            "in": "query",
+            "name": "favorite",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Favorite"
+            }
+          },
+          {
+            "in": "query",
+            "name": "content_rating",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "sfw",
+                    "nsfw",
+                    "unknown"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Content Rating"
+            }
+          },
+          {
+            "in": "query",
+            "name": "classifier_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "unclassified",
+                    "suggested",
+                    "needs_review",
+                    "reviewed",
+                    "processing",
+                    "failed"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Classifier Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "classifier_rating",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "safe",
+                    "sexy",
+                    "nudity",
+                    "explicit",
+                    "review"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Classifier Rating"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source_root_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Root Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "checkpoint_reference_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Checkpoint Reference Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "checkpoint_reference_match",
+            "required": false,
+            "schema": {
+              "default": "any",
+              "enum": [
+                "any",
+                "all"
+              ],
+              "title": "Checkpoint Reference Match",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lora_reference_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lora Reference Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lora_reference_match",
+            "required": false,
+            "schema": {
+              "default": "any",
+              "enum": [
+                "any",
+                "all"
+              ],
+              "title": "Lora Reference Match",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "file_created_desc",
+              "enum": [
+                "file_created_desc",
+                "file_created_asc",
+                "imported_desc",
+                "imported_asc",
+                "filename_asc",
+                "filename_desc",
+                "size_desc",
+                "size_asc"
+              ],
+              "title": "Sort",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50000,
+              "maximum": 50000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaIdSnapshotResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Review Queue Snapshot",
+        "tags": [
+          "media"
         ]
       }
     },
