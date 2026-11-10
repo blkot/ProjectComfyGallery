@@ -267,6 +267,12 @@ class MediaPageResponse(BaseModel):
     character_lora: str | None = None
 
 
+class MediaIdSnapshotResponse(BaseModel):
+    ids: list[UUID]
+    total: int
+    truncated: bool
+
+
 class SlideshowItemResponse(BaseModel):
     id: UUID
     kind: str

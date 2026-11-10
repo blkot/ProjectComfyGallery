@@ -658,6 +658,67 @@ describe("LibraryPage controls sidebar", () => {
     expect((bulkPayload?.filter as { q?: string }).q).toBe("portrait");
   });
 
+  it("queues every image when classifying more matches than one request allows", async () => {
+    const total = 3920;
+    const mediaIds = Array.from({ length: total }, (_, index) => `character-${index}`);
+    const classifierRequests: Array<Record<string, unknown>> = [];
+    const idPageOffsets: number[] = [];
+    const idPageCharacterLoras: Array<string | null> = [];
+    apiRequestMock.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.startsWith("/api/v1/media?")) {
+        const url = new URL(path, "http://gallery.test");
+        const offset = Number(url.searchParams.get("offset") ?? 0);
+        const limit = Number(url.searchParams.get("limit") ?? 48);
+        if (limit > 48) {
+          idPageOffsets.push(offset);
+          idPageCharacterLoras.push(url.searchParams.get("character_lora"));
+        }
+        return Promise.resolve({
+          items: mediaIds.slice(offset, offset + limit).map((id) =>
+            limit === 48 ? mediaFixture({ id, original_filename: `${id}.png` }) : { id },
+          ),
+          total,
+          limit,
+          offset,
+          character_lora: "Alice",
+        });
+      }
+      if (path === "/api/v1/media/bulk/nsfw-classification") {
+        const payload = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        classifierRequests.push(payload);
+        const batchIds = payload.media_ids as string[];
+        return Promise.resolve({
+          requested_count: batchIds.length,
+          queued_count: batchIds.length,
+          reused_count: 0,
+          skipped_count: 0,
+          queue_failed_count: 0,
+          job_ids: [],
+        });
+      }
+      return Promise.resolve([]);
+    });
+
+    renderLibrary("/library?character_lora=Alice");
+    await screen.findByText("character-0.png");
+    fireEvent.click(screen.getByRole("button", { name: "Select media" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Select all 3920 matching" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "AI classify 3920 selected" }),
+    );
+
+    await waitFor(() => expect(classifierRequests).toHaveLength(2));
+    expect(idPageOffsets).toEqual(Array.from({ length: 20 }, (_, index) => index * 200));
+    expect(idPageCharacterLoras).toEqual(Array.from({ length: 20 }, () => "Alice"));
+    const batches = classifierRequests.map((request) => request.media_ids as string[]);
+    expect(batches.map((batch) => batch.length)).toEqual([2000, 1920]);
+    expect(batches.flat()).toEqual(mediaIds);
+    expect(classifierRequests.every((request) => request.force === true)).toBe(true);
+    expect(await screen.findByText(/AI classification queued 3920/)).toBeInTheDocument();
+  });
+
   it("queues one ZIP archive for the selected media and exposes its download link", async () => {
     const item = mediaFixture({ id: "media-archive-1", original_filename: "archive.png" });
     let archivePayload: Record<string, unknown> | undefined;

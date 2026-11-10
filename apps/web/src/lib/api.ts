@@ -177,6 +177,12 @@ export type MediaPage = {
   character_lora?: string | null;
 };
 
+export type MediaIdSnapshot = {
+  ids: string[];
+  total: number;
+  truncated: boolean;
+};
+
 export type SlideshowItem = {
   id: string;
   kind: "image" | "video";

@@ -38,6 +38,7 @@ from comfy_gallery_api.media_schemas import (
     MediaDetailResponse,
     MediaFavoriteResponse,
     MediaFavoriteUpdateRequest,
+    MediaIdSnapshotResponse,
     MediaListItemResponse,
     MediaNavigationResponse,
     MediaPageResponse,
@@ -199,6 +200,91 @@ async def list_media(
         limit=limit,
         offset=offset,
         character_lora=character_lora.strip() if character_lora else None,
+    )
+
+
+@router.get("/review-queue-snapshot", response_model=MediaIdSnapshotResponse)
+async def get_review_queue_snapshot(
+    _principal: PrincipalDep,
+    session: DbSessionDep,
+    q: str | None = Query(
+        default=None,
+        max_length=MEDIA_SEARCH_QUERY_MAX_LENGTH,
+        description=MEDIA_SEARCH_QUERY_DESCRIPTION,
+    ),
+    sha256: str | None = Query(
+        default=None,
+        min_length=MEDIA_SHA256_QUERY_LENGTH,
+        max_length=MEDIA_SHA256_QUERY_LENGTH,
+        pattern=MEDIA_SHA256_QUERY_PATTERN,
+        description=MEDIA_SHA256_QUERY_DESCRIPTION,
+    ),
+    kind: str | None = None,
+    character_lora: Annotated[str | None, Query(max_length=512)] = None,
+    media_status: str | None = Query(default=None, alias="status"),
+    workflow_status: str | None = None,
+    evaluation_state: str | None = None,
+    trash: bool | None = None,
+    prefer_spatial_playback: bool | None = None,
+    spatial_view_preferred: bool | None = None,
+    spatial_available: bool | None = None,
+    favorite: bool | None = None,
+    content_rating: ContentRatingFilter | None = None,
+    classifier_status: ClassifierStatus | None = None,
+    classifier_rating: ClassifierRating | None = None,
+    source_root_id: UUID | None = None,
+    checkpoint_reference_id: Annotated[list[UUID] | None, Query()] = None,
+    checkpoint_reference_match: ReferenceMatch = "any",
+    lora_reference_id: Annotated[list[UUID] | None, Query()] = None,
+    lora_reference_match: ReferenceMatch = "any",
+    sort: MediaSort = "file_created_desc",
+    limit: int = Query(default=50_000, ge=1, le=50_000),
+) -> MediaIdSnapshotResponse:
+    if classifier_status != "needs_review":
+        raise ApiError(
+            status_code=422,
+            code="CLASSIFIER_REVIEW_SCOPE_REQUIRED",
+            message="A Needs review filter is required to start this queue.",
+        )
+    preference_filter = _resolve_preference_filter(
+        canonical=prefer_spatial_playback,
+        legacy=spatial_view_preferred,
+    )
+    id_query = _media_id_query(
+        q=q,
+        sha256=sha256,
+        kind=kind,
+        character_lora=character_lora,
+        media_status=media_status,
+        workflow_status=workflow_status,
+        evaluation_state=evaluation_state,
+        trash=trash,
+        prefer_spatial_playback=preference_filter,
+        spatial_available=spatial_available,
+        favorite=favorite,
+        content_rating=content_rating,
+        classifier_status=classifier_status,
+        classifier_rating=classifier_rating,
+        source_root_id=source_root_id,
+        collection_id=None,
+        checkpoint_reference_ids=checkpoint_reference_id or [],
+        checkpoint_reference_match=checkpoint_reference_match,
+        lora_reference_ids=lora_reference_id or [],
+        lora_reference_match=lora_reference_match,
+    )
+    ranked = (
+        id_query.add_columns(func.count().over().label("total"))
+        .order_by(*_media_order(sort))
+        .limit(limit)
+        .subquery()
+    )
+    rows = list(await session.execute(select(ranked.c.id, ranked.c.total)))
+    total = int(rows[0].total) if rows else 0
+    ids = [row.id for row in rows]
+    return MediaIdSnapshotResponse(
+        ids=ids,
+        total=total,
+        truncated=len(ids) < total,
     )
 
 

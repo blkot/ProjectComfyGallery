@@ -22,6 +22,9 @@ the Library and must remain stable during this classifier rollout.
   Human reviewed, Processing, and Failed. Apply classifier filters to media
   listing, detail navigation, slideshows, saved filters, and filter-backed
   selections.
+- Keep Needs review as a live filter, and offer a fixed-order review queue that
+  snapshots its matching media IDs when started. Classifications completed
+  afterward remain in the live Library scope and do not change the active queue.
 - Add a temporary Library shortcut that scopes to unclassified images, opens
   the first one, and preserves that scope for detail navigation.
 
@@ -34,3 +37,5 @@ the Library and must remain stable during this classifier rollout.
   Unclassified when no model assessment exists.
 - The old binary `content_rating` remains available until a future migration is
   explicitly planned.
+- Review queue snapshots live in the current browser tab and can be recreated
+  from the live filter; they do not synchronize across tabs or devices.
