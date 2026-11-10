@@ -4,6 +4,8 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.49 — 2026-11-10
+
 - Add a Prompt source Library filter for API-prompt and visual-workflow prompt
   evidence, including saved scopes and media navigation.
 - Replace the classifier-rating dropdown with a color-coded, single-select row
