@@ -78,6 +78,7 @@ export function libraryFilterExpression(
   search: URLSearchParams,
 ): LibraryFilterExpression {
   const characterLora = search.get("character_lora")?.trim();
+  const promptSource = promptSourceFilter(search);
   return {
     q: search.get("q")?.trim() || null,
     kind: search.get("kind") || null,
@@ -93,7 +94,7 @@ export function libraryFilterExpression(
     content_rating: contentRatingFilter(search),
     classifier_status: classifierStatusFilter(search),
     classifier_rating: classifierRatingFilter(search),
-    prompt_source: promptSourceFilter(search),
+    ...(promptSource ? { prompt_source: promptSource } : {}),
     ...(characterLora ? { character_lora: characterLora } : {}),
     checkpoint_reference_ids: uniqueValues(
       search.getAll("checkpoint_reference_id"),
