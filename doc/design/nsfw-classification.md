@@ -52,6 +52,16 @@ saved filters, and filter-backed selections. The Review unclassified images
 shortcut temporarily replaces the current Library scope, opens the first
 unclassified image, and keeps the scope for detail navigation.
 
+Needs review remains a live Library filter: completed classifications can enter
+it while a background batch is running, and saving a human rating removes that
+image from the filter. The Library's Start review queue action captures the
+matching media IDs and their selected sort order in one API query. The queue
+keeps that snapshot in the current browser tab so review navigation stays
+stable while the live filter changes. Classifications completed after the
+snapshot remain available in the Library when the user returns and refreshes
+the scope. A snapshot is capped at 50,000 media; larger scopes are split across
+successive queues.
+
 The five raw model confidence scores are read-only. The model's predicted class
 is highlighted, with safe classes in green, Sexy in amber, and Porn/Hentai in
 coral. Human review is optional: until a human rating is recorded, the model's
@@ -109,9 +119,11 @@ confirm this.
 - When both are true, a completed image upload schedules classification on the
   dedicated `nsfw` queue. Video uploads do not.
 - A user may start classification from the Library selection toolbar or the
-  Media Detail panel. The selected scope is capped by
-  `CG_NSFW_MAX_IMAGES_PER_REQUEST` (2,000 by default). Non-images and media that
-  are not ready are skipped.
+  Media Detail panel. The API caps each request at
+  `CG_NSFW_MAX_IMAGES_PER_REQUEST` (2,000 by default). The Library resolves larger
+  filter selections into media IDs and queues them in sequential requests that
+  respect this cap. Non-images and media that are not ready are skipped; a large
+  selection can therefore create a long-running queue on the single NSFW worker.
 - Library, detail, and status GET requests never call the inference runtime.
 - An active job is reused. A completed result with the configured model ID and
   revision, backend, and NudeNet settings is skipped unless the user explicitly

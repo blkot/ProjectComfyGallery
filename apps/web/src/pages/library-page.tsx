@@ -13,6 +13,7 @@ import {
   type Collection,
   type MediaArchive,
   type MediaBulkActionResponse,
+  type MediaIdSnapshot,
   type MediaPage,
   type MediaSafetyClassificationBatch,
   type MediaTag,
@@ -38,12 +39,19 @@ import {
   togglePage,
   type LibrarySelection,
 } from "../lib/library-selection";
+import {
+  nsfwClassificationBatchSize,
+  resolveFilteredSelectionMediaIds,
+  splitMediaIds,
+} from "../lib/nsfw-classification-batches";
+import { saveClassifierReviewQueue } from "../lib/classifier-review-queue";
 import { hasShortcutModifier, isShortcutBlockedTarget } from "../lib/keyboard";
 import {
   defaultMediaSort,
   libraryFilterExpression,
   mediaListQuery,
   mediaPageSize,
+  mediaNavigationQuery,
   mediaReturnParam,
   pageOffsetForNumber,
   paginationItems,
@@ -56,6 +64,29 @@ import {
 
 const libraryControlsStorageKey =
   "comfy-gallery.library-controls-collapsed-v2";
+
+function mergeClassificationBatches(
+  total: MediaSafetyClassificationBatch,
+  next: MediaSafetyClassificationBatch,
+): MediaSafetyClassificationBatch {
+  return {
+    requested_count: total.requested_count + next.requested_count,
+    queued_count: total.queued_count + next.queued_count,
+    reused_count: total.reused_count + next.reused_count,
+    skipped_count: total.skipped_count + next.skipped_count,
+    queue_failed_count: total.queue_failed_count + next.queue_failed_count,
+    job_ids: [...total.job_ids, ...next.job_ids],
+  };
+}
+
+function isNsfwClassificationBatchLimitError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "NSFW_CLASSIFICATION_BATCH_TOO_LARGE"
+  );
+}
 
 const mediaTypeFilterOptions = [
   { value: "", label: "All", icon: "all" },
@@ -305,6 +336,8 @@ export function LibraryPage() {
   const [mediaArchiveId, setMediaArchiveId] = useState<string | null>(null);
   const [classificationBatch, setClassificationBatch] =
     useState<MediaSafetyClassificationBatch | null>(null);
+  const [classificationProgress, setClassificationProgress] =
+    useState<string | null>(null);
   const [collectionName, setCollectionName] = useState("");
   const [collectionId, setCollectionId] = useState("");
   const [tagName, setTagName] = useState("");
@@ -465,6 +498,35 @@ export function LibraryPage() {
       }),
     onSuccess: (reviewSession) => navigate(`/review/${reviewSession.id}`),
   });
+  const startClassifierReviewQueue = useMutation({
+    mutationFn: async () => {
+      const scope = mediaNavigationQuery(searchParams);
+      const snapshot = await apiRequest<MediaIdSnapshot>(
+        `/api/v1/media/review-queue-snapshot?${scope}`,
+      );
+      if (!snapshot.ids.length) {
+        throw new Error("No images currently need review.");
+      }
+      return {
+        queueId: saveClassifierReviewQueue(snapshot.ids, {
+          sourceTotal: snapshot.total,
+          truncated: snapshot.truncated,
+        }),
+        mediaIds: snapshot.ids,
+      };
+    },
+    onSuccess: ({ queueId, mediaIds }) => {
+      const firstItemHref = browseDetailHref(
+        "library",
+        searchParams,
+        mediaIds[0],
+        1,
+      );
+      const detailUrl = new URL(firstItemHref, "http://gallery.local");
+      detailUrl.searchParams.set("classifier_review_queue", queueId);
+      navigate(`${detailUrl.pathname}${detailUrl.search}`);
+    },
+  });
   const createCollection = useMutation({
     mutationFn: async () => {
       const collection = await apiRequest<Collection>("/api/v1/collections", {
@@ -609,16 +671,112 @@ export function LibraryPage() {
     onSuccess: (archive) => setMediaArchiveId(archive.id),
   });
   const classifySelectedMedia = useMutation({
-    mutationFn: () =>
-      apiRequest<MediaSafetyClassificationBatch>(
-        "/api/v1/media/bulk/nsfw-classification",
-        {
-          method: "POST",
-          body: JSON.stringify({ ...selectionPayload(selection), force: true }),
-        },
-      ),
+    mutationFn: async (selected: LibrarySelection) => {
+      const queueSelection = (payload: ReturnType<typeof selectionPayload>) =>
+        apiRequest<MediaSafetyClassificationBatch>(
+          "/api/v1/media/bulk/nsfw-classification",
+          {
+            method: "POST",
+            body: JSON.stringify({ ...payload, force: true }),
+          },
+        );
+      const needsIdBatches =
+        (selected.mode === "explicit" &&
+          selected.mediaIds.size > nsfwClassificationBatchSize) ||
+        (selected.mode === "filter" &&
+          (selected.count > nsfwClassificationBatchSize ||
+            selected.excludedIds.size > nsfwClassificationBatchSize));
+
+      if (!needsIdBatches) {
+        try {
+          return await queueSelection(selectionPayload(selected));
+        } catch (error) {
+          if (
+            selected.mode !== "filter" ||
+            !isNsfwClassificationBatchLimitError(error)
+          ) {
+            throw error;
+          }
+        }
+      }
+
+      let mediaIds: string[];
+      if (selected.mode === "filter") {
+        setClassificationProgress(
+          `Preparing ${selectionCount(selected).toLocaleString()} selected images…`,
+        );
+        mediaIds = await resolveFilteredSelectionMediaIds(selected, (path) =>
+          apiRequest<MediaPage>(path),
+        );
+      } else if (selected.mode === "explicit") {
+        mediaIds = [...selected.mediaIds];
+      } else {
+        mediaIds = [];
+      }
+
+      if (!mediaIds.length) {
+        return {
+          requested_count: 0,
+          queued_count: 0,
+          reused_count: 0,
+          skipped_count: 0,
+          queue_failed_count: 0,
+          job_ids: [],
+        };
+      }
+
+      let aggregate: MediaSafetyClassificationBatch = {
+        requested_count: 0,
+        queued_count: 0,
+        reused_count: 0,
+        skipped_count: 0,
+        queue_failed_count: 0,
+        job_ids: [],
+      };
+      setClassificationProgress(
+        `Queueing AI classification: 0 / ${mediaIds.length.toLocaleString()}`,
+      );
+
+      const queueIds = async (batchIds: string[]): Promise<void> => {
+        try {
+          const result = await queueSelection({ media_ids: batchIds });
+          aggregate = mergeClassificationBatches(aggregate, result);
+          setClassificationBatch(aggregate);
+          setClassificationProgress(
+            `Queueing AI classification: ${aggregate.requested_count.toLocaleString()} / ${mediaIds.length.toLocaleString()}`,
+          );
+        } catch (error) {
+          if (!isNsfwClassificationBatchLimitError(error) || batchIds.length < 2) {
+            throw error;
+          }
+          const midpoint = Math.ceil(batchIds.length / 2);
+          await queueIds(batchIds.slice(0, midpoint));
+          await queueIds(batchIds.slice(midpoint));
+        }
+      };
+
+      try {
+        for (const batchIds of splitMediaIds(mediaIds)) {
+          await queueIds(batchIds);
+        }
+      } catch (error) {
+        setClassificationProgress(
+          `Stopped after ${aggregate.requested_count.toLocaleString()} / ${mediaIds.length.toLocaleString()} images were submitted.`,
+        );
+        throw error;
+      }
+      return aggregate;
+    },
+    onMutate: () => {
+      setClassificationBatch(null);
+      setClassificationProgress(null);
+    },
+    onError: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["media"] });
+    },
     onSuccess: async (result) => {
       setClassificationBatch(result);
+      setClassificationProgress(null);
       clearSelection();
       await queryClient.invalidateQueries({ queryKey: ["media"] });
     },
@@ -1151,6 +1309,25 @@ export function LibraryPage() {
             >
               Review unclassified images
             </button>
+            {classifierStatus === "needs_review" ? (
+              <>
+                <button
+                  className="secondary-button library-review-unclassified-button"
+                  type="button"
+                  disabled={startClassifierReviewQueue.isPending}
+                  onClick={() => startClassifierReviewQueue.mutate()}
+                >
+                  {startClassifierReviewQueue.isPending
+                    ? "Preparing review queue…"
+                    : `Start review queue (${media.data?.total ?? 0})`}
+                </button>
+                {startClassifierReviewQueue.error ? (
+                  <p className="notice error-notice" role="alert">
+                    {startClassifierReviewQueue.error.message}
+                  </p>
+                ) : null}
+              </>
+            ) : null}
             <LibrarySegmentedFilter
               label="Spatial preference"
               name="library-spatial-preference"
@@ -1406,7 +1583,7 @@ export function LibraryPage() {
                     className="nsfw-classification-batch-button"
                     type="button"
                     disabled={!selectedCount || classifySelectedMedia.isPending}
-                    onClick={() => classifySelectedMedia.mutate()}
+                    onClick={() => classifySelectedMedia.mutate(selection)}
                   >
                     {classifySelectedMedia.isPending
                       ? "Queuing AI grading…"
@@ -1617,6 +1794,12 @@ export function LibraryPage() {
               {classificationBatch.queue_failed_count
                 ? ` · ${classificationBatch.queue_failed_count} could not be queued`
                 : ""}
+            </p>
+          ) : null}
+
+          {classificationProgress ? (
+            <p className="nsfw-classification-result" role="status">
+              {classificationProgress}
             </p>
           ) : null}
 

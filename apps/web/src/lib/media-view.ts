@@ -51,6 +51,7 @@ export function mediaListQuery(search: URLSearchParams): URLSearchParams {
     "heatmap_trash",
   ];
   for (const key of promptRegistryContext) result.delete(key);
+  result.delete("classifier_review_queue");
   if (
     !result.has("prefer_spatial_playback") &&
     result.has("spatial_view_preferred")
@@ -157,7 +158,7 @@ export function reviewSlideshowHref(
   startMediaId: string,
   returnTo: string,
 ): string {
-  return slideshowHref(reviewFilterSearchParams(filter), {
+  return slideshowHref(mediaFilterSearchParams(filter), {
     source: "filter",
     collectionId: "",
     shuffle: false,
@@ -357,7 +358,7 @@ const slideshowFilterParameters = [
   "lora_reference_match",
 ] as const;
 
-function reviewFilterSearchParams(
+export function mediaFilterSearchParams(
   filter: Record<string, unknown>,
 ): URLSearchParams {
   const result = new URLSearchParams();

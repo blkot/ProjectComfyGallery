@@ -4,6 +4,11 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+- Queue large all-matching AI classification selections in bounded requests and
+  show batching progress in the Library.
+- Add fixed-order classifier review queues so background classification results
+  do not shift the active manual review sequence.
+
 ## 0.1.0-rc.47 — 2026-11-10
 
 - Add a searchable Character LoRA filter to Library and carry its exact indexed

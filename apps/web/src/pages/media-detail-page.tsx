@@ -4,6 +4,7 @@ import {
   type WheelEvent as ReactWheelEvent,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
 } from "react";
 import {
@@ -34,6 +35,7 @@ import {
 } from "../lib/media-view";
 import { mediaDetailQuery, preloadMediaAsset } from "../lib/media-detail-query";
 import { browseDetailHref, browseNavigationPath, browseReturnHref, browseScope, browseSlideshowHref, safeBrowseHref } from "../lib/media-browse";
+import { loadClassifierReviewQueue } from "../lib/classifier-review-queue";
 
 export function MediaDetailPage() {
   const { mediaId = "" } = useParams();
@@ -52,6 +54,18 @@ export function MediaDetailPage() {
   const browseKind = sourceUrl?.pathname === "/registries/prompts" ? "prompt" : "library";
   const sourceParams = sourceUrl?.searchParams ?? searchParams;
   const navigationSearch = (sourceUrl ? browseScope(browseKind, sourceParams) : mediaNavigationQuery(searchParams)).toString();
+  const classifierReviewQueueId = searchParams.get("classifier_review_queue");
+  const classifierReviewQueue = useMemo(
+    () =>
+      classifierReviewQueueId
+        ? loadClassifierReviewQueue(classifierReviewQueueId)
+        : null,
+    [classifierReviewQueueId],
+  );
+  const classifierReviewQueuePosition =
+    classifierReviewQueue?.mediaIds.indexOf(mediaId) ?? -1;
+  const classifierReviewQueueActive = Boolean(classifierReviewQueueId);
+  const classifierReviewQueueValid = classifierReviewQueuePosition >= 0;
   const media = useQuery({
     ...mediaDetailQuery(mediaId),
     enabled: Boolean(mediaId),
@@ -62,27 +76,57 @@ export function MediaDetailPage() {
       apiRequest<MediaNavigation>(
         browseNavigationPath(browseKind, mediaId, new URLSearchParams(navigationSearch)),
       ),
-    enabled: Boolean(mediaId),
+    enabled: Boolean(mediaId) && !classifierReviewQueueActive,
   });
   const libraryHref = sourceUrl
-    ? browseReturnHref(browseKind, sourceParams, mediaId, navigation.data?.position)
-    : mediaLibraryHref(searchParams);
+    ? browseReturnHref(
+        browseKind,
+        sourceParams,
+        mediaId,
+        classifierReviewQueueActive ? undefined : navigation.data?.position,
+      )
+    : (() => {
+        const librarySearch = new URLSearchParams(searchParams);
+        librarySearch.delete("classifier_review_queue");
+        return mediaLibraryHref(librarySearch);
+      })();
   function detailHref(id: string, position: number | null) {
-    if (!sourceUrl) return mediaDetailHref(id, searchParams, position);
-    const href = new URL(browseDetailHref(browseKind, sourceParams, id, position), "http://gallery.local");
+    const href = new URL(
+      sourceUrl
+        ? browseDetailHref(browseKind, sourceParams, id, position)
+        : mediaDetailHref(id, searchParams, position),
+      "http://gallery.local",
+    );
     if (activePanel === "evaluation") href.searchParams.set("panel", "evaluation");
+    if (classifierReviewQueueValid && classifierReviewQueueId) {
+      href.searchParams.set("classifier_review_queue", classifierReviewQueueId);
+    }
     return `${href.pathname}${href.search}`;
   }
-  const previousHref = navigation.data?.previous_id
+  const previousMediaId = classifierReviewQueueActive
+    ? classifierReviewQueueValid
+      ? classifierReviewQueue?.mediaIds[classifierReviewQueuePosition - 1] ?? null
+      : null
+    : navigation.data?.previous_id ?? null;
+  const nextMediaId = classifierReviewQueueActive
+    ? classifierReviewQueueValid
+      ? classifierReviewQueue?.mediaIds[classifierReviewQueuePosition + 1] ?? null
+      : null
+    : navigation.data?.next_id ?? null;
+  const previousHref = previousMediaId
     ? detailHref(
-        navigation.data.previous_id,
-        navigation.data.previous_position,
+        previousMediaId,
+        classifierReviewQueueActive
+          ? null
+          : navigation.data?.previous_position ?? null,
       )
     : null;
-  const nextHref = navigation.data?.next_id
+  const nextHref = nextMediaId
     ? detailHref(
-        navigation.data.next_id,
-        navigation.data.next_position,
+        nextMediaId,
+        classifierReviewQueueActive
+          ? null
+          : navigation.data?.next_position ?? null,
       )
     : null;
 
@@ -138,12 +182,10 @@ export function MediaDetailPage() {
 
   useEffect(() => {
     const neighborIds = new Set(
-      [navigation.data?.previous_id, navigation.data?.next_id].filter(
-        (id): id is string => Boolean(id),
-      ),
+      [previousMediaId, nextMediaId].filter((id): id is string => Boolean(id)),
     );
     for (const neighborId of neighborIds) prefetchMedia(neighborId);
-  }, [navigation.data?.previous_id, navigation.data?.next_id, prefetchMedia]);
+  }, [nextMediaId, prefetchMedia, previousMediaId]);
 
   useEffect(() => {
     function handleKeyboardShortcuts(event: KeyboardEvent) {
@@ -251,16 +293,20 @@ export function MediaDetailPage() {
                 if (previousHref) navigate(previousHref);
               }}
               onFocus={() =>
-                prefetchMedia(navigation.data?.previous_id ?? null)
+                prefetchMedia(previousMediaId)
               }
               onMouseEnter={() =>
-                prefetchMedia(navigation.data?.previous_id ?? null)
+                prefetchMedia(previousMediaId)
               }
             >
               ←
             </button>
             <span aria-live="polite">
-              {navigation.data
+              {classifierReviewQueueValid && classifierReviewQueue
+                ? `${classifierReviewQueuePosition + 1} / ${classifierReviewQueue.mediaIds.length}`
+                : classifierReviewQueueActive
+                  ? "Queue unavailable"
+                  : navigation.data
                 ? `${navigation.data.position} / ${navigation.data.total}`
                 : navigation.isError
                   ? "Outside view"
@@ -274,10 +320,8 @@ export function MediaDetailPage() {
               onClick={() => {
                 if (nextHref) navigate(nextHref);
               }}
-              onFocus={() => prefetchMedia(navigation.data?.next_id ?? null)}
-              onMouseEnter={() =>
-                prefetchMedia(navigation.data?.next_id ?? null)
-              }
+              onFocus={() => prefetchMedia(nextMediaId)}
+              onMouseEnter={() => prefetchMedia(nextMediaId)}
             >
               →
             </button>
@@ -312,6 +356,24 @@ export function MediaDetailPage() {
       </section>
 
       <aside className="media-record-inspector">
+        {classifierReviewQueueValid && classifierReviewQueue ? (
+          <p className="notice" role="status">
+            {classifierReviewQueue.truncated
+              ? `This queue contains the first ${classifierReviewQueue.mediaIds.length.toLocaleString()} of ${classifierReviewQueue.sourceTotal.toLocaleString()} matching images. `
+              : "This queue keeps the order captured when it started. "}
+            {classifierReviewQueuePosition ===
+            classifierReviewQueue.mediaIds.length - 1
+              ? "You reached the end of this queue. "
+              : ""}
+            New classifier results will not join this queue. Return to the
+            Library and refresh the filter to review them.
+          </p>
+        ) : classifierReviewQueueActive ? (
+          <p className="notice error-notice" role="alert">
+            This review queue is unavailable in this browser tab. Return to the
+            Library and start a new queue.
+          </p>
+        ) : null}
         <header className="media-record-heading">
           <p className="kicker">{item.kind}</p>
           <div className="media-record-title-row">
