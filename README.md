@@ -64,6 +64,34 @@ hidden. Each decision saves independently, so a session can be resumed later.
 - Generate thumbnails, video posters, and browser-friendly video proxies as
   separate assets; these do not replace the original.
 
+### Classify images and review suggestions
+
+- Run the opt-in image classifier on selected Library results or from a media
+  detail page. Upload-time classification is a separate setting and remains off
+  by default. Large selections are queued in batches, with progress available
+  while they run.
+- Filter media by whether its extracted prompt came from an API prompt or a
+  visual workflow. A media item containing both sources appears under either
+  source filter.
+- The model suggests Safe, Sexy, or Explicit; low-confidence or conflicting
+  results are marked Needs review. Optional NudeNet detection adds exposed-area
+  evidence and can contribute a Nudity suggestion, but does not decide context
+  on its own.
+- The model's predicted class is selected by default. Human review is optional:
+  choose Safe, Sexy, Nudity, or Explicit to confirm or replace the suggestion.
+  This classifier rating is separate from the existing SFW/NSFW mark and does
+  not hide or trash media.
+- Filter the Library by classifier status or effective rating. Choose one of
+  five rating buttons in a single row; `All` clears the rating filter. Start a Needs
+  review queue to capture the current matching items and sort order; new results
+  arriving in the background will not reorder that active queue. Return to the
+  Library and refresh the filter to include them. Queues are stored in the
+  current browser tab and hold up to 50,000 items at a time.
+- Classification is disabled until enabled and the model is downloaded locally.
+  See the [Chinese setup and manual test guide](doc/development/nsfw-classification-manual-test-zh.md)
+  and the [classification design](doc/design/nsfw-classification.md) for setup,
+  labels, and queue behavior.
+
 ### Evaluate at your own pace
 
 - Use configuration-blind image and video review with a stable, versioned

@@ -3342,6 +3342,22 @@
             ],
             "title": "Prefer Spatial Playback"
           },
+          "prompt_source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "api_prompt",
+                  "visual_workflow"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Match media with a prompt observation from a current successful API prompt or visual workflow extraction.",
+            "title": "Prompt Source"
+          },
           "q": {
             "anyOf": [
               {
@@ -12311,6 +12327,28 @@
             }
           },
           {
+            "description": "Match media with a prompt observation from a current successful API prompt or visual workflow extraction.",
+            "in": "query",
+            "name": "prompt_source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "api_prompt",
+                    "visual_workflow"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Match media with a prompt observation from a current successful API prompt or visual workflow extraction.",
+              "title": "Prompt Source"
+            }
+          },
+          {
             "in": "query",
             "name": "status",
             "required": false,
@@ -13071,6 +13109,28 @@
             }
           },
           {
+            "description": "Match media with a prompt observation from a current successful API prompt or visual workflow extraction.",
+            "in": "query",
+            "name": "prompt_source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "api_prompt",
+                    "visual_workflow"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Match media with a prompt observation from a current successful API prompt or visual workflow extraction.",
+              "title": "Prompt Source"
+            }
+          },
+          {
             "in": "query",
             "name": "status",
             "required": false,
@@ -13487,6 +13547,28 @@
                 }
               ],
               "title": "Character Lora"
+            }
+          },
+          {
+            "description": "Match media with a prompt observation from a current successful API prompt or visual workflow extraction.",
+            "in": "query",
+            "name": "prompt_source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "api_prompt",
+                    "visual_workflow"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Match media with a prompt observation from a current successful API prompt or visual workflow extraction.",
+              "title": "Prompt Source"
             }
           },
           {
@@ -14319,6 +14401,28 @@
                 }
               ],
               "title": "Character Lora"
+            }
+          },
+          {
+            "description": "Match media with a prompt observation from a current successful API prompt or visual workflow extraction.",
+            "in": "query",
+            "name": "prompt_source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "api_prompt",
+                    "visual_workflow"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Match media with a prompt observation from a current successful API prompt or visual workflow extraction.",
+              "title": "Prompt Source"
             }
           },
           {

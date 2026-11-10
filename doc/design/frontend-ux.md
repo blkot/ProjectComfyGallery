@@ -143,6 +143,7 @@ evaluation/library state.
 Filters include:
 
 - Media type.
+- Prompt source: API prompt or visual workflow. Media with both sources match either selected source.
 - Processing/readiness state.
 - Evaluation state and Trash. The Library excludes Trash by default; users must
   explicitly choose Include Trash or Trash only to show trashed media.
@@ -153,6 +154,9 @@ Filters include:
 - Pipeline pattern and usage slot.
 - Checkpoint/LoRA/series.
 - Workflow/node parse state.
+- Classifier status and one active classifier rating. The rating control is a
+  single-select row with `All` separated from Safe, Sexy, Nudity, Explicit, and
+  Review; each active rating uses its own severity color.
 - Registry confidence/ambiguity.
 - Date, dimensions, duration, codec/container.
 - Generic extracted configuration values where supported.

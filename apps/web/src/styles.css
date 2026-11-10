@@ -1331,6 +1331,104 @@ code {
   outline-offset: 2px;
 }
 
+.library-filter-hint {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.library-classifier-rating-options {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 0.8fr 0.9fr 0.9fr 1.05fr 1.2fr 1.05fr;
+  gap: 3px;
+}
+
+.library-classifier-rating-option {
+  --rating-color: var(--line);
+  --rating-ink: var(--text);
+  position: relative;
+  min-width: 0;
+  height: 34px;
+  padding: 0 3px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--rating-color) 48%, var(--line));
+  border-top: 2px solid color-mix(in srgb, var(--rating-color) 68%, var(--line));
+  border-radius: 5px;
+  color: color-mix(in srgb, var(--rating-color) 82%, var(--text));
+  background: rgba(17, 17, 15, 0.72);
+  font-size: 9px;
+  line-height: 1;
+  text-overflow: clip;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    border-color 120ms ease,
+    background 120ms ease;
+}
+
+.library-classifier-rating-option[data-rating="all"] {
+  --rating-color: var(--accent);
+  --rating-ink: var(--accent-ink);
+}
+
+.library-classifier-rating-option[data-rating="safe"] {
+  --rating-color: #a4d3a2;
+  --rating-ink: #101a10;
+}
+
+.library-classifier-rating-option[data-rating="sexy"] {
+  --rating-color: #efc36c;
+  --rating-ink: #211905;
+}
+
+.library-classifier-rating-option[data-rating="nudity"] {
+  --rating-color: #e99b70;
+  --rating-ink: #251208;
+}
+
+.library-classifier-rating-option[data-rating="explicit"] {
+  --rating-color: #ff8278;
+  --rating-ink: #260b09;
+}
+
+.library-classifier-rating-option[data-rating="review"] {
+  --rating-color: #c4b4e4;
+  --rating-ink: #1b1428;
+}
+
+.library-classifier-rating-option[data-separated="true"] {
+  margin-right: 4px;
+}
+
+.library-classifier-rating-option[data-separated="true"]::after {
+  position: absolute;
+  top: 5px;
+  right: -4px;
+  bottom: 5px;
+  width: 1px;
+  background: var(--line);
+  content: "";
+}
+
+.library-classifier-rating-option[aria-pressed="true"] {
+  border-color: var(--rating-color);
+  color: var(--rating-ink);
+  background: var(--rating-color);
+  font-weight: 700;
+}
+
+.library-classifier-rating-option:hover {
+  border-color: var(--rating-color);
+}
+
+.library-classifier-rating-option:focus-visible {
+  z-index: 1;
+}
+
 .library-sidebar .reference-filter-menu {
   position: static;
   width: 100%;

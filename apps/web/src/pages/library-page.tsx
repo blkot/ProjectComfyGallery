@@ -123,12 +123,18 @@ const classifierStatusOptions = [
 ] as const;
 
 const classifierRatingOptions = [
-  { value: "", label: "All classifier ratings" },
+  { value: "", label: "All" },
   { value: "safe", label: "Safe" },
   { value: "sexy", label: "Sexy" },
   { value: "nudity", label: "Nudity" },
   { value: "explicit", label: "Explicit" },
   { value: "review", label: "Review" },
+] as const;
+
+const promptSourceOptions = [
+  { value: "", label: "Any prompt source" },
+  { value: "api_prompt", label: "API prompt" },
+  { value: "visual_workflow", label: "Visual workflow" },
 ] as const;
 
 const spatialPreferenceFilterOptions = [
@@ -207,6 +213,40 @@ function LibrarySegmentedFilter({
           </label>
         ))}
       </div>
+    </fieldset>
+  );
+}
+
+function LibraryClassifierRatingFilter({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <fieldset className="library-segmented-filter library-classifier-rating-filter">
+      <legend>Classifier rating</legend>
+      <div className="library-classifier-rating-options" role="group" aria-label="Classifier rating">
+        {classifierRatingOptions.map((option, index) => (
+          <button
+            aria-label={option.value ? option.label : "All classifier ratings"}
+            aria-pressed={value === option.value}
+            className="library-classifier-rating-option"
+            data-rating={option.value || "all"}
+            data-separated={index === 0}
+            key={option.value || "all"}
+            title={option.value ? option.label : "All classifier ratings"}
+            type="button"
+            onClick={() => onChange(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <span className="sr-only" aria-live="polite">
+        {value ? `${titleCase(value)} classifier rating selected` : "All classifier ratings selected"}
+      </span>
     </fieldset>
   );
 }
@@ -370,6 +410,11 @@ export function LibraryPage() {
   const characterLora = searchParams.get("character_lora")?.trim() ?? "";
   const classifierStatus = searchParams.get("classifier_status") ?? "";
   const classifierRating = searchParams.get("classifier_rating") ?? "";
+  const promptSource = ["api_prompt", "visual_workflow"].includes(
+    searchParams.get("prompt_source") ?? "",
+  )
+    ? searchParams.get("prompt_source") ?? ""
+    : "";
   const preferSpatialPlayback =
     searchParams.get("prefer_spatial_playback") ??
     searchParams.get("spatial_view_preferred") ??
@@ -1273,6 +1318,24 @@ export function LibraryPage() {
               }
             />
             <label>
+              Prompt source
+              <select
+                value={promptSource}
+                onChange={(event) =>
+                  changeLibraryParameter("prompt_source", event.target.value)
+                }
+              >
+                {promptSourceOptions.map((option) => (
+                  <option key={option.value || "all"} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <small className="library-filter-hint">
+                Media can match both prompt sources.
+              </small>
+            </label>
+            <label>
               Classifier status
               <select
                 value={classifierStatus}
@@ -1287,21 +1350,10 @@ export function LibraryPage() {
                 ))}
               </select>
             </label>
-            <label>
-              Classifier rating
-              <select
-                value={classifierRating}
-                onChange={(event) =>
-                  changeLibraryParameter("classifier_rating", event.target.value)
-                }
-              >
-                {classifierRatingOptions.map((option) => (
-                  <option key={option.value || "all"} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <LibraryClassifierRatingFilter
+              value={classifierRating}
+              onChange={(value) => changeLibraryParameter("classifier_rating", value)}
+            />
             <button
               className="secondary-button library-review-unclassified-button"
               type="button"

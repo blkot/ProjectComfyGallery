@@ -125,6 +125,15 @@ these Library routes. Filter-backed bulk actions, review scopes, and saved filte
 accept the same exact `character_lora` field. Prompt Registry Usage retains its
 own scope and endpoints.
 
+The same Library routes also accept optional `prompt_source=api_prompt` or
+`prompt_source=visual_workflow`. The filter matches current, successfully
+extracted prompt observations attached to nodes from that representation. A media
+record containing both representations matches either selected source. Counts,
+pagination, detail navigation, review snapshots, and slideshow playlists use the
+same predicate. Filter-backed selections, review sessions, saved filters, and
+analysis scopes accept `prompt_source` as well. No query parameter means no
+source restriction.
+
 Phase 1 implements list/detail/original/preview/playback/import paths. Phase 2
 implements workflow summary/graph, explicit raw-evidence retrieval, per-media
 reprocessing, bulk missing/all backfill, and `workflow_status` list filtering.

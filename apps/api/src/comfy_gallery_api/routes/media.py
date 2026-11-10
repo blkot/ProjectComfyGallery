@@ -25,8 +25,11 @@ from comfy_gallery_api.media_filters import (
     MEDIA_SHA256_QUERY_DESCRIPTION,
     MEDIA_SHA256_QUERY_LENGTH,
     MEDIA_SHA256_QUERY_PATTERN,
+    PROMPT_SOURCE_QUERY_DESCRIPTION,
+    PromptSource,
     media_character_lora_filter,
     media_keyword_filter,
+    media_prompt_source_filter,
     media_sha256_filter,
 )
 from comfy_gallery_api.media_schemas import (
@@ -100,6 +103,10 @@ async def list_media(
     ),
     kind: str | None = None,
     character_lora: Annotated[str | None, Query(max_length=512)] = None,
+    prompt_source: Annotated[
+        PromptSource | None,
+        Query(description=PROMPT_SOURCE_QUERY_DESCRIPTION),
+    ] = None,
     media_status: str | None = Query(default=None, alias="status"),
     workflow_status: str | None = None,
     evaluation_state: str | None = None,
@@ -129,6 +136,7 @@ async def list_media(
         sha256=sha256,
         kind=kind,
         character_lora=character_lora,
+        prompt_source=prompt_source,
         media_status=media_status,
         workflow_status=workflow_status,
         evaluation_state=evaluation_state,
@@ -221,6 +229,10 @@ async def get_review_queue_snapshot(
     ),
     kind: str | None = None,
     character_lora: Annotated[str | None, Query(max_length=512)] = None,
+    prompt_source: Annotated[
+        PromptSource | None,
+        Query(description=PROMPT_SOURCE_QUERY_DESCRIPTION),
+    ] = None,
     media_status: str | None = Query(default=None, alias="status"),
     workflow_status: str | None = None,
     evaluation_state: str | None = None,
@@ -255,6 +267,7 @@ async def get_review_queue_snapshot(
         sha256=sha256,
         kind=kind,
         character_lora=character_lora,
+        prompt_source=prompt_source,
         media_status=media_status,
         workflow_status=workflow_status,
         evaluation_state=evaluation_state,
@@ -306,6 +319,10 @@ async def get_slideshow_playlist(
     ),
     kind: str | None = None,
     character_lora: Annotated[str | None, Query(max_length=512)] = None,
+    prompt_source: Annotated[
+        PromptSource | None,
+        Query(description=PROMPT_SOURCE_QUERY_DESCRIPTION),
+    ] = None,
     media_status: str | None = Query(default=None, alias="status"),
     workflow_status: str | None = None,
     evaluation_state: str | None = None,
@@ -344,6 +361,7 @@ async def get_slideshow_playlist(
         sha256=sha256,
         kind=kind,
         character_lora=character_lora,
+        prompt_source=prompt_source,
         media_status=media_status,
         workflow_status=workflow_status,
         evaluation_state=evaluation_state,
@@ -444,6 +462,10 @@ async def get_media_navigation(
     ),
     kind: str | None = None,
     character_lora: Annotated[str | None, Query(max_length=512)] = None,
+    prompt_source: Annotated[
+        PromptSource | None,
+        Query(description=PROMPT_SOURCE_QUERY_DESCRIPTION),
+    ] = None,
     media_status: str | None = Query(default=None, alias="status"),
     workflow_status: str | None = None,
     evaluation_state: str | None = None,
@@ -471,6 +493,7 @@ async def get_media_navigation(
         sha256=sha256,
         kind=kind,
         character_lora=character_lora,
+        prompt_source=prompt_source,
         media_status=media_status,
         workflow_status=workflow_status,
         evaluation_state=evaluation_state,
@@ -930,6 +953,7 @@ def _media_id_query(
     lora_reference_ids: list[UUID],
     lora_reference_match: ReferenceMatch,
     character_lora: str | None = None,
+    prompt_source: PromptSource | None = None,
 ) -> Select[tuple[UUID]]:
     filters: list[ColumnElement[bool]] = []
     keyword_filter = media_keyword_filter(q)
@@ -943,6 +967,9 @@ def _media_id_query(
     character_lora_filter = media_character_lora_filter(character_lora)
     if character_lora_filter is not None:
         filters.append(character_lora_filter)
+    prompt_source_filter = media_prompt_source_filter(prompt_source)
+    if prompt_source_filter is not None:
+        filters.append(prompt_source_filter)
     if media_status:
         filters.append(Media.status == media_status)
     if prefer_spatial_playback is not None:

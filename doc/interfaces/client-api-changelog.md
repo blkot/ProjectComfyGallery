@@ -4,6 +4,17 @@ This file is the cross-agent handoff for backend contract changes. Consumers sho
 also use the committed [OpenAPI snapshot](openapi.json); prose here explains
 semantics and compatibility that a schema alone cannot express.
 
+## Unreleased: Library prompt-source filter
+
+Library list, slideshow, per-media navigation, and classifier review-queue
+snapshot routes accept optional `prompt_source=api_prompt` or
+`prompt_source=visual_workflow`. A match requires a current successful
+extraction run with a prompt observation attached to a node from the selected
+representation. A media item with both sources appears in either matching
+scope. Filter-backed selections, review sessions, saved filters, and analysis
+scopes use the same field. Omit `prompt_source` to leave the source unrestricted.
+No migration is required.
+
 ## Unreleased: exact Library Character LoRA filter
 
 `GET /api/v1/media`, `GET /api/v1/media/slideshow`, and

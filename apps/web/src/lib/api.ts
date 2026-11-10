@@ -66,6 +66,7 @@ export type MediaSafetyAssessmentSummary = {
 
 export type ClassifierRating = "safe" | "sexy" | "nudity" | "explicit" | "review";
 export type HumanClassifierRating = Exclude<ClassifierRating, "review">;
+export type PromptSource = "api_prompt" | "visual_workflow";
 export type ClassifierStatus =
   | "unclassified"
   | "suggested"

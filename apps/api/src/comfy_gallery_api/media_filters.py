@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from sqlalchemy import String, and_, cast, func, or_, select
 from sqlalchemy.sql import ColumnElement
 
@@ -14,6 +16,7 @@ from comfy_gallery_core.db.models import (
     ModelReferenceGroup,
     ModelUsage,
     SemanticObservation,
+    WorkflowNode,
     WorkflowSnapshot,
 )
 
@@ -27,7 +30,12 @@ MEDIA_SEARCH_QUERY_DESCRIPTION = (
 MEDIA_SHA256_QUERY_DESCRIPTION = (
     "Case-insensitive exact SHA-256 match against an original media asset or attached variant."
 )
+PROMPT_SOURCE_QUERY_DESCRIPTION = (
+    "Match media with a prompt observation from a current successful "
+    "API prompt or visual workflow extraction."
+)
 SUCCESSFUL_EXTRACTION_STATUSES = ("succeeded", "completed_with_warnings")
+PromptSource = Literal["api_prompt", "visual_workflow"]
 
 
 def normalize_media_search_query(value: str | None) -> str | None:
@@ -154,6 +162,28 @@ def media_character_lora_filter(value: str | None) -> ColumnElement[bool] | None
         .where(
             MediaPromptIndex.media_id == Media.id,
             func.lower(func.trim(MediaPromptIndex.character_lora)) == normalized_value.casefold(),
+        )
+        .correlate(Media)
+        .exists()
+    )
+
+
+def media_prompt_source_filter(
+    source: PromptSource | None,
+) -> ColumnElement[bool] | None:
+    if source is None:
+        return None
+    return (
+        select(SemanticObservation.id)
+        .join(WorkflowNode, WorkflowNode.id == SemanticObservation.node_id)
+        .join(ExtractionRun, ExtractionRun.id == SemanticObservation.run_id)
+        .join(WorkflowSnapshot, WorkflowSnapshot.id == ExtractionRun.snapshot_id)
+        .where(
+            WorkflowSnapshot.media_id == Media.id,
+            WorkflowNode.representation == source,
+            ExtractionRun.is_current.is_(True),
+            ExtractionRun.status.in_(SUCCESSFUL_EXTRACTION_STATUSES),
+            SemanticObservation.observation_type == "prompt",
         )
         .correlate(Media)
         .exists()

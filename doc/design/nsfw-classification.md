@@ -70,7 +70,9 @@ confirms the model; a different one overrides it. Clearing the human rating
 restores the model suggestion. The human rating options also allow Nudity, which
 Mini cannot predict as a distinct class. NudeNet exposed-region detections
 receive a critical accent; other region labels use a hatched neutral chip to
-distinguish evidence from a rating.
+distinguish evidence from a rating. In Library controls, the classifier-rating
+filter is a single-select row with `All` separated from Safe, Sexy, Nudity,
+Explicit, and Review; each option has a distinct severity color.
 
 ## Request and execution flow
 

@@ -11,6 +11,8 @@ from comfy_gallery_api.media_filters import (
     MEDIA_SEARCH_QUERY_MAX_LENGTH,
     MEDIA_SHA256_QUERY_LENGTH,
     MEDIA_SHA256_QUERY_PATTERN,
+    PROMPT_SOURCE_QUERY_DESCRIPTION,
+    PromptSource,
     normalize_media_search_query,
     normalize_media_sha256_query,
 )
@@ -128,6 +130,10 @@ class MediaFilterRequest(BaseModel):
         ),
     )
     kind: Literal["image", "video"] | None = None
+    prompt_source: PromptSource | None = Field(
+        default=None,
+        description=PROMPT_SOURCE_QUERY_DESCRIPTION,
+    )
     character_lora: str | None = Field(
         default=None,
         max_length=512,

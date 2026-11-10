@@ -1,4 +1,4 @@
-import type { ClassifierRating, ClassifierStatus } from "./api";
+import type { ClassifierRating, ClassifierStatus, PromptSource } from "./api";
 
 export const mediaPageSize = 48;
 export const defaultMediaSort = "file_created_desc";
@@ -30,6 +30,7 @@ export type LibraryFilterExpression = {
   content_rating: "sfw" | "nsfw" | "unknown" | null;
   classifier_status?: ClassifierStatus | null;
   classifier_rating?: ClassifierRating | null;
+  prompt_source?: PromptSource | null;
   character_lora?: string;
   checkpoint_reference_ids: string[];
   checkpoint_reference_match: ReferenceMatch;
@@ -52,6 +53,9 @@ export function mediaListQuery(search: URLSearchParams): URLSearchParams {
   ];
   for (const key of promptRegistryContext) result.delete(key);
   result.delete("classifier_review_queue");
+  if (!isPromptSource(result.get("prompt_source"))) {
+    result.delete("prompt_source");
+  }
   if (
     !result.has("prefer_spatial_playback") &&
     result.has("spatial_view_preferred")
@@ -89,6 +93,7 @@ export function libraryFilterExpression(
     content_rating: contentRatingFilter(search),
     classifier_status: classifierStatusFilter(search),
     classifier_rating: classifierRatingFilter(search),
+    prompt_source: promptSourceFilter(search),
     ...(characterLora ? { character_lora: characterLora } : {}),
     checkpoint_reference_ids: uniqueValues(
       search.getAll("checkpoint_reference_id"),
@@ -330,6 +335,15 @@ function classifierRatingFilter(search: URLSearchParams): ClassifierRating | nul
     : null;
 }
 
+function promptSourceFilter(search: URLSearchParams): PromptSource | null {
+  const value = search.get("prompt_source");
+  return isPromptSource(value) ? value : null;
+}
+
+function isPromptSource(value: string | null): value is PromptSource {
+  return value === "api_prompt" || value === "visual_workflow";
+}
+
 function uniqueValues(values: string[]): string[] {
   return [...new Set(values.filter(Boolean))];
 }
@@ -348,6 +362,7 @@ const slideshowFilterParameters = [
   "content_rating",
   "classifier_status",
   "classifier_rating",
+  "prompt_source",
   "character_lora",
   "source_root_id",
   "collection_id",

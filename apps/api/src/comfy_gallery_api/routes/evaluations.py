@@ -55,6 +55,7 @@ from comfy_gallery_api.evaluation_schemas import (
 from comfy_gallery_api.media_filters import (
     media_character_lora_filter,
     media_keyword_filter,
+    media_prompt_source_filter,
     media_sha256_filter,
 )
 from comfy_gallery_core.db.models import (
@@ -997,6 +998,9 @@ def _media_scope_query(
     character_lora_filter = media_character_lora_filter(media_filter.character_lora)
     if character_lora_filter is not None:
         query = query.where(character_lora_filter)
+    prompt_source_filter = media_prompt_source_filter(media_filter.prompt_source)
+    if prompt_source_filter is not None:
+        query = query.where(prompt_source_filter)
     if media_filter.status:
         query = query.where(Media.status == media_filter.status)
     preference_filter = media_filter.spatial_preference_filter()
