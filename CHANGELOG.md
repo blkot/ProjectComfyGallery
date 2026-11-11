@@ -4,6 +4,8 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.50 — 2026-11-11
+
 - Register custom ComfyUI prompts with server-assigned Prompt Registry IDs and
   hand off the integration contract for Xanta Utils nodes.
 
