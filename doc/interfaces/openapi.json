@@ -6484,6 +6484,18 @@
       },
       "PromptRegistryEntryResponse": {
         "properties": {
+          "archived_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -6545,6 +6557,7 @@
           "negative_prompt",
           "metadata",
           "origin",
+          "archived_at",
           "created_at",
           "updated_at"
         ],
@@ -6868,6 +6881,18 @@
       },
       "PromptRegistryRandomResponse": {
         "properties": {
+          "archived_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -6941,6 +6966,7 @@
           "negative_prompt",
           "metadata",
           "origin",
+          "archived_at",
           "created_at",
           "updated_at",
           "prompt_id",
@@ -16576,6 +16602,16 @@
           },
           {
             "in": "query",
+            "name": "include_archived",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Archived",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
@@ -17204,6 +17240,16 @@
           },
           {
             "in": "query",
+            "name": "include_archived",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Archived",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
@@ -17506,6 +17552,41 @@
       }
     },
     "/api/v1/prompt-registry/{entry_id}": {
+      "delete": {
+        "description": "Archive a custom prompt without removing its historical identity.",
+        "operationId": "archive_custom_prompt_registry_entry_api_v1_prompt_registry__entry_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Archive Custom Prompt Registry Entry",
+        "tags": [
+          "prompt-registry"
+        ]
+      },
       "get": {
         "operationId": "get_prompt_registry_entry_api_v1_prompt_registry__entry_id__get",
         "parameters": [
@@ -17659,6 +17740,50 @@
           }
         },
         "summary": "Update Prompt Registry Entry",
+        "tags": [
+          "prompt-registry"
+        ]
+      }
+    },
+    "/api/v1/prompt-registry/{entry_id}/restore": {
+      "post": {
+        "description": "Restore a previously archived custom prompt.",
+        "operationId": "restore_custom_prompt_registry_entry_api_v1_prompt_registry__entry_id__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptRegistryEntryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Custom Prompt Registry Entry",
         "tags": [
           "prompt-registry"
         ]

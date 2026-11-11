@@ -280,8 +280,8 @@ explicit detail request.
 Prompt registry endpoints:
 
 ```text
-GET    /api/v1/prompt-registry
-GET    /api/v1/prompt-registry/sources?q=<prefix>&limit=24
+GET    /api/v1/prompt-registry?include_archived=false
+GET    /api/v1/prompt-registry/sources?q=<prefix>&limit=24&include_archived=false
 GET    /api/v1/prompt-registry/character-loras?q=<substring>&limit=50
 GET    /api/v1/prompt-registry/heatmap?source=<source>&character_lora=<name>&include_not_faved=false&include_trash=false&limit=20000&offset=0
 GET    /api/v1/prompt-registry/random?source=<source>&character_lora=<name>&materialization=<state>
@@ -293,6 +293,8 @@ POST   /api/v1/prompt-registry
 POST   /api/v1/prompt-registry/custom
 POST   /api/v1/prompt-registry/import
 PUT    /api/v1/prompt-registry/:entryId
+DELETE /api/v1/prompt-registry/:entryId
+POST   /api/v1/prompt-registry/:entryId/restore
 ```
 
 Prompt registry entries follow the Xanta-compatible `source - index` identity.
@@ -307,9 +309,24 @@ prompt. Read routes accept the same authenticated browser session or Bearer API
 token as the existing registry routes; write routes keep the existing CSRF or
 API-token requirement.
 
+`DELETE /api/v1/prompt-registry/{entry_id}` archives a custom entry by setting
+`archived_at`; it does not remove the definition or its historical media links.
+The route is idempotent and returns HTTP 204. Other sources return
+`409 PROMPT_REGISTRY_ARCHIVE_CUSTOM_ONLY`. The restore endpoint,
+`POST /api/v1/prompt-registry/{entry_id}/restore`, clears the archive timestamp
+and returns the entry. Archived custom entries remain available through direct
+Prompt ID lookup, but are hidden from list/source discovery by default and are
+excluded from random selection, statistics, heatmap, and neighbor navigation.
+The list and source endpoints accept `include_archived=true` to inspect archived
+records. `archived_at` is included in registry entry responses. Archived entries
+must be restored before editing or importing an update. Re-registering the same
+prompt text after archival creates a new ID; archived IDs are never reused.
+
 The custom registration route accepts prompt text and assigns the reserved
 `custom` source and next available numeric index on the server. It is safe to
-retry: an exact positive/negative prompt pair reuses its existing ID.
+retry: an exact positive/negative prompt pair reuses its active ID. An archived
+entry is ignored and its index remains reserved, so a later registration of the
+same prompt pair receives a new ID.
 
 ```http
 POST /api/v1/prompt-registry/custom

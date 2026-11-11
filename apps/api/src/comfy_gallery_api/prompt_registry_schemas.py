@@ -38,6 +38,7 @@ class PromptRegistryEntryResponse(BaseModel):
     metadata: dict[str, Any]
     origin: str
     media_count: int = 0
+    archived_at: datetime | None
     created_at: datetime
     updated_at: datetime
 

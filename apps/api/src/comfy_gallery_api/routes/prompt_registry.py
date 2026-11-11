@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any, Literal
 from typing import cast as typing_cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy import Select, and_, case, exists, func, or_, select, tuple_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -100,6 +101,7 @@ async def list_prompt_registry_entries(
     session: DbSessionDep,
     q: str | None = Query(default=None, max_length=256),
     source: str | None = Query(default=None, max_length=256),
+    include_archived: bool = False,
     limit: int = Query(default=48, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> PromptRegistryPageResponse:
@@ -115,6 +117,8 @@ async def list_prompt_registry_entries(
         )
     if source and source.strip():
         filters.append(PromptRegistryEntry.source_key == normalize_prompt_source(source))
+    if not include_archived:
+        filters.append(PromptRegistryEntry.archived_at.is_(None))
     total = int(
         await session.scalar(select(func.count()).select_from(PromptRegistryEntry).where(*filters))
         or 0
@@ -145,11 +149,14 @@ async def list_prompt_registry_sources(
     _principal: PrincipalDep,
     session: DbSessionDep,
     q: str | None = Query(default=None, max_length=256),
+    include_archived: bool = False,
     limit: int = Query(default=24, ge=1, le=50),
 ) -> list[str]:
     """Return distinct source labels without searching prompt text."""
 
-    filters = []
+    filters: list[Any] = []
+    if not include_archived:
+        filters.append(PromptRegistryEntry.archived_at.is_(None))
     if q and q.strip():
         filters.append(PromptRegistryEntry.source_key.startswith(normalize_prompt_source(q)))
     rows = await session.execute(
@@ -405,7 +412,10 @@ async def prompt_registry_neighbor(
         )
 
     entry = await session.scalar(
-        select(PromptRegistryEntry).where(same_source, position_filter).order_by(*ordering).limit(1)
+        select(PromptRegistryEntry)
+        .where(same_source, PromptRegistryEntry.archived_at.is_(None), position_filter)
+        .order_by(*ordering)
+        .limit(1)
     )
     if entry is None:
         raise ApiError(
@@ -662,6 +672,27 @@ async def import_prompt_registry_entries(
     if any(source_key == _CUSTOM_PROMPT_SOURCE_KEY for source_key, _ in keys):
         await _lock_custom_prompt_source(session)
 
+    archived_custom_entries = await session.scalars(
+        select(PromptRegistryEntry).where(
+            PromptRegistryEntry.source_key == _CUSTOM_PROMPT_SOURCE_KEY,
+            PromptRegistryEntry.archived_at.is_not(None),
+            tuple_(PromptRegistryEntry.source_key, PromptRegistryEntry.entry_index).in_(keys),
+        )
+    )
+    archived_custom = list(archived_custom_entries)
+    if archived_custom:
+        raise ApiError(
+            status_code=409,
+            code="PROMPT_REGISTRY_ENTRY_ARCHIVED",
+            message="Archived custom prompts must be restored before they can be updated.",
+            details={
+                "prompt_ids": [
+                    PromptIdentifier(source=entry.source, index=entry.entry_index).display
+                    for entry in archived_custom
+                ]
+            },
+        )
+
     existing_result = await session.execute(
         select(PromptRegistryEntry.source_key, PromptRegistryEntry.entry_index).where(
             tuple_(PromptRegistryEntry.source_key, PromptRegistryEntry.entry_index).in_(keys)
@@ -707,6 +738,7 @@ async def register_custom_prompt(
         select(PromptRegistryEntry)
         .where(
             PromptRegistryEntry.source_key == _CUSTOM_PROMPT_SOURCE_KEY,
+            PromptRegistryEntry.archived_at.is_(None),
             PromptRegistryEntry.prompt == request.prompt,
             PromptRegistryEntry.negative_prompt.is_not_distinct_from(negative_prompt),
         )
@@ -813,6 +845,13 @@ async def update_prompt_registry_entry(
     source_key = normalize_prompt_source(source)
     if entry.source_key == _CUSTOM_PROMPT_SOURCE_KEY or source_key == _CUSTOM_PROMPT_SOURCE_KEY:
         await _lock_custom_prompt_source(session)
+        await session.refresh(entry)
+    if entry.archived_at is not None:
+        raise ApiError(
+            status_code=409,
+            code="PROMPT_REGISTRY_ENTRY_ARCHIVED",
+            message="Archived custom prompts must be restored before they can be updated.",
+        )
     entry_index = request.index.strip()
     if entry.source_key == _CUSTOM_PROMPT_SOURCE_KEY and (
         source != entry.source or entry_index != entry.entry_index
@@ -845,6 +884,67 @@ async def update_prompt_registry_entry(
     return _entry_response(entry)
 
 
+@router.delete("/{entry_id}", status_code=204)
+async def archive_custom_prompt_registry_entry(
+    entry_id: UUID,
+    _principal: CsrfPrincipalDep,
+    session: DbSessionDep,
+) -> Response:
+    """Archive a custom prompt without removing its historical identity."""
+
+    entry = await session.get(PromptRegistryEntry, entry_id)
+    if entry is None:
+        raise ApiError(
+            status_code=404,
+            code="PROMPT_REGISTRY_ENTRY_NOT_FOUND",
+            message="The prompt registry entry was not found.",
+        )
+    if entry.source_key != _CUSTOM_PROMPT_SOURCE_KEY:
+        raise ApiError(
+            status_code=409,
+            code="PROMPT_REGISTRY_ARCHIVE_CUSTOM_ONLY",
+            message="Only custom prompt registry entries can be archived.",
+        )
+
+    await _lock_custom_prompt_source(session)
+    await session.refresh(entry)
+    if entry.archived_at is None:
+        entry.archived_at = datetime.now(UTC)
+        await session.commit()
+    return Response(status_code=204)
+
+
+@router.post("/{entry_id}/restore", response_model=PromptRegistryEntryResponse)
+async def restore_custom_prompt_registry_entry(
+    entry_id: UUID,
+    _principal: CsrfPrincipalDep,
+    session: DbSessionDep,
+) -> PromptRegistryEntryResponse:
+    """Restore a previously archived custom prompt."""
+
+    entry = await session.get(PromptRegistryEntry, entry_id)
+    if entry is None:
+        raise ApiError(
+            status_code=404,
+            code="PROMPT_REGISTRY_ENTRY_NOT_FOUND",
+            message="The prompt registry entry was not found.",
+        )
+    if entry.source_key != _CUSTOM_PROMPT_SOURCE_KEY:
+        raise ApiError(
+            status_code=409,
+            code="PROMPT_REGISTRY_ARCHIVE_CUSTOM_ONLY",
+            message="Only custom prompt registry entries can be restored.",
+        )
+
+    await _lock_custom_prompt_source(session)
+    await session.refresh(entry)
+    if entry.archived_at is not None:
+        entry.archived_at = None
+        await session.commit()
+        await session.refresh(entry)
+    return _entry_response(entry)
+
+
 def _normalized_source(source: str) -> str:
     normalized = " ".join(source.split())
     if not normalized:
@@ -857,10 +957,11 @@ def _normalized_source(source: str) -> str:
 
 
 def _source_filters(source: str | None) -> list[Any]:
-    if source is None:
-        return []
-    normalized = _normalized_source(source)
-    return [PromptRegistryEntry.source_key == normalize_prompt_source(normalized)]
+    filters: list[Any] = [PromptRegistryEntry.archived_at.is_(None)]
+    if source is not None:
+        normalized = _normalized_source(source)
+        filters.append(PromptRegistryEntry.source_key == normalize_prompt_source(normalized))
+    return filters
 
 
 def _media_trash_expression() -> Any:
@@ -1241,6 +1342,7 @@ def _entry_response(
         metadata=entry.entry_metadata,
         origin=entry.origin,
         media_count=media_count,
+        archived_at=entry.archived_at,
         created_at=entry.created_at,
         updated_at=entry.updated_at,
     )

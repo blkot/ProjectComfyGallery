@@ -4,6 +4,9 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+- Add reversible archive and restore controls for custom Prompt Registry entries,
+  preserving their historical media references.
+
 ## 0.1.0-rc.50 — 2026-11-11
 
 - Register custom ComfyUI prompts with server-assigned Prompt Registry IDs and

@@ -264,6 +264,27 @@ export function PromptRegistryPage() {
       ]);
     },
   });
+  const invalidateRegistryViews = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["prompt-registry-source-options"] }),
+      queryClient.invalidateQueries({ queryKey: ["prompt-registry-lookup"] }),
+      queryClient.invalidateQueries({ queryKey: ["prompt-registry-usage"] }),
+      queryClient.invalidateQueries({ queryKey: ["prompt-registry-heatmap"] }),
+      queryClient.invalidateQueries({ queryKey: ["prompt-registry-stats"] }),
+    ]);
+  };
+  const archiveCustomPrompt = useMutation({
+    mutationFn: (entryId: string) =>
+      apiRequest<void>(`/api/v1/prompt-registry/${entryId}`, { method: "DELETE" }),
+    onSuccess: invalidateRegistryViews,
+  });
+  const restoreCustomPrompt = useMutation({
+    mutationFn: (entryId: string) =>
+      apiRequest<PromptRegistryEntry>(`/api/v1/prompt-registry/${entryId}/restore`, {
+        method: "POST",
+      }),
+    onSuccess: invalidateRegistryViews,
+  });
 
   function selectPrompt(
     nextPromptId: string,
@@ -624,6 +645,11 @@ export function PromptRegistryPage() {
               previousPromptId={previousPromptId}
               nextPromptId={nextPromptId}
               onSeekIndex={seekDirectLookup}
+              onArchiveCustomPrompt={(entryId) => archiveCustomPrompt.mutate(entryId)}
+              onRestoreCustomPrompt={(entryId) => restoreCustomPrompt.mutate(entryId)}
+              archivePending={archiveCustomPrompt.isPending}
+              restorePending={restoreCustomPrompt.isPending}
+              archiveError={archiveCustomPrompt.isError || restoreCustomPrompt.isError}
             />
             {lookup.data && lookup.data.total_media > mediaPageSize ? <nav className="prompt-usage-pagination" aria-label="Prompt usage pages">
               <button type="button" disabled={usageOffset === 0 || lookup.isFetching} onClick={() => setSearchParams((current) => {
@@ -652,6 +678,11 @@ function PromptRegistryDetail({
   previousPromptId,
   nextPromptId,
   onSeekIndex,
+  onArchiveCustomPrompt,
+  onRestoreCustomPrompt,
+  archivePending,
+  restorePending,
+  archiveError,
 }: {
   lookup: UseQueryResult<PromptRegistryLookup>;
   promptId: string;
@@ -662,6 +693,11 @@ function PromptRegistryDetail({
   previousPromptId: string | null;
   nextPromptId: string | null;
   onSeekIndex: (delta: -1 | 1) => void;
+  onArchiveCustomPrompt: (entryId: string) => void;
+  onRestoreCustomPrompt: (entryId: string) => void;
+  archivePending: boolean;
+  restorePending: boolean;
+  archiveError: boolean;
 }) {
   if (!promptId.trim()) {
     return (
@@ -692,6 +728,8 @@ function PromptRegistryDetail({
     );
   }
   const { data } = lookup;
+  const customEntry = data.entry?.source.trim().toLocaleLowerCase() === "custom";
+  const archived = Boolean(data.entry?.archived_at);
   return (
     <section className="panel prompt-registry-detail">
       <header className="prompt-registry-detail-header">
@@ -708,16 +746,46 @@ function PromptRegistryDetail({
           </div>
         </div>
         <div className="prompt-registry-detail-actions">
-          <span className="status-chip" data-status={data.entry ? "ready" : "partial"}>
-            {data.entry ? "Registered" : "Unregistered"}
+          <span className="status-chip" data-status={archived ? "archived" : data.entry ? "ready" : "partial"}>
+            {archived ? "Archived" : data.entry ? "Registered" : "Unregistered"}
           </span>
+          {customEntry ? (
+            archived ? (
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={restorePending}
+                onClick={() => onRestoreCustomPrompt(data.entry!.id)}
+              >
+                {restorePending ? "Restoring…" : "Restore custom prompt"}
+              </button>
+            ) : (
+              <button
+                className="secondary-button"
+                type="button"
+                title="Keeps historical media references. Registering the same text later will receive a new ID."
+                disabled={archivePending}
+                onClick={() => onArchiveCustomPrompt(data.entry!.id)}
+              >
+                {archivePending ? "Archiving…" : "Archive custom prompt"}
+              </button>
+            )
+          ) : null}
           <button className="secondary-button" type="button" onClick={onClear}>
             New lookup
           </button>
         </div>
       </header>
+      {archiveError ? (
+        <p className="notice error-notice">Could not update the custom prompt status.</p>
+      ) : null}
       {data.entry ? (
         <>
+          {archived ? (
+            <p className="muted prompt-registry-archived-hint">
+              This definition is archived. Historical media lookups remain available; restore it to reuse this ID.
+            </p>
+          ) : null}
           <PromptText label="Positive prompt" value={data.entry.prompt} />
           <PromptText label="Negative prompt" value={data.entry.negative_prompt} />
         </>

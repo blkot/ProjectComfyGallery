@@ -1044,6 +1044,7 @@ class PromptRegistryEntry(TimestampMixin, Base):
         default="xanta-utils",
         server_default="xanta-utils",
     )
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class WorkflowNode(Base):
