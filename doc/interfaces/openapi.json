@@ -1360,6 +1360,62 @@
         "title": "CriterionResponse",
         "type": "object"
       },
+      "CustomPromptRegistrationRequest": {
+        "properties": {
+          "negative_prompt": {
+            "anyOf": [
+              {
+                "maxLength": 200000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Negative Prompt"
+          },
+          "origin": {
+            "default": "xanta-utils",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Origin",
+            "type": "string"
+          },
+          "prompt": {
+            "maxLength": 200000,
+            "minLength": 1,
+            "title": "Prompt",
+            "type": "string"
+          }
+        },
+        "required": [
+          "prompt"
+        ],
+        "title": "CustomPromptRegistrationRequest",
+        "type": "object"
+      },
+      "CustomPromptRegistrationResponse": {
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "entry": {
+            "$ref": "#/components/schemas/PromptRegistryEntryResponse"
+          },
+          "prompt_id": {
+            "title": "Prompt Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "prompt_id",
+          "created",
+          "entry"
+        ],
+        "title": "CustomPromptRegistrationResponse",
+        "type": "object"
+      },
       "DerivativeResponse": {
         "properties": {
           "byte_size": {
@@ -16668,6 +16724,48 @@
           }
         },
         "summary": "List Prompt Registry Character Loras",
+        "tags": [
+          "prompt-registry"
+        ]
+      }
+    },
+    "/api/v1/prompt-registry/custom": {
+      "post": {
+        "description": "Register or reuse a prompt body under the server-owned `custom` source.",
+        "operationId": "register_custom_prompt_api_v1_prompt_registry_custom_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomPromptRegistrationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomPromptRegistrationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Custom Prompt",
         "tags": [
           "prompt-registry"
         ]

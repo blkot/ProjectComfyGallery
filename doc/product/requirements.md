@@ -128,6 +128,14 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
   mappings MUST take precedence over graph inference; positive/main prompts MUST be
   presented before unclassified and negative prompts without discarding any role.
 
+## Prompt Registry
+
+- **PROMPT-007:** An authenticated client MUST be able to register a custom
+  positive prompt and optional negative prompt without choosing a registry
+  index. CG MUST assign and return the next numeric ID in the reserved `custom`
+  source, reuse the same ID for an identical prompt pair, and expose that source
+  through the existing Prompt Registry UI and lookup filters.
+
 ## Offline node registry
 
 - **NODE-001:** The application MUST maintain a persistent node-definition registry.

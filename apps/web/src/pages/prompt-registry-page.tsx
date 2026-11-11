@@ -10,6 +10,7 @@ import { Link, useSearchParams } from "react-router";
 
 import {
   apiRequest,
+  type CustomPromptRegistration,
   type PromptRegistryCharacterLora,
   type PromptRegistryHeatmap,
   type PromptRegistryEntry,
@@ -38,6 +39,10 @@ type PromptRegistryMediaGroup = {
   key: string;
   label: string;
   media: PromptRegistryMedia[];
+};
+
+type PromptRegistryCreateResult = {
+  promptId: string;
 };
 
 const PROMPT_ID_PATTERN = /^\s*(.+?)\s*-\s*(\d+)\s*$/;
@@ -108,6 +113,7 @@ export function PromptRegistryPage() {
   const [index, setIndex] = useState("");
   const [registerSource, setRegisterSource] = useState("");
   const [registerIndex, setRegisterIndex] = useState("");
+  const [registrationMode, setRegistrationMode] = useState<"manual" | "custom">("manual");
   const [prompt, setPrompt] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
   const [showRegister, setShowRegister] = useState(false);
@@ -138,6 +144,10 @@ export function PromptRegistryPage() {
     queryFn: () => apiRequest<string[]>("/api/v1/prompt-registry/sources?limit=50"),
     staleTime: 30_000,
   });
+  const sourceOptionsWithCustom = [...(sourceOptions.data ?? [])];
+  if (!sourceOptionsWithCustom.some((option) => option.trim().toLocaleLowerCase() === "custom")) {
+    sourceOptionsWithCustom.push("custom");
+  }
   const characterLoraOptions = useQuery({
     queryKey: ["prompt-registry-character-loras"],
     queryFn: () =>
@@ -213,8 +223,22 @@ export function PromptRegistryPage() {
   ]);
 
   const create = useMutation({
-    mutationFn: () =>
-      apiRequest<PromptRegistryEntry>("/api/v1/prompt-registry", {
+    mutationFn: async (): Promise<PromptRegistryCreateResult> => {
+      if (registrationMode === "custom") {
+        const result = await apiRequest<CustomPromptRegistration>(
+          "/api/v1/prompt-registry/custom",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              prompt,
+              negative_prompt: negativePrompt.trim() ? negativePrompt : null,
+              origin: "comfy-gallery",
+            }),
+          },
+        );
+        return { promptId: result.prompt_id };
+      }
+      const entry = await apiRequest<PromptRegistryEntry>("/api/v1/prompt-registry", {
         method: "POST",
         body: JSON.stringify({
           source: registerSource.trim(),
@@ -222,10 +246,12 @@ export function PromptRegistryPage() {
           prompt,
           negative_prompt: negativePrompt.trim() || null,
         }),
-      }),
-    onSuccess: async (entry) => {
+      });
+      return { promptId: `${entry.source} - ${entry.index}` };
+    },
+    onSuccess: async ({ promptId: registeredPromptId }) => {
       setShowRegister(false);
-      selectPrompt(`${entry.source} - ${entry.index}`);
+      selectPrompt(registeredPromptId);
       setRegisterSource("");
       setRegisterIndex("");
       setPrompt("");
@@ -234,6 +260,7 @@ export function PromptRegistryPage() {
         queryClient.invalidateQueries({ queryKey: ["prompt-registry-source-options"] }),
         queryClient.invalidateQueries({ queryKey: ["prompt-registry-lookup"] }),
         queryClient.invalidateQueries({ queryKey: ["prompt-registry-usage"] }),
+        queryClient.invalidateQueries({ queryKey: ["prompt-registry-heatmap"] }),
       ]);
     },
   });
@@ -326,10 +353,10 @@ export function PromptRegistryPage() {
                 value={heatmapSource}
                 aria-label="Heatmap source"
                 onChange={(event) => setHeatmapSource(event.target.value)}
-                disabled={sourceOptions.isPending || !sourceOptions.data?.length}
+                disabled={sourceOptions.isPending}
               >
                 <option value="">All sources</option>
-                {sourceOptions.data?.map((option) => (
+                {sourceOptionsWithCustom.map((option) => (
                   <option key={option} value={option}>
                     {option}
                   </option>
@@ -392,31 +419,58 @@ export function PromptRegistryPage() {
             <p className="kicker">Registry entry</p>
             <h2>Add a prompt definition</h2>
             <p className="muted">
-              Keep the index as written by Xanta Utils so leading zeroes remain visible.
+              Register a reusable prompt definition for Prompt Registry lookup.
             </p>
           </div>
+          <label className="prompt-registry-registration-mode">
+            Registration mode
+            <select
+              aria-label="Registration mode"
+              value={registrationMode}
+              onChange={(event) =>
+                setRegistrationMode(event.target.value as "manual" | "custom")
+              }
+            >
+              <option value="manual">Existing source + index</option>
+              <option value="custom">Custom prompt · auto-assign ID</option>
+            </select>
+          </label>
+          {registrationMode === "custom" ? (
+            <p className="muted prompt-registry-custom-hint">
+              CG assigns the next <code>custom - 00001</code> ID. An identical positive and
+              negative prompt reuses its existing ID.
+            </p>
+          ) : null}
           <div className="prompt-registry-editor-grid">
-            <label>
-              Source
-              <input
-                value={registerSource}
-                onChange={(event) => setRegisterSource(event.target.value)}
-                required
-              />
-            </label>
-            <label>
-              Index
-              <input
-                value={registerIndex}
-                inputMode="numeric"
-                pattern="[0-9]+"
-                onChange={(event) => setRegisterIndex(event.target.value)}
-                required
-              />
-            </label>
+            {registrationMode === "manual" ? (
+              <>
+                <label>
+                  Source
+                  <input
+                    value={registerSource}
+                    onChange={(event) => setRegisterSource(event.target.value)}
+                    required
+                  />
+                </label>
+                <label>
+                  Index
+                  <input
+                    value={registerIndex}
+                    inputMode="numeric"
+                    pattern="[0-9]+"
+                    onChange={(event) => setRegisterIndex(event.target.value)}
+                    required
+                  />
+                </label>
+              </>
+            ) : null}
             <label className="wide-field">
               Positive prompt
-              <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} />
+              <textarea
+                value={prompt}
+                onChange={(event) => setPrompt(event.target.value)}
+                required={registrationMode === "custom"}
+              />
             </label>
             <label className="wide-field">
               Negative prompt
@@ -428,7 +482,11 @@ export function PromptRegistryPage() {
           </div>
           {create.error ? <p className="notice error-notice">Could not save this entry.</p> : null}
           <button className="primary-button" type="submit" disabled={create.isPending}>
-            {create.isPending ? "Saving…" : "Save prompt entry"}
+            {create.isPending
+              ? "Saving…"
+              : registrationMode === "custom"
+                ? "Register custom prompt"
+                : "Save prompt entry"}
           </button>
         </form>
       ) : null}
@@ -507,12 +565,12 @@ export function PromptRegistryPage() {
                   value={source}
                   aria-label="Source"
                   onChange={(event) => setSource(event.target.value)}
-                  disabled={sourceOptions.isPending || !sourceOptions.data?.length}
+                  disabled={sourceOptions.isPending}
                 >
                   <option value="">
                     {sourceOptions.isPending ? "Loading sources…" : "Select a source"}
                   </option>
-                  {sourceOptions.data?.map((option) => (
+                  {sourceOptionsWithCustom.map((option) => (
                     <option key={option} value={option}>
                       {option}
                     </option>

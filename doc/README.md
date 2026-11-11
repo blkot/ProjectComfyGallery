@@ -36,6 +36,7 @@ This structure borrows the audience separation of the Diátaxis documentation mo
 - [Media ingestion and processing](design/media-ingestion.md)
 - [NSFW image classification](design/nsfw-classification.md)
 - [Workflow intelligence and node registry](design/workflow-intelligence.md)
+- [Prompt Registry and custom prompt IDs](design/prompt-registry.md)
 - [Per-output display fields and scoped historical recovery](design/workflow-display-overrides.md)
 - [ComfyUI runtime integration cycle](design/comfyui-runtime-integration-cycle.md)
 - [Model registry](design/model-registry.md)
@@ -51,6 +52,7 @@ This structure borrows the audience separation of the Diátaxis documentation mo
 - [Client API changelog](interfaces/client-api-changelog.md)
 - [Committed OpenAPI snapshot](interfaces/openapi.json)
 - [ComfyUI custom-node upload integration](interfaces/comfyui-custom-node-upload.md)
+- [Xanta Utils custom-prompt registry handoff (Chinese)](development/xanta-utils-custom-prompt-registry-handoff-zh.md)
 
 ### Research notes
 

@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 PromptRegistryMaterialization = Literal["any", "materialized", "unmaterialized"]
 
@@ -16,6 +16,19 @@ class PromptRegistryEntryRequest(BaseModel):
     origin: str = Field(default="xanta-utils", min_length=1, max_length=64)
 
 
+class CustomPromptRegistrationRequest(BaseModel):
+    prompt: str = Field(min_length=1, max_length=200_000)
+    negative_prompt: str | None = Field(default=None, max_length=200_000)
+    origin: str = Field(default="xanta-utils", min_length=1, max_length=64)
+
+    @field_validator("prompt")
+    @classmethod
+    def prompt_must_not_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Custom prompt cannot be blank.")
+        return value
+
+
 class PromptRegistryEntryResponse(BaseModel):
     id: UUID
     source: str
@@ -27,6 +40,12 @@ class PromptRegistryEntryResponse(BaseModel):
     media_count: int = 0
     created_at: datetime
     updated_at: datetime
+
+
+class CustomPromptRegistrationResponse(BaseModel):
+    prompt_id: str
+    created: bool
+    entry: PromptRegistryEntryResponse
 
 
 class PromptRegistryImportRequest(BaseModel):

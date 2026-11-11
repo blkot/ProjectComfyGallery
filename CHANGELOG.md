@@ -4,6 +4,9 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+- Register custom ComfyUI prompts with server-assigned Prompt Registry IDs and
+  hand off the integration contract for Xanta Utils nodes.
+
 ## 0.1.0-rc.49 — 2026-11-10
 
 - Add a Prompt source Library filter for API-prompt and visual-workflow prompt

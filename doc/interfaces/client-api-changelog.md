@@ -4,6 +4,27 @@ This file is the cross-agent handoff for backend contract changes. Consumers sho
 also use the committed [OpenAPI snapshot](openapi.json); prose here explains
 semantics and compatibility that a schema alone cannot express.
 
+## Unreleased: server-assigned custom Prompt IDs
+
+`POST /api/v1/prompt-registry/custom` accepts a positive `prompt`, optional
+`negative_prompt`, and optional `origin` (default `xanta-utils`). The server
+stores the prompt under the fixed `custom` source and assigns the next available
+numeric index, formatted with at least five digits. It returns
+`{prompt_id, created, entry}`; repeated exact prompt pairs return the same ID
+with `created=false`. An absent or whitespace-only negative prompt is stored as
+`null`; nonblank prompt text is preserved exactly. Blank positive prompts are
+rejected with HTTP 422.
+
+The route accepts the same authenticated session plus CSRF or Bearer API-token
+write authorization as other registry writes. Custom IDs are allocated under a
+database transaction lock, including coordination with the generic registry
+create, update, and import routes. The source is listed by the existing dynamic
+source endpoint and works with existing lookup and heatmap filters. No
+migration is required. Custom entry source/index identity cannot be renamed or
+renumbered through the update route. The frontend's custom registration mode uses this route;
+the Xanta Utils saver handoff is in
+[`xanta-utils-custom-prompt-registry-handoff-zh.md`](../development/xanta-utils-custom-prompt-registry-handoff-zh.md).
+
 ## Unreleased: Library prompt-source filter
 
 Library list, slideshow, per-media navigation, and classifier review-queue
