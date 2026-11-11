@@ -13,6 +13,11 @@ enum Endpoint {
     case bulkFavorite(ids: [String], value: Bool)
     case bulkTrash(ids: [String], value: Bool)
     case setContentRating(id: String, rating: String)
+    case startClassification(ids: [String], force: Bool)
+    case classifierStatus(id: String)
+    case setClassifierReview(id: String, rating: ClassifierRating)
+    case clearClassifierReview(id: String)
+    case classifierReviewQueueSnapshot(scope: GalleryScope, limit: Int)
     case mediaWorkflow(id: String)
     case characterLoras(query: String)
     case promptSources(query: String)
@@ -44,6 +49,11 @@ enum Endpoint {
         case .bulkFavorite: return "/api/v1/media/bulk/favorite"
         case .bulkTrash: return "/api/v1/media/bulk/trash"
         case .setContentRating(let id, _): return "/api/v1/media/\(id)/content-rating"
+        case .startClassification: return "/api/v1/media/bulk/nsfw-classification"
+        case .classifierStatus(let id): return "/api/v1/media/\(id)/nsfw-classification"
+        case .setClassifierReview(let id, _), .clearClassifierReview(let id):
+            return "/api/v1/media/\(id)/classifier-review"
+        case .classifierReviewQueueSnapshot: return "/api/v1/media/review-queue-snapshot"
         case .mediaWorkflow(let id): return "/api/v1/media/\(id)/workflow"
         case .characterLoras: return "/api/v1/prompt-registry/character-loras"
         case .promptSources: return "/api/v1/prompt-registry/sources"
@@ -68,15 +78,16 @@ enum Endpoint {
         case .health, .authSession, .mediaList, .mediaPreview, .mediaPlayback,
              .mediaOriginal, .mediaDetail, .galleryList, .mediaNavigation, .mediaWorkflow,
              .characterLoras, .promptSources, .promptLookup, .promptNavigation,
+             .classifierStatus, .classifierReviewQueueSnapshot,
              .reviewSummary, .reviewSessions, .getReviewSession, .reviewItem:
             return "GET"
-        case .createReviewSession, .trash, .restore, .bulkFavorite, .bulkTrash:
+        case .createReviewSession, .trash, .restore, .bulkFavorite, .bulkTrash, .startClassification:
             return "POST"
         case .patchReviewSession:
             return "PATCH"
-        case .setScore, .setContentRating:
+        case .setScore, .setContentRating, .setClassifierReview:
             return "PUT"
-        case .deleteScore, .deleteReviewSession:
+        case .deleteScore, .deleteReviewSession, .clearClassifierReview:
             return "DELETE"
         }
     }
@@ -104,6 +115,8 @@ enum Endpoint {
             return scope.queryItems + [URLQueryItem(name: "limit", value: String(limit)), URLQueryItem(name: "offset", value: String(offset))]
         case .mediaNavigation(_, let scope):
             return scope.queryItems
+        case .classifierReviewQueueSnapshot(let scope, let limit):
+            return scope.queryItems + [URLQueryItem(name: "limit", value: String(limit))]
         case .mediaList(let kind, let evaluationState, let trash, let sort, let limit, let offset):
             var items: [URLQueryItem] = [
                 URLQueryItem(name: "limit", value: String(limit)),
@@ -129,6 +142,10 @@ enum Endpoint {
         switch self {
         case .setContentRating(_, let rating):
             return try? JSONSerialization.data(withJSONObject: ["content_rating": rating])
+        case .startClassification(let ids, let force):
+            return try? JSONSerialization.data(withJSONObject: ["media_ids": ids, "force": force])
+        case .setClassifierReview(_, let rating):
+            return try? JSONSerialization.data(withJSONObject: ["rating": rating.rawValue])
         case .bulkFavorite(let ids, let value):
             return try? JSONSerialization.data(withJSONObject: ["media_ids": ids, "favorite": value])
         case .bulkTrash(let ids, let value):

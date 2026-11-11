@@ -3,6 +3,29 @@ import XCTest
 
 @MainActor
 final class ViewerMutationRegressionTests: XCTestCase {
+    func testFixedClassifierQueueCanSeekPastAnItemThatLeavesNeedsReview() async throws {
+        let service = ClassifierQueueGalleryService()
+        var scope = GalleryScope()
+        scope.classifierStatus = .needsReview
+        let snapshot = ClassifierQueueSnapshot(ids: ["a", "b", "c"], total: 3, truncated: false)
+        let queue = ClassifierReviewQueue(snapshot: snapshot, position: 1)
+        let viewer = ViewerFeature(item: ClassifierQueueGalleryService.item("b"), scope: scope, service: service, classifierQueue: queue)
+
+        await viewer.loadContext()
+        viewer.updateClassifierProjection(assessment: nil, review: MediaSafetyReviewSummary(rating: .safe, reviewedAt: "now"))
+        XCTAssertTrue(viewer.outsideScope)
+        XCTAssertEqual(viewer.navigation?.previousID, "a")
+        XCTAssertEqual(viewer.navigation?.nextID, "c")
+
+        await viewer.open(id: "c")
+        XCTAssertEqual(viewer.item.id, "c")
+        XCTAssertEqual(viewer.navigation?.previousID, "b")
+        XCTAssertNil(viewer.navigation?.nextID)
+        let serverNavigationCalls = await service.navigationCalls
+        XCTAssertEqual(serverNavigationCalls, 0, "A fixed classifier queue must not re-filter reviewed IDs through live navigation.")
+        XCTAssertEqual(viewer.classifierQueue?.position, 2)
+    }
+
     func testTrashThenForwardThenBackwardDoesNotReinsertDeletedPage() async throws {
         let service = ViewerMutationService()
         let viewer = ViewerFeature(item: try await service.detail(id: "b"), scope: GalleryScope(), service: service)
@@ -89,6 +112,48 @@ final class ViewerMutationRegressionTests: XCTestCase {
         await viewer.mutate(rating: "nsfw")
         XCTAssertEqual(viewer.item.contentRating, "nsfw")
         XCTAssertNil(viewer.errorMessage)
+    }
+}
+
+private actor ClassifierQueueGalleryService: GalleryService {
+    private(set) var navigationCalls = 0
+
+    func page(scope: GalleryScope, limit: Int, offset: Int) async throws -> MediaPage {
+        let item = Self.item("a")
+        return MediaPage(items: [item], total: 1, limit: limit, offset: offset)
+    }
+
+    func detail(id: String) async throws -> MobileMediaSummary { Self.item(id) }
+
+    func navigation(id: String, scope: GalleryScope) async throws -> MediaNavigation {
+        navigationCalls += 1
+        return MediaNavigation(mediaID: id, position: 1, total: 1, previousID: nil, nextID: nil)
+    }
+
+    func setFavorite(ids: [String], value: Bool) async throws -> MediaBulkResult {
+        MediaBulkResult(requestedCount: ids.count, updatedCount: ids.count, skippedCount: 0, errors: [])
+    }
+
+    func setTrash(ids: [String], value: Bool) async throws -> MediaBulkResult {
+        MediaBulkResult(requestedCount: ids.count, updatedCount: ids.count, skippedCount: 0, errors: [])
+    }
+
+    func setContentRating(id: String, rating: String) async throws { }
+
+    nonisolated static func item(_ id: String) -> MobileMediaSummary {
+        MobileMediaSummary(
+            id: id,
+            kind: .image,
+            evaluationState: nil,
+            isTrash: false,
+            previewURL: "/preview",
+            favorite: false,
+            width: 1200,
+            height: 1600,
+            durationSeconds: nil,
+            fileCreatedAt: nil,
+            createdAt: nil
+        )
     }
 }
 

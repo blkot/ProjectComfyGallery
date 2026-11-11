@@ -5,6 +5,7 @@ struct MediaCell: View {
     var isSelecting = false
     var isSelected = false
     var showsBadges = true
+    var showsClassifierBadge = false
     @Environment(AppEnvironment.self) private var environment
     @Environment(\.displayScale) private var displayScale
     @State private var image: UIImage?
@@ -28,6 +29,9 @@ struct MediaCell: View {
                     HStack {
                         if showsBadges, item.isTrash == true { Image(systemName: "trash.fill") }
                         Spacer()
+                        if showsClassifierBadge, item.kind == .image {
+                            classifierBadge
+                        }
                         if isSelecting {
                             Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                                 .font(.title3).foregroundStyle(isSelected ? Color.accentColor : .white)
@@ -61,6 +65,27 @@ struct MediaCell: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(item.kind == .video ? "视频，\(item.durationLabel ?? "时长未知")" : "照片")
         .accessibilityValue([item.favorite == true ? "已收藏" : nil, item.isTrash == true ? "在废纸篓" : nil,
+                             showsClassifierBadge ? classifierAccessibilityValue : nil,
                              isSelected ? "已选择" : nil, failed ? "缩略图加载失败，打开可重试" : nil].compactMap { $0 }.joined(separator: "，"))
+    }
+
+    @ViewBuilder private var classifierBadge: some View {
+        let status = ClassifierProjection.status(assessment: item.mediaSafetyAssessment, review: item.mediaSafetyReview)
+        let rating = ClassifierProjection.effectiveRating(assessment: item.mediaSafetyAssessment, review: item.mediaSafetyReview)
+        if status == .processing || status == .failed || status == .unclassified || rating == nil {
+            Label(status.title, systemImage: status.symbol)
+                .lineLimit(1).font(.caption2).padding(.horizontal, 6).padding(.vertical, 4)
+                .background(.black.opacity(0.66), in: Capsule())
+        } else if let rating {
+            Label("\(rating.title) · \(item.mediaSafetyReview == nil ? "AI" : "人工")", systemImage: rating.symbol)
+                .lineLimit(1).font(.caption2).padding(.horizontal, 6).padding(.vertical, 4)
+                .background(.black.opacity(0.66), in: Capsule())
+        }
+    }
+
+    private var classifierAccessibilityValue: String {
+        let status = ClassifierProjection.status(assessment: item.mediaSafetyAssessment, review: item.mediaSafetyReview)
+        guard let rating = ClassifierProjection.effectiveRating(assessment: item.mediaSafetyAssessment, review: item.mediaSafetyReview) else { return status.title }
+        return "Classifier：\(rating.title)，\(item.mediaSafetyReview == nil ? "AI 建议" : "人工确认")"
     }
 }

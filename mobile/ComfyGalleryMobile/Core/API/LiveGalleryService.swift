@@ -13,6 +13,17 @@ struct LiveGalleryService: GalleryService {
            page.characterLora != character.trimmingCharacters(in: .whitespacesAndNewlines) {
             throw NSError(domain: "GalleryCompatibility", code: 1, userInfo: [NSLocalizedDescriptionKey: "服务器尚未支持精确 Character LoRA 筛选，请更新后端。未展示未筛选的结果。"])
         }
+        if (scope.classifierStatus != nil || scope.classifierRating != nil),
+           page.items.contains(where: {
+               !ClassifierProjection.matches(
+                   status: scope.classifierStatus,
+                   rating: scope.classifierRating,
+                   assessment: $0.mediaSafetyAssessment,
+                   review: $0.mediaSafetyReview
+               )
+           }) {
+            throw NSError(domain: "GalleryCompatibility", code: 2, userInfo: [NSLocalizedDescriptionKey: "服务器返回了不符合 classifier 筛选的照片。请更新后端；未展示未筛选结果。"])
+        }
         return page
     }
 

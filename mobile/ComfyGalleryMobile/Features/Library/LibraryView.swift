@@ -10,11 +10,22 @@ struct LibraryView: View {
     @State private var showingSettings = false
     @State private var confirmingTrash = false
     @State private var selectedItem: MobileMediaSummary?
+    @State private var activeClassifierQueue: ClassifierReviewQueue?
+    @State private var isPreparingClassifierQueue = false
+    @State private var isSubmittingClassification = false
+    @State private var showingClassifierAlert = false
+    @State private var classifierAlertMessage = ""
+    @State private var openFirstUnclassifiedAfterRefresh = false
     @State private var restoreSequence = 0
     @State private var lastSeenRevision = -1
+    @State private var savedClassifierQueue: ClassifierReviewQueue?
+    private let classifierQueueStore: ClassifierReviewQueueStore
+    private let classifierService: any ClassifierServicing
 
     init(apiClient: APIClient, tab: AppEnvironment.Tab = .library) {
         self.tab = tab
+        self.classifierService = LiveClassifierService(apiClient: apiClient)
+        self.classifierQueueStore = ClassifierReviewQueueStore()
         _feature = State(initialValue: LibraryFeature(service: LiveGalleryService(apiClient: apiClient)))
     }
 
@@ -28,11 +39,24 @@ struct LibraryView: View {
                 .toolbar { toolbar }
                 .safeAreaInset(edge: .bottom, spacing: 0) { if feature.isSelecting { selectionBar } }
                 .sheet(isPresented: $showingSettings) { SettingsView(connectionService: environment.connectionService, mediaRepository: environment.mediaRepository) }
-                .fullScreenCover(item: $selectedItem, onDismiss: viewerDismissed) { ViewerFeatureView(initialItem: $0, library: feature) }
+                .fullScreenCover(item: $selectedItem, onDismiss: viewerDismissed) {
+                    ViewerFeatureView(
+                        initialItem: $0,
+                        library: feature,
+                        classifierQueue: activeClassifierQueue,
+                        classifierQueueChanged: saveClassifierQueue
+                    )
+                }
                 .confirmationDialog("将所选 \(feature.selectedIDs.count) 项移入废纸篓？", isPresented: $confirmingTrash, titleVisibility: .visible) {
                     Button("移入废纸篓", role: .destructive) { mutate(trash: true) }
                 } message: { Text("内容可在右上角更多菜单的废纸篓中恢复，不会永久删除文件。") }
+                .alert("Classifier", isPresented: $showingClassifierAlert) {
+                    Button("好", role: .cancel) { }
+                } message: {
+                    Text(classifierAlertMessage)
+                }
                 .task(id: refreshKey) { await refreshIfNeeded() }
+                .task { loadClassifierQueue() }
                 .accessibilityHidden(showingDrawer)
         }
         .overlay {
@@ -127,6 +151,16 @@ struct LibraryView: View {
                 Button("选择") { feature.isSelecting = true }.disabled(feature.items.isEmpty || searchIsEmpty)
                 Menu("更多", systemImage: "ellipsis.circle") {
                     Button("设置", systemImage: "gearshape") { showingSettings = true }
+                    if tab == .library {
+                        Button("复核待复核照片", systemImage: "checkmark.bubble", action: startClassifierReviewQueue)
+                            .disabled(isPreparingClassifierQueue)
+                        if let savedQueue = savedClassifierQueue, !savedQueue.mediaIDs.isEmpty {
+                            Button("继续复核 · \(savedQueue.position + 1)/\(savedQueue.mediaIDs.count)", systemImage: "play.circle") {
+                                openClassifierReviewQueue(savedQueue)
+                            }
+                        }
+                        Button("浏览未分类照片", systemImage: "sparkles.rectangle.stack", action: openUnclassifiedPhotos)
+                    }
                     Button(feature.scope.trash == .only ? "返回图库" : "废纸篓", systemImage: feature.scope.trash == .only ? "photo.on.rectangle" : "trash") {
                         feature.scope.trash = feature.scope.trash == .only ? .hidden : .only
                     }
@@ -140,6 +174,11 @@ struct LibraryView: View {
             Button(feature.allSelectedAreFavorites ? "取消收藏" : "收藏", systemImage: feature.allSelectedAreFavorites ? "heart.slash" : "heart") { mutate(favorite: !feature.allSelectedAreFavorites) }
             Spacer()
             if feature.isMutating { ProgressView() }
+            if !selectedImageIDs.isEmpty {
+                Button("分类 · \(selectedImageIDs.count)", systemImage: "sparkles", action: classifySelectedImages)
+                    .disabled(isSubmittingClassification)
+            }
+            Spacer()
             if feature.scope.trash == .only { Button("恢复", systemImage: "arrow.uturn.backward") { mutate(trash: false) } }
             else { Button("废纸篓", systemImage: "trash", role: .destructive) { confirmingTrash = true } }
         }.font(.subheadline).padding().frame(minHeight: 60).background(.regularMaterial)
@@ -156,15 +195,119 @@ struct LibraryView: View {
         let revision = environment.galleryRevision
         await feature.reload(preservingPosition: feature.loadedScope == feature.scope)
         if !Task.isCancelled, feature.errorMessage == nil { lastSeenRevision = revision }
+        if !Task.isCancelled, openFirstUnclassifiedAfterRefresh, feature.loadedScope == feature.scope {
+            openFirstUnclassifiedAfterRefresh = false
+            if let item = feature.items.first {
+                feature.returnAnchorID = item.id
+                selectedItem = item
+            } else {
+                classifierAlertMessage = "当前没有符合条件的未分类照片。"
+                showingClassifierAlert = true
+            }
+        }
     }
     private func mutate(favorite: Bool? = nil, trash: Bool? = nil) {
         Task { _ = await feature.mutateSelection(favorite: favorite, trash: trash); environment.galleryRevision += 1; lastSeenRevision = environment.galleryRevision }
     }
     private func viewerDismissed() {
+        activeClassifierQueue = nil
         Task {
             if feature.needsRefresh { await feature.reload(preservingPosition: true); if feature.errorMessage == nil { lastSeenRevision = environment.galleryRevision } }
             restoreSequence += 1
         }
     }
+
+    private var selectedImageIDs: [String] {
+        feature.selectedItems.filter { $0.kind == .image }.map(\.id)
+    }
+
+    private func saveClassifierQueue(_ queue: ClassifierReviewQueue?) {
+        activeClassifierQueue = queue
+        savedClassifierQueue = queue
+        do {
+            try classifierQueueStore.save(queue)
+        } catch {
+            classifierAlertMessage = "无法保存本机复核进度：\(error.localizedDescription)"
+            showingClassifierAlert = true
+        }
+    }
+
+    private func loadClassifierQueue() {
+        do {
+            savedClassifierQueue = try classifierQueueStore.load()
+        } catch {
+            classifierAlertMessage = "无法恢复本机复核进度：\(error.localizedDescription)"
+            showingClassifierAlert = true
+        }
+    }
+
+    private func startClassifierReviewQueue() {
+        guard !isPreparingClassifierQueue else { return }
+        isPreparingClassifierQueue = true
+        Task {
+            do {
+                let snapshot = try await classifierService.reviewQueue(scope: feature.scope, limit: 200)
+                guard !snapshot.ids.isEmpty else {
+                    classifierAlertMessage = "当前筛选中没有待复核照片。"
+                    showingClassifierAlert = true
+                    isPreparingClassifierQueue = false
+                    return
+                }
+                let queue = ClassifierReviewQueue(snapshot: snapshot)
+                guard let firstID = queue.currentID else { throw APIError.invalidResponse }
+                let item = try await feature.service.detail(id: firstID)
+                saveClassifierQueue(queue)
+                feature.returnAnchorID = firstID
+                selectedItem = item
+            } catch {
+                classifierAlertMessage = error.localizedDescription
+                showingClassifierAlert = true
+            }
+            isPreparingClassifierQueue = false
+        }
+    }
+
+    private func openClassifierReviewQueue(_ queue: ClassifierReviewQueue) {
+        guard let id = queue.currentID else { return }
+        Task {
+            do {
+                let item = try await feature.service.detail(id: id)
+                saveClassifierQueue(queue)
+                selectedItem = item
+            } catch {
+                classifierAlertMessage = "无法恢复复核队列：\(error.localizedDescription)"
+                showingClassifierAlert = true
+            }
+        }
+    }
+
+    private func openUnclassifiedPhotos() {
+        var scope = GalleryScope()
+        scope.kind = .image
+        scope.classifierStatus = .unclassified
+        feature.isSelecting = false
+        feature.scope = scope
+        openFirstUnclassifiedAfterRefresh = true
+    }
+
+    private func classifySelectedImages() {
+        let ids = selectedImageIDs
+        guard !ids.isEmpty, !isSubmittingClassification else { return }
+        isSubmittingClassification = true
+        Task {
+            do {
+                let result = try await classifierService.classify(mediaIDs: ids, force: false)
+                let skippedVideos = feature.selectedIDs.count - ids.count
+                classifierAlertMessage = "已请求 \(result.requestedCount) 张照片：排队 \(result.queuedCount)，复用任务 \(result.reusedCount)，跳过 \(result.skippedCount)。排队失败 \(result.queueFailedCount)。\(skippedVideos > 0 ? "另有 \(skippedVideos) 个视频未提交。" : "")"
+                feature.endSelection()
+                environment.galleryRevision += 1
+            } catch {
+                classifierAlertMessage = error.localizedDescription
+            }
+            showingClassifierAlert = true
+            isSubmittingClassification = false
+        }
+    }
+
     private struct RefreshKey: Equatable { let scope: GalleryScope; let active: Bool; let revision: Int }
 }

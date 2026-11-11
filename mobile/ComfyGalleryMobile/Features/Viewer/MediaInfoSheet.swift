@@ -3,12 +3,25 @@ import SwiftUI
 struct MediaInfoSheet: View {
     let item: MobileMediaSummary
     let openPrompt: (PromptUsageScope) -> Void
+    let classifierService: any ClassifierServicing
+    let onClassifierProjection: (MediaSafetyAssessmentSummary?, MediaSafetyReviewSummary?) -> Void
+    let setContentRating: (String) async throws -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var feature: MediaInfoFeature
 
-    init(item: MobileMediaSummary, apiClient: APIClient, openPrompt: @escaping (PromptUsageScope) -> Void) {
+    init(
+        item: MobileMediaSummary,
+        apiClient: APIClient,
+        classifierService: any ClassifierServicing,
+        onClassifierProjection: @escaping (MediaSafetyAssessmentSummary?, MediaSafetyReviewSummary?) -> Void,
+        setContentRating: @escaping (String) async throws -> Void,
+        openPrompt: @escaping (PromptUsageScope) -> Void
+    ) {
         self.item = item
         self.openPrompt = openPrompt
+        self.classifierService = classifierService
+        self.onClassifierProjection = onClassifierProjection
+        self.setContentRating = setContentRating
         _feature = State(initialValue: MediaInfoFeature(apiClient: apiClient))
     }
 
@@ -41,6 +54,14 @@ struct MediaInfoSheet: View {
                 }
                 if let error = feature.errorMessage {
                     Section { Text(error).foregroundStyle(.red); Button("重试") { Task { await feature.load(id: item.id) } } }
+                }
+                if item.kind == .image {
+                    ClassifierDetailPanel(
+                        item: item,
+                        service: classifierService,
+                        onProjection: onClassifierProjection,
+                        setContentRating: setContentRating
+                    )
                 }
             }
             .navigationTitle("媒体详情").navigationBarTitleDisplayMode(.inline)

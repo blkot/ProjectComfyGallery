@@ -15,6 +15,8 @@ struct MobileMediaSummary: Decodable, Identifiable, Sendable {
     let createdAt: String?
     var contentRating: String? = nil
     var characterLora: String? = nil
+    var mediaSafetyAssessment: MediaSafetyAssessmentSummary? = nil
+    var mediaSafetyReview: MediaSafetyReviewSummary? = nil
     var originalFilename: String? = nil
     var byteSize: Int64? = nil
 
@@ -39,6 +41,8 @@ struct MobileMediaSummary: Decodable, Identifiable, Sendable {
         case previewURL = "preview_url", durationSeconds = "duration_seconds"
         case fileCreatedAt = "file_created_at", createdAt = "created_at"
         case contentRating = "content_rating", characterLora = "character_lora"
+        case mediaSafetyAssessment = "media_safety_assessment"
+        case mediaSafetyReview = "media_safety_review"
         case originalFilename = "original_filename", byteSize = "byte_size"
     }
 }

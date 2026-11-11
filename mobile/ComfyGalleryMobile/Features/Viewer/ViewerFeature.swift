@@ -7,6 +7,7 @@ final class ViewerFeature {
     private(set) var item: MobileMediaSummary
     private(set) var pages: [MobileMediaSummary]
     private(set) var navigation: MediaNavigation?
+    private(set) var classifierQueue: ClassifierReviewQueue?
     private(set) var isWorking = false
     private(set) var isMutating = false
     private(set) var canMutate = false
@@ -15,11 +16,12 @@ final class ViewerFeature {
     private let service: any GalleryService
     private var generation = 0
 
-    init(item: MobileMediaSummary, scope: GalleryScope, service: any GalleryService) {
+    init(item: MobileMediaSummary, scope: GalleryScope, service: any GalleryService, classifierQueue: ClassifierReviewQueue? = nil) {
         self.item = item
         self.pages = [item]
         self.scope = scope
         self.service = service
+        self.classifierQueue = classifierQueue
     }
 
     var outsideScope: Bool {
@@ -42,7 +44,12 @@ final class ViewerFeature {
         defer { if request == generation { isWorking = false } }
         do {
             let detail = try await service.detail(id: item.id)
-            let context = scope.excludes(detail) ? navigation : try await service.navigation(id: detail.id, scope: scope)
+            let context: MediaNavigation?
+            if let classifierQueue {
+                context = queueNavigation(id: detail.id, queue: classifierQueue)
+            } else {
+                context = scope.excludes(detail) ? navigation : try await service.navigation(id: detail.id, scope: scope)
+            }
             try Task.checkCancellation()
             guard request == generation else { return }
             item = detail
@@ -64,8 +71,16 @@ final class ViewerFeature {
         defer { if request == generation { isWorking = false } }
         do {
             // Validate membership before replacing the current page.
-            let context = try await service.navigation(id: id, scope: scope)
             let detail = try await service.detail(id: id)
+            let context: MediaNavigation
+            if var queue = classifierQueue {
+                guard let position = queue.mediaIDs.firstIndex(of: id) else { throw APIError.notFound }
+                queue.position = position
+                classifierQueue = queue
+                context = queueNavigation(id: id, queue: queue) ?? navigationForSingleItem(id: id)
+            } else {
+                context = try await service.navigation(id: id, scope: scope)
+            }
             try Task.checkCancellation()
             guard request == generation else { return }
             item = detail
@@ -105,6 +120,42 @@ final class ViewerFeature {
             canMutate = false
             errorMessage = "操作状态待确认：\(error.localizedDescription) 请刷新确认后重试。"
         }
+    }
+
+    func updateClassifierProjection(assessment: MediaSafetyAssessmentSummary?, review: MediaSafetyReviewSummary?) {
+        item.mediaSafetyAssessment = assessment
+        item.mediaSafetyReview = review
+        replacePage(item)
+    }
+
+    func setLegacyContentRating(_ rating: String) async throws {
+        guard !isWorking, canMutate else { throw APIError.invalidResponse }
+        isWorking = true
+        isMutating = true
+        errorMessage = nil
+        defer { isWorking = false; isMutating = false }
+        do {
+            try await service.setContentRating(id: item.id, rating: rating)
+            item = try await service.detail(id: item.id)
+            replacePage(item)
+            if !outsideScope { navigation = try await service.navigation(id: item.id, scope: scope) }
+            await loadNeighbors(generation: generation)
+        } catch {
+            canMutate = false
+            errorMessage = "操作状态待确认：\(error.localizedDescription) 请刷新确认后重试。"
+            throw error
+        }
+    }
+
+    private func queueNavigation(id: String, queue: ClassifierReviewQueue) -> MediaNavigation? {
+        guard let position = queue.mediaIDs.firstIndex(of: id) else { return nil }
+        let previous = queue.mediaIDs.indices.contains(position - 1) ? queue.mediaIDs[position - 1] : nil
+        let next = queue.mediaIDs.indices.contains(position + 1) ? queue.mediaIDs[position + 1] : nil
+        return MediaNavigation(mediaID: id, position: position + 1, total: queue.mediaIDs.count, previousID: previous, nextID: next)
+    }
+
+    private func navigationForSingleItem(id: String) -> MediaNavigation {
+        MediaNavigation(mediaID: id, position: 1, total: 1, previousID: nil, nextID: nil)
     }
 
     private func replacePage(_ detail: MobileMediaSummary) {

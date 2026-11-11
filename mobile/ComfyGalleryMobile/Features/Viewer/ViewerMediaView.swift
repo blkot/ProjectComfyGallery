@@ -14,7 +14,7 @@ struct ViewerMediaView: View {
     @State private var videoURL: URL?
     @State private var errorMessage: String?
     @State private var retry = 0
-    @State private var loading = true
+    @State private var loadingPresentation = ViewerLoadingPresentation()
 
     var body: some View {
         ZStack {
@@ -23,7 +23,7 @@ struct ViewerMediaView: View {
             else if let image = original ?? poster {
                 ImageViewer(image: image, scale: $scale, onDoubleTap: item.kind == .image ? onDoubleTap : {})
             }
-            if loading {
+            if loadingPresentation.isVisible {
                 ProgressView(item.kind == .video ? "正在缓存视频…" : "正在加载原图…")
                     .padding().background(.regularMaterial, in: .rect(cornerRadius: 16))
             } else if let errorMessage {
@@ -34,13 +34,15 @@ struct ViewerMediaView: View {
             }
         }
         .task(id: "\(retry)-\(isActive)") {
+            let requestID = loadingPresentation.begin()
+            defer { loadingPresentation.finish(requestID) }
+
             if !isActive { original = nil; videoURL = nil }
-            loading = true
             errorMessage = nil
             let repository = environment.mediaRepository
             poster = try? await repository.fetchPreviewImage(mediaID: item.id, targetSize: targetSize, scale: displayScale)
             guard !Task.isCancelled else { return }
-            guard isActive else { loading = false; return }
+            guard isActive else { return }
             do {
                 if item.kind == .image {
                     let image = try await repository.fetchOriginalImage(mediaID: item.id, targetSize: targetSize, scale: displayScale)
@@ -54,7 +56,6 @@ struct ViewerMediaView: View {
             } catch {
                 if !Task.isCancelled { errorMessage = error.localizedDescription }
             }
-            loading = false
         }
     }
 }

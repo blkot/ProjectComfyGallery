@@ -7,6 +7,7 @@ enum APIError: Error, LocalizedError, Equatable {
     case conflict(APIErrorEnvelope)
     case validationError(APIErrorEnvelope)
     case rateLimited
+    case classifierUnavailable
     case serverError(Int)
     case networkError(String)
     case decodingError(String)
@@ -28,6 +29,8 @@ enum APIError: Error, LocalizedError, Equatable {
             return envelope.error.message
         case .rateLimited:
             return "Too many requests. Please wait."
+        case .classifierUnavailable:
+            return "AI 分类当前由服务器停用；人工分级和浏览仍可使用。"
         case .serverError(let code):
             return "Server error (\(code)). Please try again."
         case .networkError(let message):
@@ -57,7 +60,7 @@ enum APIError: Error, LocalizedError, Equatable {
         case .serverError, .networkError, .rateLimited:
             return true
         case .unauthorized, .forbidden, .notFound, .conflict,
-             .validationError, .invalidURL, .invalidResponse, .decodingError, .unknown:
+             .validationError, .classifierUnavailable, .invalidURL, .invalidResponse, .decodingError, .unknown:
             return false
         }
     }
@@ -77,6 +80,7 @@ enum APIError: Error, LocalizedError, Equatable {
         case 409: return .conflict(envelope ?? APIErrorEnvelope(error: .init(code: "UNKNOWN", message: "Conflict", details: nil, requestId: nil)))
         case 422: return .validationError(envelope ?? APIErrorEnvelope(error: .init(code: "UNKNOWN", message: "Validation error", details: nil, requestId: nil)))
         case 429: return .rateLimited
+        case 503 where envelope?.error.code == "NSFW_CLASSIFIER_DISABLED": return .classifierUnavailable
         case 500...599: return .serverError(statusCode)
         default: return .unknown(statusCode, envelope)
         }
@@ -88,6 +92,7 @@ enum APIError: Error, LocalizedError, Equatable {
              (.forbidden, .forbidden),
              (.notFound, .notFound),
              (.rateLimited, .rateLimited),
+             (.classifierUnavailable, .classifierUnavailable),
              (.invalidURL, .invalidURL),
              (.invalidResponse, .invalidResponse):
             return true

@@ -62,6 +62,36 @@ struct GalleryContractChecks {
         let rating = Endpoint.setContentRating(id: "m", rating: "nsfw")
         let ratingBody = try JSONSerialization.jsonObject(with: rating.body!) as! [String: String]
         check(rating.method == "PUT" && ratingBody["content_rating"] == "nsfw", "Frontend rating contract")
+        var classifierScope = GalleryScope(kind: .image, favorite: .only, rating: .sfw)
+        classifierScope.classifierStatus = .needsReview
+        classifierScope.classifierRating = .review
+        let classifierQuery = Dictionary(uniqueKeysWithValues: classifierScope.queryItems.map { ($0.name, $0.value ?? "") })
+        check(classifierQuery["classifier_status"] == "needs_review" && classifierQuery["classifier_rating"] == "review", "Classifier filters")
+        check(Endpoint.mediaNavigation(id: "m", scope: classifierScope).queryItems == classifierScope.queryItems, "Classifier scope survives viewer navigation")
+        let classifierRequest = Endpoint.startClassification(ids: ["m1", "m2"], force: false)
+        let classifierBody = try JSONSerialization.jsonObject(with: classifierRequest.body!) as! [String: Any]
+        check(classifierRequest.method == "POST" && classifierRequest.path == "/api/v1/media/bulk/nsfw-classification", "AI classification endpoint")
+        check(classifierBody["media_ids"] as? [String] == ["m1", "m2"] && classifierBody["force"] as? Bool == false, "Explicit image IDs and no forced rerun")
+        let humanReview = Endpoint.setClassifierReview(id: "m1", rating: .nudity)
+        let humanReviewBody = try JSONSerialization.jsonObject(with: humanReview.body!) as! [String: String]
+        check(humanReview.method == "PUT" && humanReviewBody["rating"] == "nudity", "Human classifier review endpoint")
+        check(Endpoint.clearClassifierReview(id: "m1").method == "DELETE", "Clearing human review restores model suggestion")
+        let queueEndpoint = Endpoint.classifierReviewQueueSnapshot(scope: classifierScope, limit: 200)
+        check(queueEndpoint.path == "/api/v1/media/review-queue-snapshot" && queueEndpoint.queryItems?.contains(URLQueryItem(name: "limit", value: "200")) == true, "Fixed review queue snapshot endpoint")
+        let classifierItemJSON = Data(#"{"id":"classified","kind":"image","preview_url":"/p","media_safety_assessment":{"status":"completed","label":"Normal","suggested_rating":"safe","confidence":0.98,"needs_review":false},"media_safety_review":{"rating":"sexy","reviewer_user_id":"user","reviewed_at":"2026-11-11T02:00:00Z"}}"#.utf8)
+        let classifierItem = try JSONDecoder().decode(MobileMediaSummary.self, from: classifierItemJSON)
+        check(ClassifierProjection.effectiveRating(assessment: classifierItem.mediaSafetyAssessment, review: classifierItem.mediaSafetyReview) == .sexy, "Human classifier rating has precedence over model result")
+        check(ClassifierProjection.status(assessment: classifierItem.mediaSafetyAssessment, review: classifierItem.mediaSafetyReview) == .reviewed, "Human review status remains distinct")
+        var needsReviewSummary = classifierItem.mediaSafetyAssessment
+        needsReviewSummary = MediaSafetyAssessmentSummary(status: "completed", label: "unknown", suggestedRating: .review, confidence: 0.4, needsReview: true)
+        check(ClassifierProjection.status(assessment: needsReviewSummary, review: nil) == .needsReview, "AI review-needed state")
+        check(ClassifierProjection.status(assessment: nil, review: nil) == .unclassified, "Missing assessment is unclassified")
+        var queue = ClassifierReviewQueue(snapshot: ClassifierQueueSnapshot(ids: ["a", "b", "b", "c"], total: 4, truncated: false))
+        check(queue.mediaIDs == ["a", "b", "c"] && queue.currentID == "a", "Queue snapshot deduplicates while preserving order")
+        queue.position = 1
+        check(queue.previousID == "a" && queue.currentID == "b" && queue.nextID == "c", "Queue cursor keeps fixed neighboring IDs")
+        queue.position = 2
+        check(queue.previousID == "b" && queue.nextID == nil, "Queue end is explicit and does not wrap")
         let workflow = try JSONDecoder().decode(MediaWorkflowSummary.self, from: Data(#"{"display_fields":{"prompt_id":{"value":"source - 00042"},"character_lora":{"value":"Character A"},"lora_list":{"value":[["Character A",0.8,1.0]]},"prompt":{"value":"Never use embedded prompt as the registered definition"}}}"#.utf8))
         check(workflow.promptID == "source - 00042" && workflow.characterLora == "Character A", "Authoritative display fields")
         check(workflow.loras.count == 1, "Mixed LoRA tuple decoding")

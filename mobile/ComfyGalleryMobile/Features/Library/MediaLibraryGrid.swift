@@ -15,7 +15,14 @@ struct MediaLibraryGrid: View {
                         Button {
                             if feature.isSelecting { feature.toggleSelection(item.id) }
                             else { feature.returnAnchorID = item.id; open(item) }
-                        } label: { MediaCell(item: item, isSelecting: feature.isSelecting, isSelected: feature.selectedIDs.contains(item.id)) }
+                        } label: {
+                            MediaCell(
+                                item: item,
+                                isSelecting: feature.isSelecting,
+                                isSelected: feature.selectedIDs.contains(item.id),
+                                showsClassifierBadge: feature.scope.classifierStatus != nil || feature.scope.classifierRating != nil
+                            )
+                        }
                         .buttonStyle(.plain).id(item.id)
                         .accessibilityHint(feature.isSelecting ? "切换选择" : "全屏查看")
                         .task { await feature.loadMoreIfNeeded(id: item.id) }

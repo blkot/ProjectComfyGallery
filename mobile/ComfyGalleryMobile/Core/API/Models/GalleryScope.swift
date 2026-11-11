@@ -10,6 +10,8 @@ struct GalleryScope: Hashable, Sendable {
     var query = ""
     var characterLora: String?
     var promptUsage: PromptUsageScope?
+    var classifierStatus: ClassifierStatus?
+    var classifierRating: ClassifierRating?
 
     enum Favorite: String, CaseIterable, Sendable {
         case all = "全部", only = "仅收藏", excluded = "未收藏"
@@ -50,12 +52,21 @@ struct GalleryScope: Hashable, Sendable {
         if rating != .all {
             items.append(URLQueryItem(name: "content_rating", value: rating.rawValue.lowercased()))
         }
+        if let classifierStatus {
+            items.append(URLQueryItem(name: "classifier_status", value: classifierStatus.rawValue))
+        }
+        if let classifierRating {
+            items.append(URLQueryItem(name: "classifier_rating", value: classifierRating.rawValue))
+        }
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty { items.append(URLQueryItem(name: "q", value: trimmed)) }
         return items
     }
 
-    var hasFilters: Bool { kind != nil || favorite != .all || rating != .all || characterLora != nil }
+    var hasFilters: Bool {
+        kind != nil || favorite != .all || rating != .all || characterLora != nil ||
+            classifierStatus != nil || classifierRating != nil
+    }
 
     /// Only local, mutable membership facts. Character/search membership remains server-owned.
     func excludes(_ item: MobileMediaSummary) -> Bool {
@@ -64,6 +75,12 @@ struct GalleryScope: Hashable, Sendable {
             (favorite == .excluded && item.favorite == true) ||
             (trash == .hidden && item.isTrash == true) ||
             (trash == .only && item.isTrash != true) ||
-            (rating != .all && item.contentRating != rating.rawValue.lowercased())
+            (rating != .all && item.contentRating != rating.rawValue.lowercased()) ||
+            !ClassifierProjection.matches(
+                status: classifierStatus,
+                rating: classifierRating,
+                assessment: item.mediaSafetyAssessment,
+                review: item.mediaSafetyReview
+            )
     }
 }

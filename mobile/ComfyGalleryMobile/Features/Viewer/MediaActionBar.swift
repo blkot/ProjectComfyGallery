@@ -5,7 +5,7 @@ struct MediaActionBar: View {
     let disabled: Bool
     let saving: Bool
     let favorite: () -> Void
-    let rate: (String) -> Void
+    let classifier: () -> Void
     let save: () -> Void
     let trash: () -> Void
 
@@ -14,10 +14,8 @@ struct MediaActionBar: View {
             Button(item.favorite == true ? "取消收藏" : "收藏", systemImage: item.favorite == true ? "heart.fill" : "heart", action: favorite)
                 .labelStyle(.iconOnly).tint(item.favorite == true ? .pink : .primary).frame(minWidth: 44, minHeight: 44)
             Spacer(minLength: 0)
-            HStack(spacing: 0) {
-                rating("sfw", label: "N", name: "普通内容 SFW")
-                rating("nsfw", label: "R", name: "限制内容 NSFW")
-            }.background(.quaternary, in: .capsule)
+            Button(classifierTitle, systemImage: classifierSymbol, action: classifier)
+                .labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44)
             Spacer(minLength: 0)
             Button("保存到系统相册", systemImage: "square.and.arrow.down", action: save)
                 .labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44).disabled(saving)
@@ -29,12 +27,14 @@ struct MediaActionBar: View {
         .disabled(disabled || saving).padding(.horizontal, 16).padding(.vertical, 8).background(.regularMaterial)
     }
 
-    private func rating(_ value: String, label: String, name: String) -> some View {
-        Button { rate(value) } label: {
-            Text(label).font(.headline).frame(minWidth: 44, minHeight: 44)
-                .background(item.contentRating == value ? Color.accentColor : .clear, in: .capsule)
+    private var classifierTitle: String {
+        guard let rating = ClassifierProjection.effectiveRating(assessment: item.mediaSafetyAssessment, review: item.mediaSafetyReview) else {
+            return "打开内容分类"
         }
-        .accessibilityLabel(name).accessibilityValue(item.contentRating == value ? "已选择" : "未选择")
-        .disabled(item.contentRating == value)
+        return "内容分类：\(rating.title)，\(item.mediaSafetyReview == nil ? "AI 建议" : "人工确认")"
+    }
+
+    private var classifierSymbol: String {
+        ClassifierProjection.effectiveRating(assessment: item.mediaSafetyAssessment, review: item.mediaSafetyReview)?.symbol ?? "checkmark.shield"
     }
 }

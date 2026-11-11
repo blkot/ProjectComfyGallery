@@ -12,12 +12,20 @@ struct ViewerFeatureView: View {
     @State private var scale: CGFloat = 1
     @State private var showingInfo = false
     @State private var confirmingTrash = false
+    @State private var isSavingClassifierRating = false
     @State private var pendingPrompt: PromptUsageScope?
     @State private var promptRoute: PromptUsageScope?
+    private let classifierQueueChanged: ((ClassifierReviewQueue?) -> Void)?
 
-    init(initialItem: MobileMediaSummary, library: LibraryFeature) {
+    init(
+        initialItem: MobileMediaSummary,
+        library: LibraryFeature,
+        classifierQueue: ClassifierReviewQueue? = nil,
+        classifierQueueChanged: ((ClassifierReviewQueue?) -> Void)? = nil
+    ) {
         self.library = library
-        _feature = State(initialValue: ViewerFeature(item: initialItem, scope: library.scope, service: library.service))
+        self.classifierQueueChanged = classifierQueueChanged
+        _feature = State(initialValue: ViewerFeature(item: initialItem, scope: library.scope, service: library.service, classifierQueue: classifierQueue))
         _pageID = State(initialValue: initialItem.id)
     }
 
@@ -41,16 +49,33 @@ struct ViewerFeatureView: View {
         }
         .safeAreaInset(edge: .top, spacing: 0) { header }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            MediaActionBar(item: feature.item, disabled: feature.isWorking || !feature.canMutate || pageID != feature.item.id || pagerIsInteracting,
-                           saving: saver?.isSaving == true,
-                           favorite: { mutate(favorite: feature.item.favorite != true) },
-                           rate: { mutate(rating: $0) }, save: save,
-                           trash: { if feature.item.isTrash == true { mutate(trash: false) } else { confirmingTrash = true } })
-                .overlay(alignment: .top) {
-                    ViewerStatusOverlay(message: feature.errorMessage ?? saver?.message,
-                                        hasError: feature.errorMessage != nil, permissionDenied: saver?.permissionDenied == true,
-                                        retry: { Task { await feature.loadContext() } })
-                        .alignmentGuide(.top) { $0[.bottom] + 8 }
+            Group {
+                if let queue = feature.classifierQueue {
+                    ClassifierQueueActionBar(
+                        position: feature.navigation?.position ?? queue.position + 1,
+                        total: queue.mediaIDs.count,
+                        sourceTotal: queue.total,
+                        truncated: queue.truncated,
+                        disabled: feature.isWorking || isSavingClassifierRating || !feature.canMutate || pageID != feature.item.id || pagerIsInteracting,
+                        selectedRating: feature.item.mediaSafetyReview?.rating,
+                        previous: { if let id = feature.navigation?.previousID { pageID = id } },
+                        rate: { setClassifierRating($0) },
+                        next: { if let id = feature.navigation?.nextID { pageID = id } },
+                        finish: finishClassifierQueue
+                    )
+                } else {
+                    MediaActionBar(item: feature.item, disabled: feature.isWorking || !feature.canMutate || pageID != feature.item.id || pagerIsInteracting,
+                                   saving: saver?.isSaving == true,
+                                   favorite: { mutate(favorite: feature.item.favorite != true) },
+                                   classifier: { showingInfo = true }, save: save,
+                                   trash: { if feature.item.isTrash == true { mutate(trash: false) } else { confirmingTrash = true } })
+                }
+            }
+            .overlay(alignment: .top) {
+                ViewerStatusOverlay(message: feature.errorMessage ?? saver?.message,
+                                    hasError: feature.errorMessage != nil, permissionDenied: saver?.permissionDenied == true,
+                                    retry: { Task { await feature.loadContext() } })
+                    .alignmentGuide(.top) { $0[.bottom] + 8 }
                 }
         }
         .preferredColorScheme(.dark)
@@ -61,7 +86,23 @@ struct ViewerFeatureView: View {
         .sheet(isPresented: $showingInfo, onDismiss: {
             if let route = pendingPrompt { promptRoute = route; pendingPrompt = nil }
         }) {
-            MediaInfoSheet(item: feature.item, apiClient: environment.apiClient) { pendingPrompt = $0 }
+            MediaInfoSheet(
+                item: feature.item,
+                apiClient: environment.apiClient,
+                classifierService: LiveClassifierService(apiClient: environment.apiClient),
+                onClassifierProjection: { assessment, review in
+                    guard feature.item.mediaSafetyAssessment != assessment || feature.item.mediaSafetyReview != review else { return }
+                    feature.updateClassifierProjection(assessment: assessment, review: review)
+                    library.update(feature.item)
+                    environment.galleryRevision += 1
+                },
+                setContentRating: { value in
+                    try await feature.setLegacyContentRating(value)
+                    library.update(feature.item)
+                    environment.galleryRevision += 1
+                },
+                openPrompt: { pendingPrompt = $0 }
+            )
         }
         .sheet(item: $promptRoute) { route in
             PromptRegistryView(apiClient: environment.apiClient, initialScope: route, canDismiss: true)
@@ -71,6 +112,9 @@ struct ViewerFeatureView: View {
             scale = 1
             saver?.clearMessage()
             await library.rememberViewed(feature.item)
+        }
+        .onChange(of: feature.classifierQueue?.position) { _, _ in
+            classifierQueueChanged?(feature.classifierQueue)
         }
         .onDisappear { Task { await environment.mediaRepository.endViewerPrefetch() } }
     }
@@ -83,7 +127,9 @@ struct ViewerFeatureView: View {
             VStack(spacing: 2) {
                 if let date = feature.item.fileDate { Text(date, format: .dateTime.year().month().day()).font(.headline) }
                 else { Text(feature.item.kind == .image ? "照片" : "视频").font(.headline) }
-                if feature.outsideScope { Text("已移出当前筛选").font(.caption).foregroundStyle(.secondary) }
+                if feature.classifierQueue != nil, let navigation = feature.navigation {
+                    Text("待复核队列 · \(navigation.position) / \(navigation.total)").font(.caption).foregroundStyle(.secondary)
+                } else if feature.outsideScope { Text("已移出当前筛选").font(.caption).foregroundStyle(.secondary) }
                 else if let navigation = feature.navigation { Text("\(navigation.position) / \(navigation.total)").font(.caption).foregroundStyle(.secondary) }
             }
             Spacer()
@@ -122,5 +168,33 @@ struct ViewerFeatureView: View {
     private func save() {
         let item = feature.item
         Task { await saver?.save(item) }
+    }
+
+    private func setClassifierRating(_ rating: ClassifierRating) {
+        guard rating.isHumanRating, !isSavingClassifierRating else { return }
+        isSavingClassifierRating = true
+        let service = LiveClassifierService(apiClient: environment.apiClient)
+        Task {
+            do {
+                _ = try await service.setHumanRating(mediaID: feature.item.id, rating: rating)
+                let updated = try await service.status(mediaID: feature.item.id)
+                feature.updateClassifierProjection(
+                    assessment: updated.assessment.map {
+                        MediaSafetyAssessmentSummary(status: $0.status, label: $0.label, suggestedRating: $0.suggestedRating, confidence: $0.confidence, needsReview: $0.needsReview)
+                    },
+                    review: updated.review.map { MediaSafetyReviewSummary(rating: $0.rating, reviewedAt: $0.reviewedAt) }
+                )
+                library.update(feature.item)
+                environment.galleryRevision += 1
+            } catch {
+                feature.errorMessage = error.localizedDescription
+            }
+            isSavingClassifierRating = false
+        }
+    }
+
+    private func finishClassifierQueue() {
+        classifierQueueChanged?(nil)
+        dismiss()
     }
 }
