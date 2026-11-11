@@ -4,6 +4,8 @@ All notable changes to Project Comfy Gallery are recorded here.
 
 ## Unreleased
 
+## 0.1.0-rc.51 — 2026-11-11
+
 - Add reversible archive and restore controls for custom Prompt Registry entries,
   preserving their historical media references.
 
