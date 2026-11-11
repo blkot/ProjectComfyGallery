@@ -111,7 +111,7 @@ suggestions, lookup, heatmap, and media usage all use the same normalized
 source/index identity. The web editor also offers a custom mode that submits
 prompt text without a caller-selected index and opens the server-assigned ID.
 The editor can archive and restore custom entries while historical media lookup
-continues to resolve the same Prompt ID. Migration `0025_prompt_registry_custom_archive`
+continues to resolve the same Prompt ID. Migration `0025_prompt_registry_archive`
 adds the nullable archive timestamp.
 
 For ComfyUI, the saver must call the registration route before writing the

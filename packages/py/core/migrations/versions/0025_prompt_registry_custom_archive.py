@@ -5,7 +5,7 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0025_prompt_registry_custom_archive"
+revision: str = "0025_prompt_registry_archive"
 down_revision: str | None = "0024_media_safety_review"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None

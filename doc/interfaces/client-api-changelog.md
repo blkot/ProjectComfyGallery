@@ -17,7 +17,7 @@ lookup continues to return archived entries for history; random, stats, heatmap,
 and neighbor queries include active entries only. Archived entries cannot be
 updated or overwritten by import until restored. Custom registration ignores
 archived exact matches and allocates a new ID without reusing archived indexes.
-Migration `0025_prompt_registry_custom_archive` adds the timestamp column.
+Migration `0025_prompt_registry_archive` adds the timestamp column.
 
 ## Unreleased: server-assigned custom Prompt IDs
 
