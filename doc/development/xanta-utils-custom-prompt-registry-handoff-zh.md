@@ -105,6 +105,8 @@ Content-Type: application/json
 `entry` 其余字段与现有 Prompt Registry entry response 一致。相同正向和负向文本
 再次注册时，接口返回同一个 `prompt_id`、`created=false`，不创建重复条目。正向
 文本不能为空；文本按收到的内容保存。负向文本为空或全空白时按不存在处理。
+如果该 prompt 对应的 custom entry 已被归档，它不会被复用；CG 会分配一个新的
+ID，旧 ID 仍保留给历史媒体和查询。
 
 ## 保存与失败行为
 

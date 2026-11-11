@@ -63,6 +63,7 @@ const registry: PromptRegistryLookup = {
   entry: {
     id: "prompt-42", source: "portrait", index: "00042", prompt: "Registry portrait\nsoft morning light",
     negative_prompt: null, metadata: {}, origin: "import", media_count: 6,
+    archived_at: null,
     created_at: "2026-11-06T00:00:00Z", updated_at: "2026-11-06T00:00:00Z",
   },
 };

@@ -87,18 +87,32 @@ Registration is idempotent by the exact positive and negative prompt strings.
 Whitespace-only negative prompts are treated as absent; otherwise text is
 preserved as received. Re-registering the same pair returns the existing ID,
 while an edited prompt gets a new ID so existing media history is not silently
-changed. PostgreSQL advisory locking serializes custom-source writes, including
+changed. Archived entries are not reused: registering the same pair after
+archival allocates a new ID, and archived indexes remain reserved permanently.
+PostgreSQL advisory locking serializes custom-source writes, including
 the regular create, update, and import routes, so an explicit custom entry
 cannot race the automatic allocator. A custom entry's source and index are
 immutable after creation, so moving a definition out of `custom` cannot make an
 old ID available for reuse. Existing custom entries participate in the
 next-index calculation.
 
+Custom prompt archival is reversible. `DELETE /api/v1/prompt-registry/{entry_id}`
+sets `archived_at` instead of removing the row; only entries in the reserved
+`custom` source can be archived. The registry list and active source suggestions
+exclude archived entries by default, with `include_archived=true` available on
+the list and source endpoints. Random selection, statistics, heatmap, and
+neighbor navigation consider active entries only. Direct Prompt ID lookup keeps
+returning archived definitions and their historical media usage. Archived
+entries cannot be edited or overwritten by bulk import until restored through
+`POST /api/v1/prompt-registry/{entry_id}/restore`.
+
 Prompt Registry consumers treat `custom` like every other source: source
 suggestions, lookup, heatmap, and media usage all use the same normalized
 source/index identity. The web editor also offers a custom mode that submits
 prompt text without a caller-selected index and opens the server-assigned ID.
-No database migration is required.
+The editor can archive and restore custom entries while historical media lookup
+continues to resolve the same Prompt ID. Migration `0025_prompt_registry_custom_archive`
+adds the nullable archive timestamp.
 
 For ComfyUI, the saver must call the registration route before writing the
 explicit display metadata into the final image. It writes the returned custom

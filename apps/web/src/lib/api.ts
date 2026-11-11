@@ -677,6 +677,7 @@ export type PromptRegistryEntry = {
   metadata: Record<string, unknown>;
   origin: string;
   media_count: number;
+  archived_at: string | null;
   created_at: string;
   updated_at: string;
 };

@@ -4,6 +4,21 @@ This file is the cross-agent handoff for backend contract changes. Consumers sho
 also use the committed [OpenAPI snapshot](openapi.json); prose here explains
 semantics and compatibility that a schema alone cannot express.
 
+## Unreleased: reversible custom Prompt Registry archive
+
+`DELETE /api/v1/prompt-registry/{entry_id}` archives custom entries and returns
+HTTP 204; it never deletes the row or historical media association. Restore with
+`POST /api/v1/prompt-registry/{entry_id}/restore`. Both operations accept the
+existing authenticated session plus CSRF or Bearer API-token authorization.
+Archive/restore is limited to the reserved `custom` source. Entry responses add
+nullable `archived_at`. Registry list and source-suggestion endpoints exclude
+archived entries unless `include_archived=true` is requested. Direct Prompt ID
+lookup continues to return archived entries for history; random, stats, heatmap,
+and neighbor queries include active entries only. Archived entries cannot be
+updated or overwritten by import until restored. Custom registration ignores
+archived exact matches and allocates a new ID without reusing archived indexes.
+Migration `0025_prompt_registry_custom_archive` adds the timestamp column.
+
 ## Unreleased: server-assigned custom Prompt IDs
 
 `POST /api/v1/prompt-registry/custom` accepts a positive `prompt`, optional
@@ -19,9 +34,9 @@ The route accepts the same authenticated session plus CSRF or Bearer API-token
 write authorization as other registry writes. Custom IDs are allocated under a
 database transaction lock, including coordination with the generic registry
 create, update, and import routes. The source is listed by the existing dynamic
-source endpoint and works with existing lookup and heatmap filters. No
-migration is required. Custom entry source/index identity cannot be renamed or
-renumbered through the update route. The frontend's custom registration mode uses this route;
+source endpoint and works with existing lookup and heatmap filters. Custom entry
+source/index identity cannot be renamed or renumbered through the update route.
+The frontend's custom registration mode uses this route;
 the Xanta Utils saver handoff is in
 [`xanta-utils-custom-prompt-registry-handoff-zh.md`](../development/xanta-utils-custom-prompt-registry-handoff-zh.md).
 

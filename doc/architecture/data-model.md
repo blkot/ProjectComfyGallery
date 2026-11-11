@@ -307,6 +307,8 @@ Observations are append/version based. “Current” is a query over precedence,
 - Reusable Xanta-style prompt definition keyed by normalized source and a
   zero-padded numeric index.
 - Positive/negative prompt text, origin, and operator metadata.
+- Optional archive timestamp for custom entries; archived entries retain their
+  Prompt ID and workflow/media history while leaving active discovery surfaces.
 - Registry entries are enrichment, not workflow evidence. Media lookup parses
   the trusted Prompt ID from each workflow and can therefore show unregistered
   IDs without inventing a definition.

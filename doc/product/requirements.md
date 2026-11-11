@@ -135,6 +135,11 @@ Requirement IDs are stable. If a requirement is removed, its ID is retired rathe
   index. CG MUST assign and return the next numeric ID in the reserved `custom`
   source, reuse the same ID for an identical prompt pair, and expose that source
   through the existing Prompt Registry UI and lookup filters.
+- **PROMPT-008:** An authenticated client MUST be able to archive and restore a
+  custom Prompt Registry entry without removing its stable ID or historical
+  media associations. Archived entries MUST be excluded from active discovery
+  and registration reuse while remaining available through direct historical
+  lookup; archived IDs MUST never be reused.
 
 ## Offline node registry
 
