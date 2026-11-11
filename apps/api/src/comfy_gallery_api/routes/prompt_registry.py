@@ -18,6 +18,8 @@ from comfy_gallery_api.media_schemas import (
     SlideshowPlaylistResponse,
 )
 from comfy_gallery_api.prompt_registry_schemas import (
+    CustomPromptRegistrationRequest,
+    CustomPromptRegistrationResponse,
     PromptRegistryCharacterLoraResponse,
     PromptRegistryEntryRequest,
     PromptRegistryEntryResponse,
@@ -58,6 +60,16 @@ from comfy_gallery_core.workflow.prompt_index import (
 
 router = APIRouter(prefix="/api/v1/prompt-registry", tags=["prompt-registry"])
 _PROMPT_REGISTRY_IMPORT_MAX_BYTES = 8 * 1024 * 1024
+_CUSTOM_PROMPT_SOURCE = "custom"
+_CUSTOM_PROMPT_SOURCE_KEY = normalize_prompt_source(_CUSTOM_PROMPT_SOURCE)
+_CUSTOM_PROMPT_SOURCE_LOCK_KEY = 0x43475052
+
+
+async def _lock_custom_prompt_source(session: DbSessionDep) -> None:
+    """Serialize all API writes that allocate or edit the reserved custom source."""
+
+    if session.get_bind().dialect.name == "postgresql":
+        await session.execute(select(func.pg_advisory_xact_lock(_CUSTOM_PROMPT_SOURCE_LOCK_KEY)))
 
 
 async def _enforce_import_body_size(request: Request) -> None:
@@ -647,6 +659,9 @@ async def import_prompt_registry_entries(
             }
         )
 
+    if any(source_key == _CUSTOM_PROMPT_SOURCE_KEY for source_key, _ in keys):
+        await _lock_custom_prompt_source(session)
+
     existing_result = await session.execute(
         select(PromptRegistryEntry.source_key, PromptRegistryEntry.entry_index).where(
             tuple_(PromptRegistryEntry.source_key, PromptRegistryEntry.entry_index).in_(keys)
@@ -674,6 +689,75 @@ async def import_prompt_registry_entries(
     )
 
 
+@router.post("/custom", response_model=CustomPromptRegistrationResponse)
+async def register_custom_prompt(
+    request: CustomPromptRegistrationRequest,
+    _principal: CsrfPrincipalDep,
+    session: DbSessionDep,
+) -> CustomPromptRegistrationResponse:
+    """Register or reuse a prompt body under the server-owned `custom` source."""
+
+    await _lock_custom_prompt_source(session)
+    negative_prompt = (
+        request.negative_prompt
+        if request.negative_prompt and request.negative_prompt.strip()
+        else None
+    )
+    existing = await session.scalar(
+        select(PromptRegistryEntry)
+        .where(
+            PromptRegistryEntry.source_key == _CUSTOM_PROMPT_SOURCE_KEY,
+            PromptRegistryEntry.prompt == request.prompt,
+            PromptRegistryEntry.negative_prompt.is_not_distinct_from(negative_prompt),
+        )
+        .order_by(
+            func.length(PromptRegistryEntry.entry_index_key),
+            PromptRegistryEntry.entry_index_key,
+            PromptRegistryEntry.entry_index,
+        )
+        .limit(1)
+    )
+    if existing is not None:
+        await session.commit()
+        return _custom_prompt_registration_response(existing, created=False)
+
+    latest_index_key = await session.scalar(
+        select(PromptRegistryEntry.entry_index_key)
+        .where(PromptRegistryEntry.source_key == _CUSTOM_PROMPT_SOURCE_KEY)
+        .order_by(
+            func.length(PromptRegistryEntry.entry_index_key).desc(),
+            PromptRegistryEntry.entry_index_key.desc(),
+        )
+        .limit(1)
+    )
+    next_index = int(latest_index_key or "0") + 1
+    entry_index = f"{next_index:05d}"
+    if len(entry_index) > 128:
+        raise ApiError(
+            status_code=409,
+            code="PROMPT_REGISTRY_CUSTOM_IDS_EXHAUSTED",
+            message="The custom prompt source has no available numeric IDs.",
+        )
+
+    entry = PromptRegistryEntry(
+        source=_CUSTOM_PROMPT_SOURCE,
+        source_key=_CUSTOM_PROMPT_SOURCE_KEY,
+        entry_index=entry_index,
+        entry_index_key=PromptIdentifier(
+            source=_CUSTOM_PROMPT_SOURCE,
+            index=entry_index,
+        ).index_key,
+        prompt=request.prompt,
+        negative_prompt=negative_prompt,
+        entry_metadata={},
+        origin=request.origin,
+    )
+    session.add(entry)
+    await session.commit()
+    await session.refresh(entry)
+    return _custom_prompt_registration_response(entry, created=True)
+
+
 @router.post("", response_model=PromptRegistryEntryResponse, status_code=201)
 async def create_prompt_registry_entry(
     request: PromptRegistryEntryRequest,
@@ -681,6 +765,9 @@ async def create_prompt_registry_entry(
     session: DbSessionDep,
 ) -> PromptRegistryEntryResponse:
     source = _normalized_source(request.source)
+    source_key = normalize_prompt_source(source)
+    if source_key == _CUSTOM_PROMPT_SOURCE_KEY:
+        await _lock_custom_prompt_source(session)
     entry_index = request.index.strip()
     existing = await _find_entry(
         session,
@@ -694,7 +781,7 @@ async def create_prompt_registry_entry(
         )
     entry = PromptRegistryEntry(
         source=source,
-        source_key=normalize_prompt_source(source),
+        source_key=source_key,
         entry_index=entry_index,
         entry_index_key=PromptIdentifier(source=source, index=entry_index).index_key,
         prompt=request.prompt,
@@ -723,7 +810,18 @@ async def update_prompt_registry_entry(
             message="The prompt registry entry was not found.",
         )
     source = _normalized_source(request.source)
+    source_key = normalize_prompt_source(source)
+    if entry.source_key == _CUSTOM_PROMPT_SOURCE_KEY or source_key == _CUSTOM_PROMPT_SOURCE_KEY:
+        await _lock_custom_prompt_source(session)
     entry_index = request.index.strip()
+    if entry.source_key == _CUSTOM_PROMPT_SOURCE_KEY and (
+        source != entry.source or entry_index != entry.entry_index
+    ):
+        raise ApiError(
+            status_code=409,
+            code="PROMPT_REGISTRY_CUSTOM_ID_IMMUTABLE",
+            message="A custom prompt registry ID cannot be renamed or renumbered.",
+        )
     conflict = await _find_entry(
         session,
         PromptIdentifier(source=source, index=entry_index),
@@ -735,7 +833,7 @@ async def update_prompt_registry_entry(
             message="A prompt registry entry already exists for this source and index.",
         )
     entry.source = source
-    entry.source_key = normalize_prompt_source(source)
+    entry.source_key = source_key
     entry.entry_index = entry_index
     entry.entry_index_key = PromptIdentifier(source=source, index=entry_index).index_key
     entry.prompt = request.prompt
@@ -1145,6 +1243,19 @@ def _entry_response(
         media_count=media_count,
         created_at=entry.created_at,
         updated_at=entry.updated_at,
+    )
+
+
+def _custom_prompt_registration_response(
+    entry: PromptRegistryEntry,
+    *,
+    created: bool,
+) -> CustomPromptRegistrationResponse:
+    identifier = PromptIdentifier(source=entry.source, index=entry.entry_index)
+    return CustomPromptRegistrationResponse(
+        prompt_id=identifier.display,
+        created=created,
+        entry=_entry_response(entry),
     )
 
 

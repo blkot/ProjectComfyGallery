@@ -5910,6 +5910,16 @@ textarea {
   gap: 15px;
 }
 
+.prompt-registry-registration-mode {
+  max-width: 360px;
+  display: grid;
+  gap: 6px;
+}
+
+.prompt-registry-custom-hint {
+  margin: -8px 0 0;
+}
+
 .prompt-registry-editor-grid {
   display: grid;
   grid-template-columns: minmax(180px, 0.35fr) minmax(120px, 0.2fr) minmax(0, 1fr);

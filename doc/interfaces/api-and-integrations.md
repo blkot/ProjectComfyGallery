@@ -290,6 +290,7 @@ GET    /api/v1/prompt-registry/neighbor?source=<source>&index=<index>&direction=
 GET    /api/v1/prompt-registry/lookup?prompt_id=<source%20-%20index>&character_lora=<name>
 GET    /api/v1/prompt-registry/:entryId
 POST   /api/v1/prompt-registry
+POST   /api/v1/prompt-registry/custom
 POST   /api/v1/prompt-registry/import
 PUT    /api/v1/prompt-registry/:entryId
 ```
@@ -305,6 +306,52 @@ in Trash; Trash outranks Favorite, so a trashed favorite does not materialize th
 prompt. Read routes accept the same authenticated browser session or Bearer API
 token as the existing registry routes; write routes keep the existing CSRF or
 API-token requirement.
+
+The custom registration route accepts prompt text and assigns the reserved
+`custom` source and next available numeric index on the server. It is safe to
+retry: an exact positive/negative prompt pair reuses its existing ID.
+
+```http
+POST /api/v1/prompt-registry/custom
+Content-Type: application/json
+
+{
+  "prompt": "portrait, soft studio lighting",
+  "negative_prompt": "blurry, low quality",
+  "origin": "xanta-utils"
+}
+```
+
+The response contains `prompt_id`, `created`, and the persisted `entry`. The
+first new entry returns `custom - 00001`; the index is zero-padded to at least
+five digits. Omit `negative_prompt` when none is active. The route fixes
+`source=custom`, preventing clients from allocating IDs in arbitrary namespaces.
+See the [Xanta Utils handoff](../development/xanta-utils-custom-prompt-registry-handoff-zh.md)
+for the node wiring and save/upload behavior.
+
+```json
+{
+  "prompt_id": "custom - 00001",
+  "created": true,
+  "entry": {
+    "id": "018f47f2-3e44-7bdc-99c2-000000000001",
+    "source": "custom",
+    "index": "00001",
+    "prompt": "portrait, soft studio lighting",
+    "negative_prompt": "blurry, low quality",
+    "metadata": {},
+    "origin": "xanta-utils",
+    "media_count": 0,
+    "created_at": "2026-11-11T00:00:00Z",
+    "updated_at": "2026-11-11T00:00:00Z"
+  }
+}
+```
+
+The entry body is the reusable prompt definition; per-image LoRAs and workflow
+settings remain attached to their media evidence. Custom IDs are assigned under
+a source-level transaction lock, and existing custom entries are considered
+when selecting the next index. No migration is required.
 The `heatmap` endpoint returns one compact cell per registered entry with its
 in-scope media count. The default scope is favorites outside Trash;
 `include_not_faved=true` adds ordinary media and `include_trash=true` adds Trash.

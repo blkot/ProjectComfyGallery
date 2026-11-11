@@ -681,6 +681,12 @@ export type PromptRegistryEntry = {
   updated_at: string;
 };
 
+export type CustomPromptRegistration = {
+  prompt_id: string;
+  created: boolean;
+  entry: PromptRegistryEntry;
+};
+
 export type PromptRegistryPage = {
   items: PromptRegistryEntry[];
   total: number;

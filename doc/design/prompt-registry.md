@@ -75,6 +75,37 @@ requested source/index, including IDs that have not been registered yet.
 This makes stale or incomplete Xanta libraries discoverable without inventing a
 prompt definition.
 
+## Custom prompt registration
+
+Custom prompt text is registered through
+`POST /api/v1/prompt-registry/custom`. The request supplies the positive prompt,
+optional negative prompt, and producer origin; the server owns the `custom`
+source and allocates its next numeric index. New IDs use at least five digits
+(`custom - 00001`) and grow beyond five digits without truncation.
+
+Registration is idempotent by the exact positive and negative prompt strings.
+Whitespace-only negative prompts are treated as absent; otherwise text is
+preserved as received. Re-registering the same pair returns the existing ID,
+while an edited prompt gets a new ID so existing media history is not silently
+changed. PostgreSQL advisory locking serializes custom-source writes, including
+the regular create, update, and import routes, so an explicit custom entry
+cannot race the automatic allocator. A custom entry's source and index are
+immutable after creation, so moving a definition out of `custom` cannot make an
+old ID available for reuse. Existing custom entries participate in the
+next-index calculation.
+
+Prompt Registry consumers treat `custom` like every other source: source
+suggestions, lookup, heatmap, and media usage all use the same normalized
+source/index identity. The web editor also offers a custom mode that submits
+prompt text without a caller-selected index and opens the server-assigned ID.
+No database migration is required.
+
+For ComfyUI, the saver must call the registration route before writing the
+explicit display metadata into the final image. It writes the returned custom
+Prompt ID as the media's effective ID, while the raw workflow retains the
+original Prompt Library selection, custom toggle, and text as provenance. The
+ComfyUI queue execution UUID is unrelated to this registry ID.
+
 Trusted media Prompt IDs are materialized in `media_prompt_index`, keyed by the
 media UUID and indexed by normalized source plus a canonical numeric index
 string. This preserves numeric-equivalence lookup for padded IDs without
